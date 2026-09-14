@@ -7,6 +7,10 @@ indir = os.path.abspath(argv[0] if argv else '/tmp/mycar-glb')
 outdir = os.path.abspath(argv[1] if len(argv) > 1 else os.path.join(indir, 'png'))
 NVIEW = int(argv[2]) if len(argv) > 2 else 2
 RES = int(argv[3]) if len(argv) > 3 else 900
+# 参数写反会渲出 1px 的糊图而不报错，这里快速失败
+if NVIEW < 1 or RES < 200:
+    raise SystemExit(f'参数不对：NVIEW={NVIEW} RES={RES}\n'
+                     f'用法: blender -b -P scripts/blender-render.py -- <glb目录> <png目录> [视图数>=1] [像素宽>=200]')
 os.makedirs(outdir, exist_ok=True)
 
 # 注意：glTF 导入 Blender 后自动转成 Z-up —— X=车宽, Y=车长, Z=车高。
