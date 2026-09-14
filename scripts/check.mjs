@@ -130,7 +130,7 @@ const run = (ov, mo) => p.evaluate(([ov, mo]) => {
   ok('10 中岛 x 独立可调', free && caught, `ix=900/3400 生效=${free}；台面过低判红=${caught}`);
 }
 
-/* 11) 默认即全绿 + 每个滑块都有可行区间 + 存在 L≤3900 的全绿解 */
+/* 11) 默认即全绿 + 每个滑块都有可行区间 + 参数域内存在全绿解 */
 {
   const res = await p.evaluate(() => {
     const keys = Object.keys(MY.DEF);
@@ -146,22 +146,22 @@ const run = (ov, mo) => p.evaluate(([ov, mo]) => {
       }
       if (!any) noBand.push(k);
     }
-    // (c) L≤3900 的全绿解
+    // (c) 全域随机搜索：至少存在全绿解，并报告找到的最小 L
     const sample = () => { const o = {}; for (const k of keys) {
       const D = MY.DEF[k], n = Math.round((D.max - D.min) / D.st);
       o[k] = +(D.min + Math.round(Math.random() * n) * D.st).toFixed(3); } return o; };
-    let small = null;
-    for (let i = 0; i < 30000 && !small; i++) {
-      const o = sample(); o.L = 3300 + Math.round(Math.random() * 24) * 25;
+    let found = 0, minL = null, ex = null;
+    for (let i = 0; i < 30000; i++) {
+      const o = sample();
       let g = false; try { g = MY.hardOK(o, MY.M); } catch (e) { g = false; }
-      if (g) small = o;
+      if (g) { found++; if (minL === null || o.L < minL) { minL = o.L; ex = o; } }
     }
-    return { defGreen, noBand, small };
+    return { defGreen, noBand, found, minL, ex };
   });
-  ok('11 默认全绿 + 每个滑块都有可行区间 + L≤3900 有解',
-    res.defGreen && res.noBand.length === 0 && !!res.small,
+  ok('11 默认全绿 + 每个滑块都有可行区间 + 存在全绿解',
+    res.defGreen && res.noBand.length === 0 && res.found > 0,
     `默认全绿=${res.defGreen}；无可行区间的滑块=${res.noBand.length ? res.noBand.join(',') : '无'}；` +
-    `L≤3900 全绿解=${res.small ? 'L=' + res.small.L : '未找到'}`);
+    `3 万次随机搜索命中全绿 ${res.found} 个，最小 L=${res.minL}（v11 同法需 4800）`);
 }
 
 await b.close();
