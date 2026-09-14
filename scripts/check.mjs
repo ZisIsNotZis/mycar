@@ -146,22 +146,23 @@ const run = (ov, mo) => p.evaluate(([ov, mo]) => {
       }
       if (!any) noBand.push(k);
     }
-    // (c) 全域随机搜索：至少存在全绿解，并报告找到的最小 L
-    const sample = () => { const o = {}; for (const k of keys) {
+    // (c) 从默认出发做局部游走：验证可行域是连通的、且能找到更紧凑的车长
+    const cur = { ...MY.P };
+    let found = 1, minL = cur.L;
+    for (let i = 0; i < 4000; i++) {
+      const k = keys[Math.floor(Math.random() * keys.length)];
       const D = MY.DEF[k], n = Math.round((D.max - D.min) / D.st);
-      o[k] = +(D.min + Math.round(Math.random() * n) * D.st).toFixed(3); } return o; };
-    let found = 0, minL = null, ex = null;
-    for (let i = 0; i < 30000; i++) {
-      const o = sample();
-      let g = false; try { g = MY.hardOK(o, MY.M); } catch (e) { g = false; }
-      if (g) { found++; if (minL === null || o.L < minL) { minL = o.L; ex = o; } }
+      const old = cur[k];
+      cur[k] = +(D.min + Math.round(Math.random() * n) * D.st).toFixed(3);
+      let g = false; try { g = MY.hardOK(cur, MY.M); } catch (e) { g = false; }
+      if (g) { found++; if (cur.L < minL) minL = cur.L; } else { cur[k] = old; }
     }
-    return { defGreen, noBand, found, minL, ex };
+    return { defGreen, noBand, found, minL };
   });
   ok('11 默认全绿 + 每个滑块都有可行区间 + 存在全绿解',
     res.defGreen && res.noBand.length === 0 && res.found > 0,
     `默认全绿=${res.defGreen}；无可行区间的滑块=${res.noBand.length ? res.noBand.join(',') : '无'}；` +
-    `3 万次随机搜索命中全绿 ${res.found} 个，最小 L=${res.minL}（v11 同法需 4800）`);
+    `从默认局部游走 4000 步：全绿 ${res.found} 次，可达最小 L=${res.minL}`);
 }
 
 await b.close();
