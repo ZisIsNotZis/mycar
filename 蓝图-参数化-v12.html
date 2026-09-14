@@ -401,12 +401,19 @@ function build(p, m){
   const fA0=Math.atan2(hoodY0-d.cowlY, -d.cowlX);
   g.push(ln(fH,[fH[0]+Math.cos(fA0-fa)*fL, fH[1]+Math.sin(fA0-fa)*fL],26,'door'));
   if (p.frunk>0.02) g.push(txt(300, d.cowlY+90, `前盖开 ${Math.round(p.frunk*100)}%`,'door-t',10));
-  /* 尾门 = 整个车尾面（从尾窗上沿到尾保险杠），铰在上沿向上掀 → 人能从这里进出 */
-  const tH=[p.L-150, Math.min(p.H-40, d.bodyTopAt(p.L-150))], tPt=[p.L-10, p.gr+140];
-  const tL=Math.hypot(tPt[0]-tH[0], tPt[1]-tH[1]), tA0=Math.atan2(tPt[1]-tH[1], tPt[0]-tH[0]);
-  const ta=p.trunk*88*D2R;
-  g.push(ln(tH,[tH[0]+Math.cos(tA0-ta)*tL, tH[1]+Math.sin(tA0-ta)*tL],30,'door'));
-  g.push(txt(tH[0]+150, tH[1]+40, `尾门 ${Math.round(tL)}（整个尾面）`,'door-t',9.5,'start'));
+  /* 尾门：从投影仪那一带的车顶后缘起，覆盖整个车尾；两段折叠（-\ 形）开启，不占后方空间 */
+  const tHinge=[Math.min(p.pjX+40, d.roofX1-20), p.H-40];
+  const tMid=[p.L-210, p.gr+620], tBot=[p.L-20, p.gr+110];
+  const rot2=(v,a)=>[v[0]*Math.cos(a)-v[1]*Math.sin(a), v[0]*Math.sin(a)+v[1]*Math.cos(a)];
+  const a1=p.trunk*45*D2R, a2=p.trunk*-125*D2R;   // 上段上掀 45°、下段折回 125° → 只在车尾探出 ~0.5m
+  const v1=[tMid[0]-tHinge[0], tMid[1]-tHinge[1]], v2=[tBot[0]-tMid[0], tBot[1]-tMid[1]];
+  const r1=rot2(v1,a1), e1=[tHinge[0]+r1[0], tHinge[1]+r1[1]];
+  const r2=rot2(v2,a1+a2), e2=[e1[0]+r2[0], e1[1]+r2[1]];
+  const tLen=Math.round(Math.hypot(v1[0],v1[1])+Math.hypot(v2[0],v2[1]));
+  g.push(ln(tHinge,e1,30,'door')); g.push(ln(e1,e2,30,'door'));
+  g.push(cir(e1,26,'door-c'));
+  g.push(txt(tHinge[0]-40, tHinge[1]+70, `尾门 ${tLen}·折叠式（从投影仪起）`,'door-t',9.5,'end'));
+  if (p.trunk>0.02) g.push(txt(e2[0]+40, e2[1]+40, `开 ${Math.round(p.trunk*100)}%`,'door-t',10,'start'));
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
   for (const [ax,arc,tag,note] of [[p.axF,d.archF,'前轮位','转向/48V/AC·溃缩件'],[p.axR,d.archR,'后轮位','同轴三电（电机+减速+逆变）']]){
@@ -743,7 +750,7 @@ const STYLES={
   'man-f':{stroke:'#a0c8e8',fill:'none'}, 'man-r':{stroke:'#e8b0a0',fill:'none'},
   'man-b':{stroke:'#7fc4ff',fill:'none'}, 'man-bt':{fill:'#7fc4ff'}, 'warn-t':{fill:'#ff5b52','font-weight':700},
   ang:{stroke:'#f0a35e','stroke-dasharray':'5 4'}, 'ang-t':{fill:'#f0a35e'}, none:{stroke:'none'},
-  door:{stroke:'#9fc4e8','stroke-width':3}, 'door-t':{fill:'#9fc4e8'}, rail:{stroke:'#7d95a8'},
+  door:{stroke:'#9fc4e8','stroke-width':3}, 'door-t':{fill:'#9fc4e8'}, rail:{stroke:'#7d95a8'}, 'door-c':{fill:'#9fc4e8',stroke:'none'},
   slice:{fill:'#3a1f22',stroke:'#e57373','stroke-width':1.2,'stroke-dasharray':'5 4','fill-opacity':.35},
   'slice-t':{fill:'#e57373'}, tbl:{fill:'#26333f',stroke:'#8fb3cc','stroke-width':1.6},
   'tbl-t':{fill:'#8fb3cc'}, cross:{fill:'#2b3a48',stroke:'#7d95a8','stroke-width':1.5},
