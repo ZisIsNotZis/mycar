@@ -79,12 +79,12 @@ const DEF = {
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
   axF: {v:900, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
-  axR: {v:2600,min:1700,max:4200,st:10, g:'底盘', n:'后轴位'},
+  axR: {v:3400,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（后移→轮胎退出座舱、电池变大）'},
   gf:  {v:140, min:100, max:260, st:5,  g:'底盘', n:'前离地'},
   gr:  {v:150, min:100, max:260, st:5,  g:'底盘', n:'后离地'},
   bt:  {v:300, min:120, max:360, st:5,  g:'底盘', n:'电池厚（=地板高）'},
-  b0:  {v:1250,min:600, max:2400,st:10, g:'底盘', n:'电池前缘'},
-  b1:  {v:2560,min:1600,max:4300,st:10, g:'底盘', n:'电池后缘'},
+  b0:  {v:1290,min:600, max:3000,st:10, g:'底盘', n:'电池前缘'},
+  b1:  {v:3010,min:1500,max:4400,st:10, g:'底盘', n:'电池后缘'},
   bw:  {v:1200,min:800, max:1500,st:10, g:'底盘', n:'电池宽'},
   base:{v:150, min:0,   max:300, st:10, g:'前排座椅', n:'座垫离地板高'},
   fLift:{v:50,  min:-150,max:200, st:10, g:'前排座椅', n:'前座升降（-降 +升）'},
@@ -109,8 +109,8 @@ const DEF = {
   iw:  {v:220, min:100, max:320, st:10, g:'中岛',     n:'中岛宽'},
   ihh: {v:620, min:360, max:820, st:10, g:'中岛',     n:'台面离地板高'},
   pAng:{v:0,   min:0,   max:90,  st:1,  g:'尾箱/隔板',n:'可翻隔板角（0平铺补床尾 90立起作尾柱隔断）',deg:1},
-  ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（湿区）'},
-  flapLen:{v:260,min:150, max:500, st:10, g:'尾箱/隔板',n:'可翻隔板长'},
+  ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（储物）'},
+  flapLen:{v:420,min:200, max:800, st:10, g:'尾箱/隔板',n:'可翻隔板长（抬起即贵妃榻靠背）'},
   px0: {v:1700,min:1200,max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘（自动限在车顶内）'},
   px1: {v:3550,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
   pr:  {v:700, min:250, max:900, st:10, g:'升顶/吊柜',n:'升顶抬高'},
@@ -158,20 +158,20 @@ function build(p, m){
   d.floor = p.gf + p.bt;                       // 地板上表面 = 电池顶面
   d.bedTopEarly = d.floor + p.base + p.rCt + p.rLift;   // 床面高（座椅 builder 需要先用）
   d.archRF = p.tdf/2 + 60; d.archRR = p.tdr/2 + 60;
-  d.archF = {c:[p.axF, p.gf+p.tdf/2], r:d.archRF, top:p.gf+p.tdf+60, wheelTop:p.gf+p.tdf};
-  d.archR = {c:[p.axR, p.gr+p.tdr/2], r:d.archRR, top:p.gr+p.tdr+60, wheelTop:p.gr+p.tdr};
-  d.archFtop = p.gf + p.tdf + 60; d.archRtop = p.gr + p.tdr + 60;
-  d.rocker = Math.min(p.gf,p.gr) + 30;
+  d.archF = {c:[p.axF, p.tdf/2], r:d.archRF, top:p.tdf+60, wheelTop:p.tdf};   // 轮心=半径高（轮胎落地）
+  d.archR = {c:[p.axR, p.tdr/2], r:d.archRR, top:p.tdr+60, wheelTop:p.tdr};
+  d.archFtop = p.tdf + 60; d.archRtop = p.tdr + 60;     // 轮包顶 = 轮顶 + 60（不含离地，那是车身的事）
+  d.rocker = Math.min(p.gf,p.gr);            // 侧裙下沿 = 离地间隙
 
   /* ---------- 车轮（车外两侧）---------- */
   for (const [ax,td,gc,tag] of [[p.axF,p.tdf,p.gf,'前轮'],[p.axR,p.tdr,p.gr,'后轮']]){
-    const r=td/2, cy=gc+r;
+    const r=td/2, cy=r;                       // 轮心离地 = 轮半径 → 胎面着地
     g.push(cir([ax,cy], r, 'tyre','#0a0f14'));
     g.push(cir([ax,cy], r*0.55, 'rim'));
     for(let a=0;a<6;a++){const t=a*Math.PI/3;
       g.push(ln([ax+Math.cos(t)*r*0.55, cy+Math.sin(t)*r*0.55],[ax+Math.cos(t)*r*0.9, cy+Math.sin(t)*r*0.9],22,'rim'));}
     g.push(txt(ax, -140, `${tag} Ø${td}`,'txt',10));
-    g.push(txt(ax, -270, `包顶 ${Math.round(gc+td+60)}`,'txt',9));
+    g.push(txt(ax, -270, `包顶 ${Math.round(td+60)}`,'txt',9));
   }
 
   /* ---------- 座椅（前后共用一套；朝向参数化）---------- */
@@ -267,6 +267,7 @@ function build(p, m){
   d.levelDiff= d.bedTop - d.front.topY;              // 0 = 与前座面齐平
   d.bedFrontX= m.fbwd ? d.frontCushFrontX : d.bedFlatTip;
   d.bedRun   = (p.L-90) - d.bedFrontX;
+  d.sleepRun = (p.pAng>5 ? d.deckX1 + p.flapLen*Math.cos(p.pAng*D2R) : (p.L-90)) - d.bedFrontX;
   d.rowGap   = (p.xR - p.rCl) - d.frontCushRearX;    // 两排净间距（会客桌板）
   d.colH     = p.H - d.lowFloor;                     // 尾柱净高（竖放可两层）
   d.bedMode  = FOLD > 0.5;
@@ -278,8 +279,8 @@ function build(p, m){
   d.scrIn    = Math.round(Math.hypot(d.scrW, d.scrH)/25.4);
 
   /* ---------- 升顶 ---------- */
-  d.cowlX = Math.max(p.axF+220, d.front.cush.p1[0]-120);
-  d.cowlY = d.front.topY + 320;
+  d.cowlX = Math.max(p.axF+220, d.frontCushFrontX-120);   // 用座垫最前端：旋转/升降都不变
+  d.cowlY = d.floor + p.base + p.fCt + 320;               // 用常量堆叠高，避开 fLift
   d.roofX0 = Math.min(d.cowlX + (p.H-d.cowlY)*0.36, p.L-900);
   d.roofX1 = p.L - 430;
   d.px1 = Math.min(p.px1, d.roofX1-60);
@@ -295,7 +296,7 @@ function build(p, m){
   /* ============================ 图元 ============================ */
   /* 车身外轮廓（含真实轮包缺口：弧心=轮心） */
   const archCut=(ax,td,gc,rev)=>{
-    const cy=gc+td/2, R=td/2+60, dy=cy-d.rocker;
+    const cy=td/2, R=td/2+60, dy=cy-d.rocker;
     const dx=Math.sqrt(Math.max(1,R*R-dy*dy));
     const a0=Math.atan2(dy,-dx), a1=Math.atan2(dy,dx), out=[], N=18;
     for(let i=0;i<=N;i++){ const t=rev?1-i/N:i/N, a=a0+(a1-a0)*t;
@@ -330,7 +331,7 @@ function build(p, m){
 
   /* 尾仓：一层湿区（可冲洗）+ 固定隔板/二层平台 + 可翻隔板 */
   g.push(rect(d.deckX0, d.lowFloor, (p.L-90)-d.deckX0, p.ud,'wet','#0e2430'));
-  g.push(txt((d.deckX0+p.L)/2, d.lowFloor+20, `一层湿区 深${p.ud}·可冲洗`,'wet-t',10));
+  g.push(txt((d.deckX0+p.L)/2, d.lowFloor+20, `下层储物仓 深${p.ud}`,'wet-t',10));
   g.push(ln([d.deckX0,d.bedTop],[d.deckX1,d.bedTop],22,'deck'));
   g.push(txt((d.deckX0+d.deckX1)/2, d.bedTop-28, `固定隔板/二层平台 ${Math.round(d.deckLen)}`,'bed-t',9.5));
   /* 可翻隔板：铰在 deckX1；0°=平铺补床尾，90°=立起成尾柱隔断 */
@@ -390,17 +391,20 @@ function build(p, m){
     g.push(cir(h.headC,AN.headR,cls,'#e8b0a0'));
   };
   if (d.bedMode && m.pop!=='stand'){
-    /* 床面上的人：关节链平铺，头在床首（前座垫上），脚朝车尾（决策：床面前段=前座垫）*/
-    const bx=d.bedFrontX+300, y0=d.bedTop, cls='man-r';
-    const shd=bx+330, hip=shd+AN.torso, knee=hip+AN.thigh, ankle=knee+AN.shin, toe=ankle+AN.footL;
-    g.push(ln([shd,y0+115],[hip,y0+115],AN.torsoW,cls));
+    /* 床：脚朝车头（面朝幕布），头在尾门侧、枕在可翻隔板上；隔板抬起即贵妃榻靠背 */
+    const y0=d.bedTop, cls='man-r', pa=p.pAng*D2R;
+    const toe=d.bedFrontX+180, ankle=toe+AN.footL, knee=ankle+AN.shin, hip=knee+AN.thigh;
+    const shd=[hip+Math.cos(pa)*AN.torso, y0+115+Math.sin(pa)*AN.torso];
+    const head=[shd[0]+Math.cos(pa)*215, shd[1]+Math.sin(pa)*215];
     g.push(ln([hip,y0+65],[knee,y0+65],AN.legW,cls));
     g.push(ln([knee,y0+55],[ankle,y0+55],AN.shinW,cls));
     g.push(ln([ankle,y0+40],[toe,y0+40],AN.footW,cls));
-    g.push(ln([shd,y0+150],[shd+250,y0+150],AN.armW,cls));
-    g.push(cir([bx,y0+AN.headR],AN.headR,cls,'#e8b0a0'));
-    g.push(txt(bx+330, y0+330, '👤1750 头在床首', 'bed-t',10));
-    g.push(txt(toe+150, y0+150, `脚端余量 ${Math.round((p.L-90)-toe)}`, 'bed-t',9.5,'start'));
+    g.push(ln([hip,y0+115],shd,AN.torsoW,cls));
+    g.push(ln([shd[0],shd[1]+40],[shd[0]+Math.cos(pa)*250,shd[1]+Math.sin(pa)*250+40],AN.armW,cls));
+    g.push(cir(head,AN.headR,cls,'#e8b0a0'));
+    d.headTop = head[0]+AN.headR;
+    g.push(txt(hip, y0+330, `👤1750 头朝尾门（面朝幕布 ${Math.round(p.scrX)}）`,'bed-t',10));
+    g.push(txt(toe-140, y0+180, `脚端余量 ${Math.round(toe-d.bedFrontX)}`, 'bed-t',9.5,'end'));
   } else {
     if (m.pop!=='stand') man(d.humanR,'man-r');   // 站姿模式：床面留空给站立
     man(d.humanF,'man-f');
@@ -421,18 +425,20 @@ function build(p, m){
     if (POP==='bunk'){
       g.push(ln([gx,d.bunkY],[gy,d.bunkY],26,'bunk'));
       g.push(txt((gx+gy)/2,d.bunkY-40,'上铺板：搭在两侧壁面 + 顶横梁（1 大人 + 1 小孩）','bunk-t',10));
-      const bx=gy-460, sy=d.bunkY+30;
-      g.push(ln([bx,sy],[bx-AN.thigh,sy],AN.legW,'man-b'));
-      g.push(ln([bx,sy],[bx+AN.shin,sy],AN.shinW,'man-b'));
-      g.push(ln([bx,sy+35],[bx-AN.torso,sy+35],AN.torsoW,'man-b'));
-      g.push(cir([bx-AN.torso-215,sy+35],AN.headR,'man-b','#7fc4ff'));
+      const sy=d.bunkY+30, hx=gy-360, ds=-1;           // 头在开口靠尾侧，身体朝前伸
+      const shd=hx+ds*215, hip=shd+ds*AN.torso, knee=hip+ds*AN.thigh, ankle=knee+ds*AN.shin, toe=ankle+ds*AN.footL;
+      g.push(ln([shd,sy+60],[hip,sy+60],AN.torsoW,'man-b'));
+      g.push(ln([hip,sy+35],[knee,sy+35],AN.legW,'man-b'));
+      g.push(ln([knee,sy+30],[ankle,sy+30],AN.shinW,'man-b'));
+      g.push(ln([ankle,sy+20],[toe,sy+20],AN.footW,'man-b'));
+      g.push(cir([hx,sy+60],AN.headR,'man-b','#7fc4ff'));
     } else {
       const sx=(gx+gy)/2;
-      g.push(ln([sx,d.bedTop+AN.ankleY],[sx,d.bedTop+AN.kneeY],AN.shinW,'man-b'));
-      g.push(ln([sx,d.bedTop+AN.kneeY],[sx,d.bedTop+AN.hipY],AN.legW,'man-b'));
-      g.push(ln([sx,d.bedTop+AN.hipY],[sx,d.bedTop+AN.shdY],AN.torsoW,'man-b'));
-      g.push(cir([sx,d.bedTop+AN.shdY+215],AN.headR,'man-b','#7fc4ff'));
-      g.push(txt(sx, d.bedTop+AN.topY+150,'站在床面上（不升顶只能坐）','man-bt',10));
+      g.push(ln([sx,d.bedTop+AN.ankleY],[sx,d.bedTop+AN.kneeY],AN.shinW,'man-r'));
+      g.push(ln([sx,d.bedTop+AN.kneeY],[sx,d.bedTop+AN.hipY],AN.legW,'man-r'));
+      g.push(ln([sx,d.bedTop+AN.hipY],[sx,d.bedTop+AN.shdY],AN.torsoW,'man-r'));
+      g.push(cir([sx,d.bedTop+AN.shdY+215],AN.headR,'man-r','#e8b0a0'));
+      g.push(txt(sx, d.bedTop+AN.topY+150,'站在床面上（不升顶只能坐）','bed-t',10));
     }
   }
   g.push(rect(d.roofX0+130, p.H-p.lkH, d.roofX1-d.roofX0-260, p.lkH,'lk','none'));
@@ -479,10 +485,8 @@ function checks(p,m,B){
   const I=(id,t)=>out.push({id,ok:true,lv:'info',t,fix:''});
   const R=Math.round;
 
-  H('C1', d.bedRun>=1750, `放平后可睡 ${R(d.bedRun)} ≥ 1750`,
-      `放平后只有 ${R(d.bedRun)} 可睡（需 ≥1750）`, 'xR/rCl/rLl/rBl/L');
-  H('C2', d.deckLen>=200, `尾台 ${R(d.deckLen)} ≥ 200`,
-      `尾台只剩 ${R(d.deckLen)}（靠背/隔板越过尾门）`, 'xR/rBl/ud/L');
+  H('C1', d.sleepRun>=1750, `可睡长度 ${R(d.sleepRun)} ≥ 1750（平段+可翻隔板投影）`,
+      `可睡长度 ${R(d.sleepRun)} < 1750（平段 ${R((p.pAng>5?d.deckX1:(p.L-90))-d.bedFrontX)} + 隔板投影 ${R(p.pAng>5?p.flapLen*Math.cos(p.pAng*D2R):0)}）`, 'xR/rCl/rLl/rBl/flapLen/L');
   if (m.pop==='stand') H('C3', d.popTop>=d.standNeed, `站姿净空 ${R(d.popTop)} ≥ ${R(d.standNeed)}`,
       `站姿不够：pr 再加 ${R(d.standNeed-d.popTop)}`, 'pr');
   else I('C3', `站立所需 pr ≥ ${R(d.standNeed-p.H)}（现 ${p.pr}）`);
@@ -512,6 +516,8 @@ function checks(p,m,B){
   H('C13', !hitPart, `可翻隔板 ${p.pAng}° 不穿插人体`, `可翻隔板 ${p.pAng}° 顶到人体`, 'pAng/flapLen');
   H('C14', p.W-2*p.lkD>=AN.shW, `吊柜间距 ${p.W-2*p.lkD} ≥ 肩宽 ${AN.shW}`,
     `吊柜太深：两侧只剩 ${p.W-2*p.lkD} < 肩宽 ${AN.shW}`, 'lkD/W');
+  H('C35', d.bedTop>=d.archRtop, `床面 ${R(d.bedTop)} ≥ 后轮包顶 ${R(d.archRtop)}（轮包不顶床）`,
+    `床面 ${R(d.bedTop)} 低于后轮包顶 ${R(d.archRtop)}：床会被轮包顶起（加厚 base/rCt/bt 或换小轮）`, 'rCt/bt/base/tdr');
   H('C15', p.axF-p.tdf/2>=60 && p.axR+p.tdr/2<=p.L-60, `前后轮都在车身内`, `车轮越出车身`, 'axF/axR/td/L');
   H('C16', (p.L-p.axR)/p.L<0.5, `尾悬 ${R((p.L-p.axR)/p.L*100)}% < 50%`, `尾悬 ${R((p.L-p.axR)/p.L*100)}% 过大`, 'axR/L');
   H('C17', p.px1-p.px0>=600 && p.px0>=d.roofX0 && p.px1<=d.roofX1, `升顶开口 ${p.px0}–${p.px1} 在车顶有效区`,
@@ -542,8 +548,8 @@ function checks(p,m,B){
     if (!m.fbwd) out[out.length-1]={id:'C25c',ok:false,lv:'hard',t:'坐床需前排旋转 180°（否则腿托插进靠背）',fix:'前排旋转'};
     else I('C25c','前排已旋转 → 贵妃榻，脚落在床面');
   }
-  H('C26', d.deckLen>=200, `固定隔板/二层平台 ${R(d.deckLen)} ≥ 200`,
-    `固定隔板只剩 ${R(d.deckLen)}（需 ≥200）`, 'xR/rBl/flapLen/L');
+  H('C26', d.deckLen>=150, `固定隔板/二层平台 ${R(d.deckLen)} ≥ 150`,
+    `固定隔板只剩 ${R(d.deckLen)}（需 ≥150；隔板加长或后移 xR）`, 'xR/rBl/flapLen/L');
   H('C26b', d.colH>=900, `尾柱净高 ${R(d.colH)} ≥ 900（竖放两层）`,
     `尾柱净高 ${R(d.colH)} 不足 900`, 'H/rCt/ud/base');
   if (m.fbwd && !d.bedMode)
@@ -639,7 +645,8 @@ function renderSVG(B,S){
   const add=(tag,attrs,txt)=>{ const e=document.createElementNS(NS,tag);
     for(const k in attrs) if(attrs[k]!==undefined&&attrs[k]!==null) e.setAttribute(k,attrs[k]);
     if(txt!=null) e.textContent=txt; svg.appendChild(e); return e; };
-  for (const pr of B.prims){
+  for (const pass of [0,1]) for (const pr of B.prims){
+    if ((pr.k==='text'?1:0)!==pass) continue;      // 先画几何，再画文字：文字永不被人物压住
     const st=Object.assign({}, STYLES[pr.cls]||STYLES.txt);
     let e;
     if (pr.k==='line'){
@@ -670,9 +677,9 @@ function build3D(p,m,B){
   /* 车轮 + 轮包内壁（横向占用） */
   for (const [ax,td,gc] of [[p.axF,p.tdf,p.gf],[p.axR,p.tdr,p.gr]]){
     for (const sz of [1,-1]){
-      o.push({k:'cyl',cx:ax,cy:gc+td/2,r:td/2,z0:sz>0?hw-archIn:hw,z1:sz>0?hw:-hw+archIn,cls:'tyre3'});
-      o.push({k:'cyl',cx:ax,cy:gc+td/2,r:td/2*0.55,z0:sz>0?hw-archIn-4:-(hw-archIn)+4,z1:sz>0?hw+4:-hw,cls:'rim3'});
-      box(ax-td/2-60,ax+td/2+60,d.rocker,gc+td+60,sz>0?hw-archIn:-hw,sz>0?hw:-hw+archIn,'arch3'); // 轮包体（占横向）
+      o.push({k:'cyl',cx:ax,cy:td/2,r:td/2,z0:sz>0?hw-archIn:hw,z1:sz>0?hw:-hw+archIn,cls:'tyre3'});
+      o.push({k:'cyl',cx:ax,cy:td/2,r:td/2*0.55,z0:sz>0?hw-archIn-4:-(hw-archIn)+4,z1:sz>0?hw+4:-hw,cls:'rim3'});
+      box(ax-td/2-60,ax+td/2+60,d.rocker,td+60,sz>0?hw-archIn:-hw,sz>0?hw:-hw+archIn,'arch3'); // 轮包体（占横向）
     }
   }
   /* 地板 / 电池 / 尾仓 */
@@ -778,7 +785,10 @@ function draw3(){
     return [dot(q,right), dot(q,upv), dot(q,dir)]; };
   for (const f of FACES) for (const p of f.pts){ const q=P1(p);
     if(q[0]<sx0)sx0=q[0]; if(q[0]>sx1)sx1=q[0]; if(q[1]<sy0)sy0=q[1]; if(q[1]>sy1)sy1=q[1]; }
-  const k=Math.min((SVGW-2*PAD)/Math.max(1,sx1-sx0), (SVGH-2*PAD)/Math.max(1,sy1-sy0))*CAM.zoom;
+  // 量化：只有内容超出当前档位才重新适配，避免拖 pr / 切升顶 时画面跳
+  const spanY=Math.ceil(Math.max(sy1-sy0, (P.H+Math.max(P.pr,0)+300)*0.9)/400)*400;   // 用全局 P
+  const spanX=Math.ceil(Math.max(sx1-sx0, P.L*1.05)/400)*400;
+  const k=Math.min((SVGW-2*PAD)/Math.max(1,spanX), (SVGH-2*PAD)/Math.max(1,spanY))*CAM.zoom;
   const ox=SVGW/2-((sx0+sx1)/2)*k, oy=SVGH/2+((sy0+sy1)/2)*k;
   const SXY=(p)=>{ const q=P1(p); return [ox+q[0]*k, oy-q[1]*k]; };
   const LIGHT=[0.42,0.86,0.30];
@@ -932,7 +942,6 @@ const PRESETS=[
   ['驻车大床',    ()=>{M.fbwd=true; M.pop='closed';P.fold=1;P.pAng=0;P.rLift=-120;P.fLift=-20;}],
   ['露营·站立',   ()=>{M.fbwd=true; M.pop='stand'; P.fold=1;P.pAng=0;P.rLift=-120;P.fLift=-20;}],
   ['露营·上铺',   ()=>{M.fbwd=true; M.pop='bunk';  P.fold=1;P.pAng=0;P.rLift=-120;P.fLift=-20;}],
-  ['干湿清洗',    ()=>{M.fbwd=false;M.pop='closed';P.fold=0;P.pAng=90;}],
 ];
 const TOGGLES=[
   ['前排朝前', ()=>M.fbwd=false, ()=>!M.fbwd],
