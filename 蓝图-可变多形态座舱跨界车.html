@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可变多形态座舱跨界车 · 结构蓝图</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#2d3742;
+    --ink:#c9d4e0; --dim:#6b7a8c;
+    --blue:#4aa3ff; --green:#5fd08a; --orange:#f0a35e;
+    --red:#e57373; --purple:#b48ead; --cyan:#56c8d8; --yellow:#e8d174;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:24px}
+  h1{font-size:22px;font-weight:700;letter-spacing:1px}
+  h1 .en{color:var(--dim);font-size:12px;font-weight:400;margin-left:12px;letter-spacing:2px}
+  .sub{color:var(--dim);font-size:13px;margin:6px 0 20px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{padding:8px 18px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--dim);cursor:pointer;font-size:13px;transition:.15s}
+  .tab:hover{color:var(--ink);border-color:var(--blue)}
+  .tab.on{color:#fff;background:#1c2f45;border-color:var(--blue)}
+  .panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto}
+  .panel.on{display:block}
+  svg{display:block;margin:0 auto}
+  text{font-family:inherit}
+  .legend{display:flex;gap:20px;flex-wrap:wrap;padding:12px 4px 0;font-size:12px;color:var(--dim)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:14px;height:10px;border-radius:2px;display:inline-block}
+  .note{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>可变多形态座舱跨界车 <span class="en">VARIABLE-COCKPIT CROSSOVER · STRUCTURAL BLUEPRINT</span></h1>
+<div class="sub">整车结构设计说明书 · 图纸版 ｜ 纯机械变形 · 干湿脏三区分层 · 电池中置</div>
+
+<div class="tabs">
+  <div class="tab on" data-p="p1">① 侧视剖切总图</div>
+  <div class="tab" data-p="p2">② 平面布局图</div>
+  <div class="tab" data-p="p3">③ 形态模式图</div>
+</div>
+
+<!-- ═══════════ ① 侧视剖切 ═══════════ -->
+<div class="panel on" id="p1">
+<svg viewBox="0 0 1180 620" width="1140" height="599" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 z" fill="#6b7a8c"/>
+  </marker>
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M40 0H0V40" fill="none" stroke="#1a212b" stroke-width="1"/>
+  </pattern>
+  <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <line x1="0" y1="0" x2="0" y2="7" stroke="#3a4a5a" stroke-width="1.4"/>
+  </pattern>
+  <pattern id="hatch2" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+    <line x1="0" y1="0" x2="0" y2="5" stroke="#33424f" stroke-width="1"/>
+  </pattern>
+</defs>
+<rect width="1180" height="620" fill="url(#grid)"/>
+
+<!-- ============ 车身外轮廓 (x: 60..1120, 地面 y=520) ============ -->
+<g id="body">
+  <!-- main hull -->
+  <path d="M70,505
+           L70,440 Q72,428 92,424            <!-- 前脸溃缩区 -->
+           L200,408 L238,392 Q300,378 330,374 <!-- 前备箱 -->
+           L392,368 Q430,300 500,272          <!-- 前风挡上扬 -->
+           L560,258 L840,258                  <!-- 车顶 -->
+           L920,268 Q975,290 1010,340         <!-- 尾部溜背 -->
+           L1048,400 L1060,505 Z"
+        fill="#101820" stroke="#4a6076" stroke-width="2.5"/>
+
+  <!-- 车窗带 -->
+  <path d="M412,372 Q452,308 512,284 L560,274 L820,274 L880,286 Q930,306 962,350 L840,368 L470,368 Z"
+        fill="#0a2a3a" stroke="#3a5a70" stroke-width="1.5"/>
+  <!-- B柱 C柱 -->
+  <line x1="600" y1="274" x2="600" y2="368" stroke="#4a6076" stroke-width="6"/>
+  <line x1="808" y1="276" x2="808" y2="366" stroke="#4a6076" stroke-width="6"/>
+
+  <!-- 升顶区域示意 (顶棚虚线上段) -->
+  <path d="M560,258 L840,258" stroke="#4aa3ff" stroke-width="3" stroke-dasharray="10 6" fill="none"/>
+  <path d="M570,258 Q575,215 600,208 L800,208 Q830,215 835,258" fill="none" stroke="#4aa3ff" stroke-width="1.8" stroke-dasharray="4 5" opacity=".55"/>
+  <text x="700" y="200" fill="#4aa3ff" font-size="13" text-anchor="middle">玻璃升顶（驻车开启·第三层空间）</text>
+  <line x1="700" y1="206" x2="700" y2="252" stroke="#4aa3ff" stroke-width="1" marker-end="url(#ar)" opacity=".6"/>
+</g>
+
+<!-- ============ 前备箱：裸露双溃缩梁 ============ -->
+<g id="frunk">
+  <path d="M92,424 L238,392 L238,505 L70,505 L70,440 Q72,428 92,424 Z" fill="url(#hatch)" opacity=".7"/>
+  <!-- 两根溃缩大梁（侧视为纵向贯穿的梁截面） -->
+  <rect x="108" y="430" width="26" height="72" fill="#2b3a48" stroke="#7d95a8" stroke-width="2" rx="3"/>
+  <rect x="160" y="424" width="26" height="78" fill="#2b3a48" stroke="#7d95a8" stroke-width="2" rx="3"/>
+  <text x="160" y="418" fill="#8fb3cc" font-size="13" text-anchor="middle">正面双溃缩大梁（裸露）</text>
+  <text x="155" y="555" fill="#f0a35e" font-size="14" text-anchor="middle" font-weight="700">① 前备箱 · 一级脏区</text>
+  <text x="155" y="573" fill="#6b7a8c" font-size="11.5" text-anchor="middle">工具 / 户外装备 · 梁间空隙全释放</text>
+  <!-- 前低压电池 -->
+  <rect x="205" y="462" width="42" height="30" fill="#152430" stroke="#f0a35e" stroke-width="1.8" rx="4"/>
+  <text x="226" y="481" fill="#f0a35e" font-size="10" text-anchor="middle">12V</text>
+  <text x="268" y="478" fill="#f0a35e" font-size="11" text-anchor="start">低压辅助电池</text>
+</g>
+
+<!-- ============ 中部：电池 + 底盘 ============ -->
+<g id="chassis">
+  <rect x="360" y="470" width="440" height="36" fill="#132434" stroke="#56c8d8" stroke-width="2" rx="5"/>
+  <text x="580" y="493" fill="#56c8d8" font-size="14" text-anchor="middle" font-weight="700">动力电池总成（前后轴之间 · 重心基准）</text>
+  <text x="580" y="555" fill="#56c8d8" font-size="13" text-anchor="middle" font-weight="700">⑤ 轮毂 / 底盘 / 电池层</text>
+</g>
+
+<!-- ============ 座舱地板线 ============ -->
+<line x1="290" y1="452" x2="1020" y2="452" stroke="#5a7086" stroke-width="2.5"/>
+<!-- 二层平台（后备箱上层床板） -->
+<line x1="760" y1="382" x2="1040" y2="382" stroke="#5fd08a" stroke-width="3"/>
+<text x="895" y="376" fill="#5fd08a" font-size="11" text-anchor="middle">二层床面 · 干区（可拆卸床垫）</text>
+
+<!-- ============ 前排旋转座椅 ============ -->
+<g id="seatF">
+  <path d="M330,448 L344,396 L378,392 L372,448 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.8"/>
+  <path d="M344,396 L318,352 L338,346 L372,388 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.8"/>
+  <circle cx="354" cy="446" r="7" fill="none" stroke="#b48ead" stroke-width="2.4"/>
+  <path d="M354,446 L354,460 M354,446 L340,460 M354,446 L368,460" stroke="#b48ead" stroke-width="2"/>
+  <!-- 旋转示意 -->
+  <path d="M354,446 m-26,0 a26,26 0 1,1 52,0" fill="none" stroke="#b48ead" stroke-width="1.4" stroke-dasharray="4 4" opacity=".7"/>
+  <path d="M328,446 l-7,-4 l0,8 z" fill="#b48ead" opacity=".7"/>
+</g>
+
+<!-- ============ 中岛 ============ -->
+<g id="island">
+  <rect x="416" y="414" width="86" height="34" fill="#1c2a36" stroke="#b48ead" stroke-width="2" rx="4"/>
+  <line x1="416" y1="414" x2="502" y2="414" stroke="#d8c0e0" stroke-width="3"/>
+  <text x="459" y="404" fill="#b48ead" font-size="12.5" text-anchor="middle" font-weight="700">中岛（台面+储物）</text>
+</g>
+
+<!-- ============ 二排座椅 + 联动机构 ============ -->
+<g id="seatR">
+  <!-- 正常坐姿态（虚线） -->
+  <path d="M560,448 L574,396 L608,392 L602,448 Z" fill="none" stroke="#6b7a8c" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <path d="M574,396 L548,352 L568,346 L602,388 Z" fill="none" stroke="#6b7a8c" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <!-- 放倒联动态（实线：靠背水平，腿托顶起） -->
+  <path d="M548,352 L700,352 L712,376 L568,352 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="2"/>
+  <rect x="512" y="380" width="34" height="14" fill="#22303e" stroke="#8fb3cc" stroke-width="1.6" rx="3" transform="rotate(-18 529 387)"/>
+  <!-- 连杆机构 -->
+  <circle cx="560" cy="446" r="5" fill="none" stroke="#f0a35e" stroke-width="2"/>
+  <line x1="560" y1="446" x2="534" y2="394" stroke="#f0a35e" stroke-width="2.2"/>
+  <line x1="534" y1="394" x2="522" y2="382" stroke="#f0a35e" stroke-width="2.2"/>
+  <circle cx="534" cy="394" r="3.5" fill="#f0a35e"/>
+  <text x="536" y="336" fill="#8fb3cc" font-size="12.5" text-anchor="middle" font-weight="700">② 二排靠背+腿托 · 重力联动</text>
+  <text x="620" y="352" fill="#6b7a8c" font-size="10.5" text-anchor="start" transform="rotate(0 620 352)">虚线=行车坐姿 → 实线=床面前段</text>
+</g>
+
+<!-- ============ L型隔板（三档位） ============ -->
+<g id="panelL">
+  <!-- 90度直立档 -->
+  <line x1="800" y1="382" x2="800" y2="506" stroke="#e8d174" stroke-width="4"/>
+  <!-- 45度档（虚线） -->
+  <line x1="800" y1="382" x2="872" y2="506" stroke="#e8d174" stroke-width="2" stroke-dasharray="6 5" opacity=".6"/>
+  <!-- 全平档说明 -->
+  <text x="830" y="330" fill="#e8d174" font-size="13" font-weight="700">③ L型隔板 · 一板三用</text>
+  <text x="830" y="348" fill="#a89460" font-size="10.5">━ 90°隔断（行车锁止）</text>
+  <text x="830" y="364" fill="#a89460" font-size="10.5">╌ 45°贵妃榻 / ─ 全平床中段</text>
+  <line x1="826" y1="334" x2="804" y2="360" stroke="#e8d174" stroke-width="1" marker-end="url(#ar)" opacity=".6"/>
+</g>
+
+<!-- ============ 后备箱一层湿区 ============ -->
+<g id="wetzone">
+  <path d="M800,382 L1040,382 L1040,506 L800,506 Z" fill="url(#hatch2)" opacity=".55"/>
+  <path d="M812,496 Q900,486 1028,496" fill="none" stroke="#56c8d8" stroke-width="2" opacity=".7"/>
+  <circle cx="1010" cy="494" r="3" fill="#56c8d8"/>
+  <text x="920" y="470" fill="#56c8d8" font-size="12" text-anchor="middle" font-weight="700">④ 一层湿区 · 不锈钢可冲洗</text>
+  <text x="920" y="486" fill="#4890a0" font-size="10.5" text-anchor="middle">集水导流槽 · 标准排水点</text>
+</g>
+
+<!-- ============ 吊柜 ============ -->
+<g id="cabinets">
+  <rect x="470" y="278" width="112" height="42" fill="#1a2e22" stroke="#5fd08a" stroke-width="2" rx="3"/>
+  <rect x="700" y="278" width="96" height="42" fill="#1a2e22" stroke="#5fd08a" stroke-width="2" rx="3"/>
+  <line x1="470" y1="292" x2="582" y2="292" stroke="#3a6a4c" stroke-width="1.2"/>
+  <line x1="700" y1="292" x2="796" y2="292" stroke="#3a6a4c" stroke-width="1.2"/>
+  <text x="640" y="300" fill="#5fd08a" font-size="12.5" text-anchor="middle" font-weight="700">⑥ 悬挑吊柜（车顶横梁锚固 · 最高洁净干区）</text>
+  <line x1="588" y1="298" x2="612" y2="298" stroke="#5fd08a" stroke-width="1" opacity="0"/>
+</g>
+
+<!-- ============ 纱窗/隐私标注 ============ -->
+<text x="450" y="292" fill="#4aa3ff" font-size="10.5" text-anchor="end">升顶一体纱窗</text>
+<text x="450" y="306" fill="#4aa3ff" font-size="10.5" text-anchor="end">拉链围幕</text>
+
+<!-- ============ 车轮 ============ -->
+<g id="wheels">
+  <circle cx="310" cy="490" r="46" fill="#0a0f14" stroke="#5a7086" stroke-width="3"/>
+  <circle cx="310" cy="490" r="26" fill="none" stroke="#43586c" stroke-width="5"/>
+  <circle cx="910" cy="490" r="46" fill="#0a0f14" stroke="#5a7086" stroke-width="3"/>
+  <circle cx="910" cy="490" r="26" fill="none" stroke="#43586c" stroke-width="5"/>
+  <!-- 轴线 -->
+  <line x1="240" y1="490" x2="380" y2="490" stroke="#5a7086" stroke-width="1.5" stroke-dasharray="8 4 2 4"/>
+  <line x1="840" y1="490" x2="980" y2="490" stroke="#5a7086" stroke-width="1.5" stroke-dasharray="8 4 2 4"/>
+  <text x="960" y="446" fill="#6b7a8c" font-size="10.5">后轮前移·尾悬加长</text>
+  <text x="262" y="446" fill="#6b7a8c" font-size="10.5">转向机构/电控</text>
+</g>
+
+<!-- ============ 地面 & 尺寸线 ============ -->
+<line x1="40" y1="536" x2="1140" y2="536" stroke="#2d3742" stroke-width="2"/>
+<g stroke="#4a6076" stroke-width="1">
+  <line x1="70" y1="590" x2="1060" y2="590"/>
+  <line x1="70" y1="582" x2="70" y2="598"/><line x1="1060" y1="582" x2="1060" y2="598"/>
+  <line x1="310" y1="560" x2="910" y2="560"/>
+  <line x1="310" y1="554" x2="310" y2="566"/><line x1="910" y1="554" x2="910" y2="566"/>
+</g>
+<text x="565" y="606" fill="#6b7a8c" font-size="12" text-anchor="middle">整车长度（极小外轮廓）</text>
+<text x="610" y="576" fill="#6b7a8c" font-size="12" text-anchor="middle">轴距（电池总成于此之间）</text>
+</svg>
+
+<div class="legend">
+  <span><i class="sw" style="background:#f0a35e"></i>脏区</span>
+  <span><i class="sw" style="background:#56c8d8"></i>湿区</span>
+  <span><i class="sw" style="background:#5fd08a"></i>干区</span>
+  <span><i class="sw" style="background:#b48ead"></i>变形机构</span>
+  <span><i class="sw" style="background:#4aa3ff"></i>升顶/纱窗</span>
+  <span><i class="sw" style="background:#e8d174"></i>L型隔板三档</span>
+</div>
+<div class="note">虚线轮廓 = 行车锁定态 / 备选档位；实线 = 驻车变形态。所有变形机构（②旋转座椅、③联动放倒、L隔板档位）均为纯机械结构，自重+人体微力驱动。</div>
+</div>
+
+<!-- ═══════════ ② 平面布局 ═══════════ -->
+<div class="panel" id="p2">
+<svg viewBox="0 0 1180 560" width="1140" height="541" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7a8c"/></marker></defs>
+<rect width="1180" height="560" fill="url(#grid)"/>
+
+<!-- 车体外框（俯视）：前窄后宽跨界轮廓 -->
+<path d="M120,200 Q150,168 230,158 L880,150 Q980,152 1040,170 Q1080,183 1080,280 Q1080,377 1040,390 Q980,408 880,410 L230,402 Q150,392 120,360 Q104,320 104,280 Q104,240 120,200 Z"
+      fill="#101820" stroke="#4a6076" stroke-width="2.5"/>
+
+<!-- 前备箱区（脏区） -->
+<rect x="132" y="185" width="140" height="190" fill="url(#hatch)" opacity=".6" stroke="#f0a35e" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="202" y="270" fill="#f0a35e" font-size="13" text-anchor="middle" font-weight="700">前备箱</text>
+<text x="202" y="288" fill="#a07850" font-size="11" text-anchor="middle">一级脏区</text>
+
+<!-- 前排旋转座椅（会客旋转态） -->
+<g>
+  <rect x="300" y="180" width="64" height="70" rx="8" fill="#22303e" stroke="#b48ead" stroke-width="2" transform="rotate(180 332 215)"/>
+  <rect x="300" y="310" width="64" height="70" rx="8" fill="#22303e" stroke="#b48ead" stroke-width="2" transform="rotate(180 332 345)"/>
+  <circle cx="332" cy="215" r="9" fill="none" stroke="#b48ead" stroke-width="2"/>
+  <circle cx="332" cy="345" r="9" fill="none" stroke="#b48ead" stroke-width="2"/>
+  <path d="M332,215 m-24,0 a24,24 0 1,1 48,0" fill="none" stroke="#b48ead" stroke-width="1.3" stroke-dasharray="4 4" opacity=".7"/>
+  <path d="M332,345 m-24,0 a24,24 0 1,0 48,0" fill="none" stroke="#b48ead" stroke-width="1.3" stroke-dasharray="4 4" opacity=".7"/>
+  <text x="332" y="160" fill="#b48ead" font-size="13" text-anchor="middle" font-weight="700">前排座椅（驻车旋转180°示）</text>
+</g>
+
+<!-- 中岛 -->
+<rect x="390" y="255" width="90" height="50" rx="5" fill="#1c2a36" stroke="#b48ead" stroke-width="2"/>
+<text x="435" y="285" fill="#d8c0e0" font-size="12" text-anchor="middle">中岛</text>
+
+<!-- 二排座椅 -->
+<g>
+  <rect x="520" y="185" width="66" height="72" rx="8" fill="#22303e" stroke="#8fb3cc" stroke-width="2"/>
+  <rect x="520" y="303" width="66" height="72" rx="8" fill="#22303e" stroke="#8fb3cc" stroke-width="2"/>
+  <text x="553" y="160" fill="#8fb3cc" font-size="13" text-anchor="middle" font-weight="700">二排座椅</text>
+</g>
+
+<!-- 吊柜投影（俯视位置） -->
+<rect x="620" y="168" width="110" height="42" fill="#1a2e22" stroke="#5fd08a" stroke-width="1.6" stroke-dasharray="4 3" opacity=".8"/>
+<rect x="620" y="350" width="110" height="42" fill="#1a2e22" stroke="#5fd08a" stroke-width="1.6" stroke-dasharray="4 3" opacity=".8"/>
+<text x="675" y="262" fill="#5fd08a" font-size="12" text-anchor="middle">两侧悬挑吊柜（虚线=头顶上方）</text>
+<text x="675" y="280" fill="#5fd08a" font-size="11" text-anchor="middle">车顶中部全空 · 净高保留</text>
+
+<!-- L隔板 90度位置 -->
+<line x1="760" y1="152" x2="760" y2="408" stroke="#e8d174" stroke-width="4"/>
+<text x="778" y="145" fill="#e8d174" font-size="12">L型隔板（90°直立位）</text>
+
+<!-- 一层湿区 / 二层干区 -->
+<rect x="760" y="155" width="305" height="115" fill="url(#hatch2)" opacity=".5" stroke="#56c8d8" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="912" y="205" fill="#56c8d8" font-size="13" text-anchor="middle" font-weight="700">一层湿区（俯视为下层投影）</text>
+<text x="912" y="224" fill="#4890a0" font-size="11" text-anchor="middle">可冲洗 · 排水点</text>
+<rect x="760" y="245" width="305" height="158" fill="#0f2418" opacity=".5" stroke="#5fd08a" stroke-width="1.2"/>
+<text x="912" y="315" fill="#5fd08a" font-size="13" text-anchor="middle" font-weight="700">二层床面 · 干区</text>
+<text x="912" y="334" fill="#4a8a64" font-size="11" text-anchor="middle">床面中段（隔板放平时与二排贯通）</text>
+
+<!-- 尾门 -->
+<line x1="1068" y1="180" x2="1068" y2="380" stroke="#4a6076" stroke-width="4"/>
+<text x="1096" y="286" fill="#6b7a8c" font-size="12" text-anchor="middle" transform="rotate(90 1096 286)">尾门（隐私帘）</text>
+
+<!-- 车头方向 -->
+<line x1="60" y1="280" x2="110" y2="280" stroke="#6b7a8c" stroke-width="1.6" marker-end="url(#ar2)"/>
+<text x="58" y="264" fill="#6b7a8c" font-size="12">车头 →</text>
+</svg>
+<div class="note">俯视图中吊柜以虚线表示"位于头顶上方"的投影。驻车旋转后，前排座椅+中岛构成面向二排的围坐布局（会客/用餐/办公）。</div>
+</div>
+
+<!-- ═══════════ ③ 形态模式 ═══════════ -->
+<div class="panel" id="p3">
+<svg viewBox="0 0 1180 640" width="1140" height="593" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7a8c"/></marker></defs>
+<rect width="1180" height="640" fill="url(#grid)"/>
+<style>
+  .mtitle{fill:#c9d4e0;font-size:14px;font-weight:700}
+  .msub{fill:#6b7a8c;font-size:11px}
+  .hull{fill:#0f161e;stroke:#4a6076;stroke-width:2}
+  .bed{fill:#3a5a48;stroke:#5fd08a;stroke-width:1.5}
+  .seat{fill:#22303e;stroke:#8fb3cc;stroke-width:1.5}
+</style>
+
+<!-- 模式一 通勤 -->
+<g transform="translate(40,40)">
+  <path class="hull" d="M0,150 L0,110 L30,100 L80,92 L150,88 Q180,40 240,28 L420,28 L480,38 Q510,55 522,110 L522,150 Z"/>
+  <rect x="170" y="100" width="16" height="42" class="seat"/>
+  <rect x="300" y="98" width="16" height="44" class="seat"/>
+  <rect x="330" y="98" width="60" height="10" class="seat"/>
+  <line x1="420" y1="88" x2="420" y2="150" stroke="#e8d174" stroke-width="3"/>
+  <text x="0" y="-8" class="mtitle">模式一 · 城市通勤</text>
+  <text x="0" y="8" class="msub">座椅朝前 · 隔板90°锁止 · 升顶闭合</text>
+</g>
+
+<!-- 模式二 观影 -->
+<g transform="translate(620,40)">
+  <path class="hull" d="M0,150 L0,110 L30,100 L80,92 L150,88 Q180,40 240,28 L420,28 L480,38 Q510,55 522,110 L522,150 Z"/>
+  <rect x="170" y="100" width="16" height="42" class="seat"/>
+  <rect x="186" y="100" width="60" height="10" class="seat"/>
+  <rect x="300" y="98" width="16" height="44" class="seat"/>
+  <line x1="420" y1="88" x2="492" y2="150" stroke="#e8d174" stroke-width="3"/>
+  <rect x="420" y="112" width="60" height="8" fill="#1c2a36" stroke="#4aa3ff" stroke-width="1"/>
+  <text x="0" y="-8" class="mtitle">模式二 · 行车观影</text>
+  <text x="0" y="8" class="msub">隔板45°贵妃榻 · 投影幕布</text>
+</g>
+
+<!-- 模式三 会客 -->
+<g transform="translate(40,270)">
+  <path class="hull" d="M0,150 L0,110 L30,100 L80,92 L150,88 Q180,40 240,28 L420,28 L480,38 Q510,55 522,110 L522,150 Z"/>
+  <rect x="150" y="100" width="16" height="42" class="seat" transform="rotate(180 158 121)"/>
+  <rect x="290" y="100" width="16" height="42" class="seat" transform="rotate(180 298 121)"/>
+  <rect x="220" y="112" width="50" height="28" fill="#1c2a36" stroke="#b48ead" stroke-width="1.5"/>
+  <line x1="420" y1="88" x2="420" y2="150" stroke="#e8d174" stroke-width="3"/>
+  <text x="0" y="-8" class="mtitle">模式三 · 驻车会客办公</text>
+  <text x="0" y="8" class="msub">前排旋转180° + 中岛 → 围坐布局</text>
+</g>
+
+<!-- 模式四 大床 -->
+<g transform="translate(620,270)">
+  <path class="hull" d="M0,150 L0,110 L30,100 L80,92 L150,88 Q180,40 240,28 L420,28 L480,38 Q510,55 522,110 L522,150 Z"/>
+  <rect x="150" y="88" width="370" height="14" class="bed"/>
+  <rect x="150" y="76" width="30" height="12" class="seat"/>
+  <text x="335" y="122" fill="#5fd08a" font-size="11" text-anchor="middle">贯通大床：二排床面前段 + 床中段 + 二层平台</text>
+  <text x="0" y="-8" class="mtitle">模式四 · 驻车大床</text>
+  <text x="0" y="8" class="msub">二排重力放平 · 隔板全平 · 三段拼接</text>
+</g>
+
+<!-- 模式五 露营 -->
+<g transform="translate(40,500)">
+  <path class="hull" d="M0,120 L0,88 L30,80 L80,72 L150,68 Q180,30 240,20 L420,20 L480,28 Q510,42 522,88 L522,120 Z"/>
+  <path d="M150,68 Q180,14 240,4 L420,4 L480,14 Q508,22 520,68" fill="none" stroke="#4aa3ff" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="335" y="-6" fill="#4aa3ff" font-size="11" text-anchor="middle">升顶开启 · 一体纱窗全封闭通风</text>
+  <text x="0" y="-8" class="mtitle">模式五 · 驻车露营</text>
+  <text x="0" y="8" class="msub">升顶+纱窗 · 三层空间全可用</text>
+</g>
+
+<!-- 模式六 干湿 -->
+<g transform="translate(620,500)">
+  <path class="hull" d="M0,120 L0,88 L30,80 L80,72 L150,68 Q180,30 240,20 L420,20 L480,28 Q510,42 522,88 L522,120 Z"/>
+  <line x1="400" y1="68" x2="400" y2="120" stroke="#e8d174" stroke-width="3"/>
+  <rect x="400" y="72" width="118" height="46" fill="url(#hatch2)" opacity=".6" stroke="#56c8d8" stroke-width="1"/>
+  <text x="459" y="99" fill="#56c8d8" font-size="10" text-anchor="middle">湿区·冲洗</text>
+  <text x="290" y="99" fill="#5fd08a" font-size="10" text-anchor="middle">干区人居</text>
+  <text x="0" y="-8" class="mtitle">模式六 · 干湿露营 / 应急清洗</text>
+  <text x="0" y="8" class="msub">隔板90°隔离 · 湿区独立工作 · L型淋浴区</text>
+</g>
+</svg>
+<div class="note">六种模式全部由纯机械机构在驻车状态切换，行车状态各机构锁止于安全位。</div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById(t.dataset.p).classList.add('on');
+}));
+</script>
+</body>
+</html>

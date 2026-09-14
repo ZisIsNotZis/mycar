@@ -1,0 +1,11 @@
+# 临时产物
+.tmp/
+node_modules/
+*.log
+
+# 会话/工具状态
+.pi-glla/
+.pi/
+
+# 渲染输出（用 scripts/render.mjs 生成，不入库）
+render-out/

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可变多形态座舱跨界车 · 参数化蓝图 v10（审校修正版）</title>
+<style>
+  :root{--bg:#0d1117;--panel:#141a22;--line:#2d3742;--ink:#c9d4e0;--dim:#6b7a8c;
+  --blue:#4aa3ff;--green:#5fd08a;--orange:#f0a35e;--purple:#b48ead;--cyan:#56c8d8;--yellow:#e8d174;--red:#e57373}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:16px;font-size:14px}
+  h1{font-size:19px} h1 .en{color:var(--dim);font-size:11px;font-weight:400;margin-left:10px}
+  .sub{color:var(--dim);font-size:12px;margin:4px 0 10px}
+  .wrap{display:flex;gap:12px;align-items:flex-start}
+  .left{flex:1;min-width:0}
+  .right{width:330px;flex-shrink:0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto}
+  .ctrl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;max-height:calc(100vh - 90px);overflow-y:auto}
+  svg{display:block;margin:0 auto} text{font-family:inherit}
+  .ctl{margin-bottom:9px}
+  .ctl label{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:2px}
+  .ctl label b{color:var(--blue);font-family:ui-monospace,monospace}
+  input[type=range]{width:100%;accent-color:#4aa3ff;height:18px}
+  .modes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .mbtn{padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:#10161d;color:var(--dim);cursor:pointer;font-size:12px}
+  .mbtn.on{color:#fff;background:#1c2f45;border-color:var(--blue)}
+  .sec{color:var(--dim);font-size:11px;letter-spacing:1px;margin:12px 0 6px;border-top:1px dashed var(--line);padding-top:8px}
+  .warn{color:var(--red);font-size:12px;line-height:1.65}
+  .ok{color:var(--green);font-size:12px;line-height:1.65}
+  .flag{color:var(--orange);font-size:12px;line-height:1.65}
+  table{border-collapse:collapse;font-size:11.5px;width:100%}
+  th,td{border:1px solid var(--line);padding:3px 7px;text-align:left}
+  th{color:var(--dim);font-weight:600;background:#10161d}
+  td.n{font-family:ui-monospace,monospace;color:var(--blue);text-align:right}
+</style>
+</head>
+<body>
+<h1>可变多形态座舱跨界车 <span class="en">v10 · audited &amp; fixed</span></h1>
+<div class="sub">独立评审21项已修：脚踩地板(不再陷入电池) · 岛柱可全沉(旋转校验) · 硬校验(负台长/箱顶穿顶/波峰/轴位) · 电池起点避前轮包 · 躺姿全长=1750落床面 · 死代码清除</div>
+
+<div class="wrap">
+<div class="left">
+<div class="panel">
+<svg id="sv" viewBox="0 0 1240 660" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs><pattern id="g" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1a212b"/></pattern></defs>
+<rect width="1240" height="660" fill="url(#g)"/>
+<g id="root"></g>
+</svg>
+<div style="font-size:11px;color:var(--dim);text-align:center">👤 175cm · 头朝车尾 · 坐姿脚踩地板线（足部区域=电池顶面上）· 红字=硬约束违规</div>
+</div>
+</div>
+
+<div class="right">
+<div class="ctrl">
+  <div class="sec">模式</div>
+  <div class="modes">
+    <div class="mbtn on" id="m_rsit">二排·坐</div>
+    <div class="mbtn" id="m_rlay">二排·躺床</div>
+    <div class="mbtn on" id="m_ffwd">前排·朝前</div>
+    <div class="mbtn" id="m_fbwd">前排·朝后</div>
+    <div class="mbtn" id="m_top">升顶·开</div>
+  </div>
+
+  <div class="sec">总布置</div>
+  <div class="ctl"><label>全长 L <b id="v_L"></b></label><input type="range" id="L" min="3600" max="4800" step="50"></div>
+  <div class="ctl"><label>外宽 W <b id="v_W"></b></label><input type="range" id="W" min="1600" max="1900" step="10"></div>
+  <div class="ctl"><label>车高 H <b id="v_H"></b></label><input type="range" id="H" min="1500" max="1800" step="10"></div>
+  <div class="ctl"><label>前悬 <b id="v_oh"></b></label><input type="range" id="oh" min="680" max="950" step="10"></div>
+  <div class="ctl"><label>前排椅背首缘 x1 <b id="v_x1"></b></label><input type="range" id="x1" min="1000" max="1350" step="10"></div>
+
+  <div class="sec">座椅与床</div>
+  <div class="ctl"><label>前座垫长 <b id="v_fc"></b></label><input type="range" id="fc" min="420" max="520" step="10"></div>
+  <div class="ctl"><label>二排座垫长 <b id="v_rc"></b></label><input type="range" id="rc" min="420" max="520" step="10"></div>
+  <div class="ctl"><label>背长(放倒) <b id="v_rb"></b></label><input type="range" id="rb" min="500" max="620" step="10"></div>
+  <div class="ctl"><label>腿托长 <b id="v_lr"></b></label><input type="range" id="lr" min="400" max="520" step="10"></div>
+  <div class="ctl"><label>座垫厚度 <b id="v_ct"></b></label><input type="range" id="ct" min="140" max="300" step="10"></div>
+
+  <div class="sec">中岛（杆可全沉地板下）</div>
+  <div class="ctl"><label>中岛宽 <b id="v_isl"></b></label><input type="range" id="isl" min="120" max="240" step="10"></div>
+  <div class="ctl"><label>箱底高度 <b id="v_ih"></b></label><input type="range" id="ih" min="200" max="1300" step="10"></div>
+  <div class="ctl"><label>扶手箱储物深 <b id="v_ib"></b></label><input type="range" id="ib" min="60" max="200" step="10"></div>
+
+  <div class="sec">底盘与车轮</div>
+  <div class="ctl"><label>前离地间隙 <b id="v_gf"></b></label><input type="range" id="gf" min="120" max="220" step="5"></div>
+  <div class="ctl"><label>后离地间隙 <b id="v_gr"></b></label><input type="range" id="gr" min="120" max="220" step="5"></div>
+  <div class="ctl"><label>轮胎直径 <b id="v_td"></b></label><input type="range" id="td" min="600" max="720" step="2"></div>
+  <div class="ctl"><label>电池厚 <b id="v_bt"></b></label><input type="range" id="bt" min="200" max="340" step="10"></div>
+  <div class="ctl"><label>后轴位置(座垫内0→1) <b id="v_ax"></b></label><input type="range" id="ax" min="0" max="1" step="0.01"></div>
+
+  <div class="sec">尾部</div>
+  <div class="ctl"><label>尾仓地板下深 <b id="v_ud"></b></label><input type="range" id="ud" min="200" max="400" step="10"></div>
+  <div class="ctl"><label>升顶抬高 <b id="v_pr"></b></label><input type="range" id="pr" min="200" max="400" step="10"></div>
+
+  <div id="check"></div>
+  <div class="sec">实时尺寸表</div>
+  <table id="tbl"></table>
+</div>
+</div>
+</div>
+
+<script>
+const P = {
+  L:3900, W:1690, H:1660, oh:780, x1:1050,
+  fc:450, rc:490, rb:560, lr:490, ct:220,
+  isl:200, ih:660, ib:120,
+  gf:140, gr:140, td:678, bt:300, ax:0.5,
+  ud:300, pr:300
+};
+const M = {rlay:false, fbwd:false, top:false};
+const defs = {
+  L:[3600,4800,50], W:[1600,1900,10], H:[1500,1800,10], oh:[680,950,10], x1:[1000,1350,10],
+  fc:[420,520,10], rc:[420,520,10], rb:[500,620,10], lr:[400,520,10], ct:[140,300,10],
+  isl:[120,240,10], ih:[200,1300,10], ib:[60,200,10],
+  gf:[120,220,5], gr:[120,220,5], td:[600,720,2], bt:[200,340,10], ax:[0,1,0.01],
+  ud:[200,400,10], pr:[200,400,10]
+};
+for(const k in defs){ const el=document.getElementById(k); el.min=defs[k][0]; el.max=defs[k][1]; el.step=defs[k][2]; el.value=P[k];
+  el.addEventListener('input',()=>{P[k]=+el.value; render();}); }
+for(const [id,key] of [['m_rsit','rlay'],['m_rlay','rlay'],['m_ffwd','fbwd'],['m_fbwd','fbwd'],['m_top','top']]){
+  document.getElementById(id).addEventListener('click',()=>{
+    if(key==='top'){M.top=!M.top;} else {M[key]=(id==='m_rlay'||id==='m_fbwd');}
+    document.getElementById('m_rsit').classList.toggle('on',!M.rlay);
+    document.getElementById('m_rlay').classList.toggle('on',M.rlay);
+    document.getElementById('m_ffwd').classList.toggle('on',!M.fbwd);
+    document.getElementById('m_fbwd').classList.toggle('on',M.fbwd);
+    document.getElementById('m_top').classList.toggle('on',M.top);
+    render();
+  });
+}
+function chain(){
+  const c={};
+  c.fCush0=P.x1; c.fCush1=P.x1+P.fc;
+  c.leg0=c.fCush1; c.leg1=c.leg0+P.lr;
+  c.rCush0=c.leg1; c.rCush1=c.rCush0+P.rc;
+  c.rBack1=c.rCush1+P.rb;
+  c.axle=c.rCush0+P.ax*P.rc;                    // 后轴限定在座垫内(0..1 = 座垫首..尾)
+  c.deck=P.L-c.rBack1;
+  c.bed=P.lr+P.rc+P.rb+Math.max(0,c.deck);
+  c.tail=P.L-c.axle; c.tailPct=c.tail/P.L; c.wb=c.axle-P.oh;
+  c.floor=P.gf+P.bt; c.cush=c.floor+P.ct;
+  c.archFtop=P.gf+P.td+30; c.archRtop=P.gr+P.td+30;
+  c.hump=Math.max(0,c.archRtop-c.cush);
+  c.headroom=P.H-c.cush;
+  c.batt0=Math.max(P.oh+P.td/2+80, 700);        // 电池起点避开前轮包+80
+  c.batt1=c.axle;
+  c.kWh=Math.round(Math.max(0,(c.batt1-c.batt0))*(P.W-410)*P.bt*160/1e9);
+  // 坐姿真实小腿几何：膝=髋前420，踝在地板，小腿430
+  c.kneeH=c.cush-20; c.drop=c.kneeH-c.floor;
+  c.dropOK=c.drop>=140&&c.drop<=320;
+  c.horiz=c.drop<430?Math.sqrt(430*430-c.drop*c.drop):0;
+  // 前排膝部 vs 前轮包
+  c.fHip=c.fCush0+P.fc*0.55; c.fKnee=c.fHip-420;
+  c.archF1=P.oh+P.td/2+45;
+  c.kneeClash=c.fKnee<c.archF1&&c.kneeH<c.archFtop;
+  // 岛柱
+  c.boxBottom=P.ih; c.boxTop=P.ih+P.ib;
+  c.retracted=c.boxBottom<=c.floor;
+  return c;
+}
+const fmt=Math.round;
+// ============ 人体（体积·落位正确）============
+// 坐姿：髋(hx,hy)在座垫面上，脚踝恰在地板线上；face -1=朝车头
+function seatedFull(hx,hy,floorPx,sc,face=-1,color='#e8b0a0',drop,horiz){
+  const HR=110,TH=420,SH=430,FT=250;
+  const knee=[hx+face*TH*sc, hy-20*sc];
+  const ankY=floorPx; const ank=[knee[0]+face*horiz*sc, ankY];
+  return `<g stroke="${color}" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".92">
+    <path d="M${hx},${hy-20*sc} L${knee[0]},${knee[1]}" stroke-width="${150*sc}"/>
+    <path d="M${knee[0]},${knee[1]} L${ank[0]},${ank[1]}" stroke-width="${110*sc}"/>
+    <path d="M${ank[0]},${ankY} L${ank[0]+face*FT*sc},${ankY}" stroke-width="${80*sc}"/>
+    <path d="M${hx-face*40*sc},${hy-40*sc} Q${hx-face*110*sc},${hy-320*sc} ${hx-face*135*sc},${hy-540*sc}" stroke-width="${230*sc}"/>
+    <circle cx="${hx-face*185*sc}" cy="${hy-675*sc}" r="${HR*sc}" fill="${color}" fill-opacity=".22" stroke-width="3"/>
+    <path d="M${hx-face*110*sc},${hy-380*sc} Q${hx-face*230*sc},${hy-330*sc} ${hx-face*250*sc},${hy-80*sc}" stroke-width="${85*sc}" opacity=".75"/>
+  </g>`;
+}
+// 躺姿：总长(含头)=1750，身体底边贴床面；头心在(px,py) py=床面+肩厚/2
+function lying(px,bedY,sc,color='#e8b0a0'){
+  const TOTAL=1750, HR=110;
+  const SH=300, LG=200, ARM=90; // 肩胸厚/腿厚/臂厚 mm
+  const py=bedY-SH/2*sc;      // 中心线使身体底边=床面
+  const px2=px-HR*sc;         // 颈根
+  const heel=px-TOTAL*sc;     // 脚跟(头心前1750)
+  const seg=(t0,t1,w)=>{ const a=px2+(heel-px2)*t0, b=px2+(heel-px2)*t1;
+    return `<path d="M${a},${py+6*sc} L${b},${py+6*sc}" stroke-width="${w*sc}"/>`;};
+  return `<g stroke="${color}" fill="none" stroke-linecap="round" opacity=".92">
+    <circle cx="${px}" cy="${py-20*sc}" r="${HR*sc}" fill="${color}" fill-opacity=".22" stroke-width="3"/>
+    ${seg(0,0.28,SH)}
+    ${seg(0.28,0.55,LG)}
+    ${seg(0.55,0.78,LG)}
+    ${seg(0.78,1.0,140)}
+    <path d="M${px2-10*sc},${py+80*sc} L${heel+(TOTAL*0.45)*sc},${py+70*sc}" stroke-width="${ARM*sc}" opacity=".7"/>
+  </g>`;
+}
+function render(){
+  const c=chain();
+  for(const k in defs){document.getElementById('v_'+k).textContent=(k==='ax')?(+P.ax).toFixed(2):P[k];}
+  const svg=document.getElementById('root');
+  // viewBox 自适应：总高最大 = H+pr
+  const totalH=P.H+(M.top?P.pr:0);
+  const sc=Math.min(980/P.L, 560/totalH);
+  const GY=600; // 地面y
+  const X=x=>70+x*sc, Y=h=>GY-h*sc;
+  let s='';
+  // ===== body =====
+  const hoodH=P.gf+520, sill=c.cush+290, wsB=P.x1-120;
+  s+=`<path d="M${X(0)},${Y(0)} L${X(0)},${Y(P.gf+380)} L${X(P.oh*0.3)},${Y(hoodH)} L${X(wsB)},${Y(P.gf+820)} L${X(P.x1+180)},${Y(P.H)} L${X(P.L-1150)},${Y(P.H)} L${X(P.L-620)},${Y(P.H-210)} L${X(P.L-260)},${Y(P.gr+760)} L${X(P.L)},${Y(P.gr+460)} L${X(P.L)},${Y(0)} Z" fill="#101820" stroke="#4a6076" stroke-width="2.5"/>`;
+  s+=`<path d="M${X(wsB+40)},${Y(sill+40)} L${X(P.x1+220)},${Y(P.H-40)} L${X(P.L-1200)},${Y(P.H-40)} L${X(P.L-700)},${Y(sill+150)} L${X(P.L-680)},${Y(sill+40)} Z" fill="#0a2a3a" stroke="#3a5a70" stroke-width="1.4"/>`;
+  s+=`<line x1="40" y1="${Y(0)}" x2="1200" y2="${Y(0)}" stroke="#2d3742" stroke-width="2"/>`;
+  // ===== floor =====
+  s+=`<line x1="${X(c.batt0-40)}" y1="${Y(c.floor)}" x2="${X(P.L-400)}" y2="${Y(c.floor)}" stroke="#7d95a8" stroke-width="2"/>`;
+  s+=`<text x="${X(P.oh+380)}" y="${Y(c.floor)+14}" fill="#8fb3cc" font-size="10">地板 ${fmt(c.floor)}（脚踩此线）</text>`;
+  // ===== battery (起点避前轮包) =====
+  s+=`<rect x="${X(c.batt0)}" y="${Y(c.floor)}" width="${Math.max(0,(c.batt1-c.batt0))*sc}" height="${P.bt*sc}" fill="#132434" stroke="#56c8d8" stroke-width="1.8" rx="3"/>`;
+  s+=`<text x="${X(c.batt0+Math.max(0,c.batt1-c.batt0)/2)}" y="${Y(c.floor-P.bt/2)+4}" fill="#56c8d8" font-size="10.5" text-anchor="middle" font-weight="700">电池 x${fmt(c.batt0)}–${fmt(c.batt1)} ≈${c.kWh}kWh</text>`;
+  // ===== wheels + concentric arches =====
+  const r=P.td/2*sc, wy=Y(P.td/2);
+  for(const [ax,gc] of [[P.oh,P.gf],[c.axle,P.gr]]){
+    const cx=X(ax), archR=r+45*sc;
+    s+=`<path d="M${cx-archR},${Y(gc)} A${archR},${archR} 0 0,1 ${cx+archR},${Y(gc)} L${cx+archR},${Y(gc+90)} L${cx-archR},${Y(gc+90)} Z" fill="#0d1420" stroke="#2d3742" stroke-width="2"/>`;
+    s+=`<circle cx="${cx}" cy="${wy}" r="${r}" fill="#0a0f14" stroke="#5a7086" stroke-width="3"/>`;
+    s+=`<circle cx="${cx}" cy="${wy}" r="${r*0.55}" fill="none" stroke="#43586c" stroke-width="4"/>`;
+    for(let a=0;a<6;a++){const t=a*Math.PI/3;
+      s+=`<line x1="${cx+Math.cos(t)*r*0.55}" y1="${wy+Math.sin(t)*r*0.55}" x2="${cx+Math.cos(t)*r*0.92}" y2="${wy+Math.sin(t)*r*0.92}" stroke="#43586c" stroke-width="2.5"/>`;}
+  }
+  // ===== bed / deck =====
+  const by=Y(c.cush);
+  s+=`<line x1="${X(c.rBack1)}" y1="${by}" x2="${X(P.L-20)}" y2="${by}" stroke="#5fd08a" stroke-width="3"/>`;
+  if(c.hump>0&&c.deck>0){
+    const hx0=Math.max(c.rBack1, c.axle-P.td/2-60), hx1=Math.min(P.L-20, c.axle+P.td/2+60);
+    if(hx1>hx0){ s+=`<line x1="${X(hx0)}" y1="${Y(c.cush+c.hump)}" x2="${X(hx1)}" y2="${Y(c.cush+c.hump)}" stroke="#5fd08a" stroke-width="3"/>`;
+      s+=`<line x1="${X(hx0)}" y1="${by}" x2="${X(hx0)}" y2="${Y(c.cush+c.hump)}" stroke="#5fd08a" stroke-width="1.5"/>`;
+      s+=`<line x1="${X(hx1)}" y1="${by}" x2="${X(hx1)}" y2="${Y(c.cush+c.hump)}" stroke="#5fd08a" stroke-width="1.5"/>`;}
+  }
+  // ===== rear seats =====
+  if(!M.rlay){
+    s+=`<rect x="${X(c.rCush0)}" y="${by}" width="${P.rc*sc}" height="${18*sc}" fill="#22303e" stroke="#8fb3cc" stroke-width="1.5"/>`;
+    s+=`<path d="M${X(c.rCush1)},${by+18*sc} L${X(c.rCush1)},${Y(c.cush+560)} L${X(c.rCush1+24*sc)},${Y(c.cush+557)} L${X(c.rCush1+24*sc)},${by+18*sc} Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.5"/>`;
+    s+=seatedFull(X(c.rCush0+P.rc*0.55), by, Y(c.floor), sc, -1, '#e8b0a0', c.drop, c.horiz);
+    s+=`<text x="${X(c.rCush0+30)}" y="${by+40*sc}" fill="#e8b0a0" font-size="9">小腿落差${fmt(c.drop)}</text>`;
+  } else {
+    s+=`<rect x="${X(c.leg0)}" y="${by}" width="${(c.rBack1-c.leg0)*sc}" height="${18*sc}" fill="#22303e" stroke="#8fb3cc" stroke-width="1.5"/>`;
+    const bedR=Math.min(P.L-40, c.rBack1+c.deck-40);
+    s+=lying(X(bedR), by, sc);
+    s+=`<text x="${X(bedR-875)}" y="${by-190*sc}" fill="#e8b0a0" font-size="10" text-anchor="middle">👤1750 · 头朝车尾 · 从最后端起</text>`;
+  }
+  s+=`<text x="${X(c.leg0+P.lr/2)}" y="${by+18*sc+14}" fill="#5fd08a" font-size="10" text-anchor="middle">腿托${P.lr}</text>`;
+  s+=`<text x="${X(c.rCush0+P.rc/2)}" y="${by+18*sc+30}" fill="#5fd08a" font-size="10" text-anchor="middle">座垫${P.rc}·轴x${fmt(c.axle)}</text>`;
+  if(M.rlay) s+=`<text x="${X(c.rCush1+P.rb/2)}" y="${by+18*sc+14}" fill="#5fd08a" font-size="10" text-anchor="middle">背${P.rb}</text>`;
+  // ===== front seat =====
+  if(!M.fbwd){
+    s+=`<rect x="${X(c.fCush0)}" y="${by}" width="${P.fc*sc}" height="${18*sc}" fill="#22303e" stroke="#8fb3cc" stroke-width="1.5"/>`;
+    s+=`<path d="M${X(c.fCush1)},${by+18*sc} L${X(c.fCush1)},${Y(c.cush+560)} L${X(c.fCush1+24*sc)},${Y(c.cush+557)} L${X(c.fCush1+24*sc)},${by+18*sc} Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.5"/>`;
+    s+=seatedFull(X(c.fCush0+P.fc*0.55), by, Y(c.floor), sc, -1, '#a0c8e8', c.drop, c.horiz);
+    if(c.kneeClash) s+=`<text x="${X(c.fKnee)}" y="${Y(c.archFtop)-8}" fill="#e57373" font-size="9.5" text-anchor="middle">⚠ 膝部进前轮包</text>`;
+  } else {
+    s+=`<rect x="${X(c.fCush0)}" y="${by}" width="${P.fc*sc}" height="${18*sc}" fill="#22303e" stroke="#b48ead" stroke-width="1.5"/>`;
+    s+=`<path d="M${X(c.fCush0)},${by+18*sc} L${X(c.fCush0)},${Y(c.cush+560)} L${X(c.fCush0-24*sc)},${Y(c.cush+557)} L${X(c.fCush0-24*sc)},${by+18*sc} Z" fill="#22303e" stroke="#b48ead" stroke-width="1.5"/>`;
+    s+=`<text x="${X(c.fCush0+P.fc/2)}" y="${by-10}" fill="#b48ead" font-size="9.5" text-anchor="middle">旋转180°·朝后</text>`;
+  }
+  // ===== island: 薄实心椭圆杆 + 信箱扶手箱；杆可沉入地板下 =====
+  const i0=c.fCush0+P.fc*0.55, i1=i0+P.isl;
+  const rodW=(i1-i0)*0.45, icx=(i0+i1)/2;
+  if(c.retracted){
+    // 杆沉入地板下：画地板下口袋内的杆顶
+    s+=`<rect x="${X(icx-rodW/2)}" y="${Y(c.floor)}" width="${rodW*sc}" height="${(c.floor-c.boxBottom)*sc}" fill="#2a2033" stroke="#b48ead" stroke-width="1.3" stroke-dasharray="4 3" opacity=".8"/>`;
+    s+=`<text x="${X(icx)}" y="${Y(c.floor)-6}" fill="#b48ead" font-size="9" text-anchor="middle">杆已沉入地板下 ✓</text>`;
+  } else {
+    s+=`<rect x="${X(icx-rodW/2)}" y="${Y(c.boxBottom)}" width="${rodW*sc}" height="${(c.boxBottom-c.floor)*sc}" fill="#2a2033" stroke="#b48ead" stroke-width="1.6" rx="${rodW*sc/2}"/>`;
+  }
+  if(c.boxBottom>=c.floor){
+    s+=`<rect x="${X(i0)}" y="${Y(c.boxTop)}" width="${(i1-i0)*sc}" height="${P.ib*sc}" fill="#332842" stroke="#d8c0e0" stroke-width="1.8" rx="6"/>`;
+    s+=`<rect x="${X(i0+10)}" y="${Y(c.boxTop)}" width="${(i1-i0-20)*sc}" height="${(P.ib*0.35)*sc}" fill="#121820" stroke="#8a7a96" stroke-width="1"/>`;
+    s+=`<text x="${X(i1+10)}" y="${Y(c.boxTop)+10}" fill="#b48ead" font-size="9.5">信箱储物深${P.ib}</text>`;
+    s+=`<text x="${X(i1+10)}" y="${Y(c.boxTop)+24}" fill="#8a7a96" font-size="9">台面${fmt(c.boxTop)} · 箱底${fmt(c.boxBottom)}</text>`;
+  }
+  // ===== poptop =====
+  s+=`<path d="M${X(c.rCush0-200)},${Y(P.H)} L${X(P.L-1200)},${Y(P.H)}" stroke="#4aa3ff" stroke-width="2.5" stroke-dasharray="9 5"/>`;
+  if(M.top){
+    s+=`<path d="M${X(c.rCush0-190)},${Y(P.H)} Q${X(c.rCush0-160)},${Y(P.H+P.pr*0.85)} ${X(c.rCush0-60)},${Y(P.H+P.pr)} L${X(P.L-1280)},${Y(P.H+P.pr)} Q${X(P.L-1200)},${Y(P.H+P.pr*0.85)} ${X(P.L-1190)},${Y(P.H)}" fill="none" stroke="#4aa3ff" stroke-width="1.8"/>`;
+    s+=lying(X(P.L-1260), Y(P.H+P.pr)-40*sc, sc, '#7fc4ff');
+    s+=`<text x="${X((c.rCush0+P.L)/2)}" y="${Y(P.H+P.pr)-8}" fill="#4aa3ff" font-size="10.5" text-anchor="middle">升顶+${P.pr} · 👤1750 头朝车尾</text>`;
+  } else {
+    s+=`<text x="${X((c.rCush0+P.L)/2)}" y="${Y(P.H)-10}" fill="#4aa3ff" font-size="10" text-anchor="middle">升顶闭合（开启+${P.pr}）</text>`;
+  }
+  // ===== rear beam + L partition =====
+  const rx=c.rBack1+120;
+  if(c.deck>0){
+    s+=`<rect x="${X(rx)}" y="${by+3}" width="${Math.min(c.deck*0.5,500)*sc}" height="7" fill="#2b3a48" stroke="#7d95a8" stroke-width="1.5"/>`;
+    s+=`<text x="${X(rx+80)}" y="${by-8}" fill="#8fb3cc" font-size="9">后纵梁</text>`;
+    if(!M.rlay){
+      s+=`<line x1="${X(c.rBack1)}" y1="${by}" x2="${X(c.rBack1)}" y2="${Y(c.floor-P.ud+40)}" stroke="#e8d174" stroke-width="3.5"/>`;
+      s+=`<text x="${X(c.rBack1+8)}" y="${Y(c.floor-P.ud+80)}" fill="#e8d174" font-size="9">L隔板90°</text>`;
+      s+=`<text x="${X(c.rBack1+c.deck/2)}" y="${Y(c.floor-P.ud+30)}" fill="#56c8d8" font-size="9.5" text-anchor="middle">下仓 深${P.ud}</text>`;
+    } else {
+      s+=`<line x1="${X(c.rBack1)}" y1="${by}" x2="${X(rx)}" y2="${by}" stroke="#e8d174" stroke-width="2.5" stroke-dasharray="5 4" opacity=".7"/>`;
+      s+=`<text x="${X(c.rBack1+120)}" y="${by-20}" fill="#e8d174" font-size="9">隔板放平(落后纵梁)</text>`;
+    }
+  }
+  // front beam
+  s+=`<rect x="${X(P.oh*0.35)}" y="${Y(P.gf+P.td-140)}" width="${Math.max(50,P.oh*0.3*sc)}" height="8" fill="#2b3a48" stroke="#7d95a8" stroke-width="1.5"/>`;
+  s+=`<text x="${X(P.oh*0.45)}" y="${Y(P.gf+P.td-140)-8}" fill="#8fb3cc" font-size="9">前纵梁</text>`;
+  // axle marker
+  s+=`<line x1="${X(c.axle)}" y1="${by}" x2="${X(c.axle)}" y2="${Y(0)}" stroke="#e57373" stroke-width="1" stroke-dasharray="5 4" opacity=".6"/>`;
+  // ===== chains =====
+  const hts=[[0,'0'],[c.floor,'地板'+fmt(c.floor)],[c.cush,'座面'+fmt(c.cush)],[c.cush+560,'背顶'+fmt(c.cush+560)],[P.H,'顶'+P.H]];
+  if(M.top) hts.push([P.H+P.pr,'升顶'+(P.H+P.pr)]);
+  s+=`<line x1="50" y1="${Y(0)}" x2="50" y2="${Y(totalH)}" stroke="#7d95a8" stroke-width="1"/>`;
+  for(const [h,t] of hts){ s+=`<line x1="44" y1="${Y(h)}" x2="56" y2="${Y(h)}" stroke="#7d95a8"/><text x="58" y="${Y(h)+3}" fill="#8fb3cc" font-size="8.5">${t}</text>`; }
+  s+=`<line x1="${X(0)}" y1="${Y(0)+44}" x2="${X(P.L)}" y2="${Y(0)+44}" stroke="#7d95a8"/>`;
+  s+=`<text x="${X(P.oh/2)}" y="${Y(0)+58}" fill="#8fb3cc" font-size="9.5" text-anchor="middle">前悬${P.oh}</text>`;
+  s+=`<text x="${X((P.oh+c.axle)/2)}" y="${Y(0)+58}" fill="#8fb3cc" font-size="9.5" text-anchor="middle">轴距${fmt(c.wb)}</text>`;
+  s+=`<text x="${X((c.axle+P.L)/2)}" y="${Y(0)+58}" fill="#8fb3cc" font-size="9.5" text-anchor="middle">尾悬${fmt(c.tail)} (${Math.round(c.tailPct*100)}%)</text>`;
+  svg.innerHTML=s;
+  // ===== checks (硬=红) =====
+  const boxTopExceeds=c.boxTop>P.H-50;
+  let m=[];
+  const hard=(cond,okTxt,badTxt)=>cond?`<span class="ok">✓ ${okTxt}</span>`:`<span class="warn">✗ ${badTxt}</span>`;
+  m.push(hard(c.bed>=1750,`床链 ${fmt(c.bed)} ≥1750`,`床链 ${fmt(c.bed)} &lt;1750`));
+  m.push(hard(c.deck>=250,`尾台 ${fmt(c.deck)} ≥250`,`尾台 ${fmt(c.deck)}（背平末端越过尾门！）`));
+  m.push(hard(c.tailPct<0.45,`尾悬 ${Math.round(c.tailPct*100)}%`,`尾悬 ${Math.round(c.tailPct*100)}%`));
+  m.push(hard(c.headroom>=950,`净高 ${fmt(c.headroom)}`,`净高 ${fmt(c.headroom)} &lt;950（头顶穿顶）`));
+  m.push(hard(!boxTopExceeds,`岛箱顶 ${fmt(c.boxTop)} ≤ 顶-50`,`岛箱顶 ${fmt(c.boxTop)} 穿顶（H=${P.H}）`));
+  m.push(!M.fbwd||c.retracted?`<span class="ok">✓ ${M.fbwd?'旋转模式：杆沉入地板下':'岛柱箱底 '+fmt(c.boxBottom)}</span>`
+    :`<span class="warn">✗ 旋转模式但杆未沉入地板下（箱底${fmt(c.boxBottom)} &gt; 地板${fmt(c.floor)}）— 旋转必碰撞</span>`);
+  m.push(hard(c.dropOK,`小腿落差 ${fmt(c.drop)}（140–320）`,`小腿落差 ${fmt(c.drop)} 超范围（140–320）`));
+  m.push(!c.kneeClash?`<span class="ok">✓ 前排膝部避开前轮包</span>`:`<span class="warn">✗ 前排膝部(膝x≈${fmt(c.fKnee)})进前轮包（包后缘${fmt(c.archF1)}）— 后移x1或缩短前悬</span>`);
+  m.push(hard(c.kWh>=60,`电池 ≈${c.kWh}kWh`,`电池 ${c.kWh}kWh &lt;60（前段被前轮包挤占）`));
+  m.push(hard(c.hump<=60,`后包波峰 +${fmt(c.hump)}`,`后包波峰 +${fmt(c.hump)} &gt;60 床不可用`));
+  m.push(P.ax>=0&&P.ax<=1&&c.axle>=c.rCush0&&c.axle<=c.rCush1?`<span class="ok">✓ 后轴在座垫内</span>`:`<span class="warn">✗ 后轴不在座垫内</span>`);
+  const fitBed=c.bed>=1830;
+  m.push(fitBed||!M.rlay?`<span class="ok">✓ 躺位容纳1750人</span>`:(M.rlay?`<span class="flag">△ 床 ${fmt(c.bed)} 略短于1750人+枕</span>`:''));
+  document.getElementById('check').innerHTML='<div class="sec">约束校验（✗=硬违规，需调参）</div>'+m.join('<br>');
+  document.getElementById('tbl').innerHTML=`
+  <tr><th>项</th><th>值</th></tr>
+  <tr><td>全长×宽×高</td><td class="n">${P.L}×${P.W}×${P.H}</td></tr>
+  <tr><td>轴距/尾悬</td><td class="n">${fmt(c.wb)} / ${fmt(c.tail)}</td></tr>
+  <tr><td>床链/尾台</td><td class="n">${fmt(c.bed)} / ${fmt(c.deck)}</td></tr>
+  <tr><td>地板/座面</td><td class="n">${fmt(c.floor)} / ${fmt(c.cush)}</td></tr>
+  <tr><td>小腿落差</td><td class="n">${fmt(c.drop)}</td></tr>
+  <tr><td>电池x段</td><td class="n">${fmt(c.batt0)}–${fmt(c.batt1)} ≈${c.kWh}kWh</td></tr>
+  <tr><td>岛台面/储深</td><td class="n">${fmt(Math.max(c.boxBottom,c.floor)+ (c.boxBottom>=c.floor?P.ib:0))} / ${P.ib}</td></tr>
+  <tr><td>前/后离地</td><td class="n">${P.gf} / ${P.gr}</td></tr>
+  <tr><td>升顶总高</td><td class="n">${P.H+P.pr}</td></tr>`;
+}
+render();
+</script>
+</body>
+</html>

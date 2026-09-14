@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可变多形态座舱跨界车 · 尺寸蓝图 v2（精确推算版）</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#141a22; --line:#2d3742; --ink:#c9d4e0; --dim:#6b7a8c;
+    --blue:#4aa3ff; --green:#5fd08a; --orange:#f0a35e; --purple:#b48ead;
+    --cyan:#56c8d8; --yellow:#e8d174; --red:#e57373;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:20px;font-size:14px}
+  h1{font-size:20px} h1 .en{color:var(--dim);font-size:11px;font-weight:400;margin-left:10px;letter-spacing:1px}
+  .sub{color:var(--dim);font-size:12px;margin:4px 0 14px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .tab{padding:7px 14px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--dim);cursor:pointer;font-size:12.5px}
+  .tab.on{color:#fff;background:#1c2f45;border-color:var(--blue)}
+  .panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}
+  .panel.on{display:block}
+  svg{display:block;margin:0 auto}
+  text{font-family:inherit}
+  .note{font-size:11.5px;color:var(--dim);margin-top:8px;line-height:1.7}
+  table{border-collapse:collapse;margin:10px auto;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:5px 12px;text-align:left}
+  th{color:var(--dim);font-weight:600;background:#10161d}
+  td.n{font-family:ui-monospace,monospace;color:var(--blue);text-align:right}
+  .flag{color:var(--orange)}
+</style>
+</head>
+<body>
+<h1>可变多形态座舱跨界车 <span class="en">DIMENSIONED BLUEPRINT · SCALE 1:20 (grid = 100 mm)</span></h1>
+<div class="sub">v2 · 由内部硬约束反推全部尺寸 ｜ L4120 × W1690 × H1660（升顶+200=1860）｜ 轴距 2520 ｜ 床面高 660 ｜ 纯机械变形</div>
+
+<div class="tabs">
+  <div class="tab on" data-p="p1">① 侧视剖切 + 尺寸链</div>
+  <div class="tab" data-p="p2">② 横剖面（旋转校验）</div>
+  <div class="tab" data-p="p3">③ 俯视平面（宽度分配）</div>
+  <div class="tab" data-p="p4">④ 尺寸总表 & 约束校验</div>
+</div>
+
+<!-- ══════════ ① 侧视 ══════════ -->
+<div class="panel on" id="p1">
+<svg viewBox="0 0 1220 780" width="1180" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0L8,4L0,8z" fill="#7d95a8"/></marker>
+  <pattern id="g" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1a212b"/></pattern>
+  <pattern id="h1" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line y2="7" stroke="#3a4a5a" stroke-width="1.3"/></pattern>
+  <pattern id="h2" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><line y2="6" stroke="#33505c" stroke-width="1"/></pattern>
+</defs>
+<rect width="1220" height="780" fill="url(#g)"/>
+<!-- scale: 1mm = 0.25px. X: car x(mm)->px: 60 + x*0.25. Y: y(mm above ground)->px: 740 - y*0.25 -->
+
+<!-- ===== 大床放平态主轮廓（此图为驻车大床模式） ===== -->
+<!-- ground y=740px ; 100mm=25px -->
+
+<!-- 外轮廓（侧面，长4120 x=0..4120 → px 60..1090, 高1660 → 顶 740-415=325） -->
+<path d="M60,705 L60,668 Q62,660 80,657 L150,646 L205,634 Q265,624 300,621 L340,618 Q375,530 445,495 L520,480 L840,480 L925,492 Q968,510 995,560 L1020,660 L1022,705 Z"
+      fill="#101820" stroke="#4a6076" stroke-width="2.5"/>
+
+<!-- 车窗带 -->
+<path d="M358,618 Q392,540 455,512 L520,496 L820,496 L888,508 Q930,526 952,565 L840,585 L470,585 Z" fill="#0a2a3a" stroke="#3a5a70" stroke-width="1.4"/>
+<line x1="600" y1="496" x2="600" y2="585" stroke="#4a6076" stroke-width="5"/>
+<line x1="800" y1="498" x2="800" y2="583" stroke="#4a6076" stroke-width="5"/>
+
+<!-- 升顶（行车闭合线=车顶；驻车升起+200mm=50px → 顶到275px） -->
+<path d="M520,480 L840,480" stroke="#4aa3ff" stroke-width="3" stroke-dasharray="9 5"/>
+<path d="M528,480 Q532,438 556,430 L806,430 Q834,438 838,480" fill="none" stroke="#4aa3ff" stroke-width="1.8" stroke-dasharray="4 4" opacity=".6"/>
+<text x="683" y="422" fill="#4aa3ff" font-size="12.5" text-anchor="middle">玻璃升顶 驻车 +200mm（第三层·1大1小卧位）</text>
+
+<!-- ===== 床面（全部660mm → px y = 740-165 = 575） ===== -->
+<line x1="330" y1="575" x2="1035" y2="575" stroke="#5fd08a" stroke-width="3.5"/>
+<!-- 床垫分层标注 -->
+<text x="700" y="569" fill="#5fd08a" font-size="11.5" text-anchor="middle">贯通大床 H=660：软包面层连续（腿托+座垫+靠背+二层台）</text>
+
+<!-- 床分段分隔细线 -->
+<line x1="415" y1="575" x2="415" y2="582" stroke="#5fd08a" stroke-width="1.5"/>
+<line x1="545" y1="575" x2="545" y2="582" stroke="#5fd08a" stroke-width="1.5"/>
+<line x1="615" y1="575" x2="615" y2="582" stroke="#5fd08a" stroke-width="1.5"/>
+<line x1="960" y1="575" x2="960" y2="582" stroke="#5fd08a" stroke-width="1.5"/>
+
+<!-- 床段标注（mm链） -->
+<g font-size="11.5" text-anchor="middle">
+  <text x="372" y="598" fill="#5fd08a">腿托 490</text>
+  <text x="480" y="598" fill="#5fd08a">座垫 490</text>
+  <text x="580" y="598" fill="#5fd08a">靠背 130</text>
+  <text x="787" y="598" fill="#5fd08a">二层平台 690</text>
+  <text x="692" y="614" fill="#3d6a52" font-size="10.5">Σ = 1800 ≥ 1750 ✓（未含前排旋转，留有余量）</text>
+</g>
+
+<!-- ===== 前排（行车朝前，虚线）+ 旋转后（实线） ===== -->
+<!-- 前排座椅 HPS x≈1400-1900mm → px 410..535 -->
+<g stroke-dasharray="5 4" opacity=".85">
+  <path d="M430,575 L444,455 L470,451 L464,575 Z" fill="none" stroke="#6b7a8c" stroke-width="1.6"/>
+</g>
+<!-- 旋转180°后背靠前挡（实线） -->
+<path d="M430,575 L416,455 L390,451 L396,575 Z" fill="#22303e" stroke="#b48ead" stroke-width="1.8"/>
+<circle cx="447" cy="570" r="6" fill="none" stroke="#b48ead" stroke-width="2.2"/>
+<text x="405" y="440" fill="#b48ead" font-size="12" text-anchor="middle" font-weight="700">前排旋转座椅</text>
+<text x="405" y="454" fill="#6b7a8c" font-size="10">虚线=行车朝前 · 实线=驻车180°</text>
+
+<!-- ===== 中岛：可升降细椭圆立柱 + 扶手箱 ===== -->
+<!-- 立柱 x 1450-1650mm → px 422..472 ; 降下顶=座垫顶660+~180扶手→840mm→y607 -->
+<g id="islandLow">
+  <rect x="424" y="555" width="46" height="20" fill="#1c2a36" stroke="#b48ead" stroke-width="1.6" rx="8" opacity=".35"/>
+</g>
+<!-- 升起态：柱从底座伸出，顶面抬高至 ~1230mm → y 432 -->
+<path d="M434,575 L434,470 M460,575 L460,470" stroke="#b48ead" stroke-width="3"/>
+<rect x="424" y="455" width="46" height="18" fill="#1c2a36" stroke="#d8c0e0" stroke-width="1.8" rx="7"/>
+<text x="545" y="452" fill="#b48ead" font-size="11.5">中岛立柱（细椭圆Ø≈180）</text>
+<text x="545" y="466" fill="#b48ead" font-size="10.5">升起=台面 / 降下=与座垫齐平→双人沙发</text>
+<line x1="540" y1="462" x2="472" y2="462" stroke="#b48ead" stroke-width="1" marker-end="url(#a)" opacity=".6"/>
+
+<!-- ===== 二排座垫（后轴上方）+ 腿托（联动立起） ===== -->
+<!-- 后轴 3520mm → px 940。座垫 x 2620-3400 → 715..910 -->
+<!-- 腿托立起（联动态）x 1800-2290 → 510..632 -->
+<rect x="512" y="470" width="120" height="105" fill="#22303e" stroke="#8fb3cc" stroke-width="1.8" rx="6" transform="rotate(0 512 470)"/>
+<!-- 腿托放平（床态）为床面本身。联动杆示意 -->
+<line x1="632" y1="470" x2="715" y2="470" stroke="#8fb3cc" stroke-width="0" />
+<!-- 靠背放平即床段130（545..615px）。虚线坐姿 -->
+<g stroke-dasharray="5 4" opacity=".8">
+  <path d="M715,575 L715,462 L741,458 L741,575 Z" fill="none" stroke="#6b7a8c" stroke-width="1.6"/>
+  <path d="M741,575 L697,470 L683,476 L715,575" fill="none" stroke="#6b7a8c" stroke-width="1.4"/>
+</g>
+<!-- 腿托立起实线 -->
+<path d="M715,575 L715,462 L741,458 L741,575 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.8"/>
+<path d="M683,575 L697,472 L719,476 L703,575 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.8"/>
+<!-- 刚性连杆 -->
+<line x1="700" y1="500" x2="760" y2="470" stroke="#f0a35e" stroke-width="2"/>
+<circle cx="760" cy="470" r="3.5" fill="#f0a35e"/>
+<circle cx="700" cy="500" r="3.5" fill="#f0a35e"/>
+<text x="640" y="430" fill="#8fb3cc" font-size="12" text-anchor="middle" font-weight="700">二排：靠背向后放倒 ⇄ 腿托刚性联动顶起</text>
+<text x="640" y="444" fill="#6b7a8c" font-size="10">虚线=行车坐姿 · 实线=床态（重心杆示意）</text>
+
+<!-- ===== 后备箱双层 + L隔板 ===== -->
+<!-- 二层顶=660(床面) ; 一层底=380mm→y645 ; L隔板 x 3240 → 870 -->
+<line x1="870" y1="575" x2="870" y2="645" stroke="#e8d174" stroke-width="4"/>
+<line x1="870" y1="575" x2="918" y2="645" stroke="#e8d174" stroke-width="2" stroke-dasharray="5 4" opacity=".6"/>
+<text x="955" y="545" fill="#e8d174" font-size="11.5">L隔板 340宽·三档</text>
+<text x="955" y="558" fill="#a89460" font-size="10">90°锁止/45°榻/全平床</text>
+<!-- 湿区 -->
+<rect x="870" y="575" width="165" height="70" fill="url(#h2)" opacity=".55"/>
+<path d="M880,638 Q950,631 1030,638" fill="none" stroke="#56c8d8" stroke-width="1.8" opacity=".8"/>
+<text x="952" y="668" fill="#56c8d8" font-size="11.5" text-anchor="middle">一层湿区 深340 · 不锈钢可冲洗</text>
+<!-- 尾门 -->
+<text x="1040" y="560" fill="#6b7a8c" font-size="10" transform="rotate(90 1040 560)">尾门 + 投影幕（吊装于最尾端顶部）</text>
+
+<!-- ===== 吊柜（顶两侧，侧视投影） ===== -->
+<rect x="560" y="486" width="90" height="30" fill="#1a2e22" stroke="#5fd08a" stroke-width="1.6" opacity=".9"/>
+<text x="605" y="506" fill="#3d6a52" font-size="9.5" text-anchor="middle">吊柜(侧)</text>
+
+<!-- ===== 横梁：投影幕 + 防直射灯 ===== -->
+<line x1="838" y1="500" x2="1035" y2="500" stroke="#4aa3ff" stroke-width="1.5" stroke-dasharray="3 3" opacity=".8"/>
+<circle cx="1020" cy="496" r="4" fill="none" stroke="#e8d174" stroke-width="1.6"/>
+<text x="960" y="486" fill="#4aa3ff" font-size="10" text-anchor="middle">横梁：投影幕下拉至尾端 ｜ ◌防直射灯(避开幕面)</text>
+
+<!-- ===== 电池 + 电机 ===== -->
+<rect x="440" y="648" width="480" height="34" fill="#132434" stroke="#56c8d8" stroke-width="2" rx="5"/>
+<text x="680" y="670" fill="#56c8d8" font-size="12" text-anchor="middle" font-weight="700">动力电池 480厚 · 前轴后160 → 后轴前120</text>
+<rect x="905" y="640" width="70" height="45" fill="#1a1f26" stroke="#e57373" stroke-width="1.6" rx="4"/>
+<text x="940" y="666" fill="#e57373" font-size="10.5" text-anchor="middle">后电机</text>
+
+<!-- ===== 前溃缩梁 ===== -->
+<rect x="86" y="655" width="22" height="50" fill="#2b3a48" stroke="#7d95a8" stroke-width="1.8"/>
+<rect x="130" y="650" width="22" height="55" fill="#2b3a48" stroke="#7d95a8" stroke-width="1.8"/>
+<text x="130" y="640" fill="#8fb3cc" font-size="11" text-anchor="middle">双溃缩梁 780区</text>
+<rect x="160" y="660" width="36" height="26" fill="#152430" stroke="#f0a35e" stroke-width="1.4" rx="3"/>
+<text x="178" y="677" fill="#f0a35e" font-size="8.5" text-anchor="middle">12V</text>
+
+<!-- ===== 车轮 ===== -->
+<circle cx="345" cy="700" r="42" fill="#0a0f14" stroke="#5a7086" stroke-width="3"/>
+<circle cx="345" cy="700" r="23" fill="none" stroke="#43586c" stroke-width="4"/>
+<circle cx="940" cy="700" r="42" fill="#0a0f14" stroke="#5a7086" stroke-width="3"/>
+<circle cx="940" cy="700" r="23" fill="none" stroke="#43586c" stroke-width="4"/>
+
+<!-- ===== 地面 ===== -->
+<line x1="30" y1="742" x2="1140" y2="742" stroke="#2d3742" stroke-width="2"/>
+
+<!-- ===== 垂直尺寸链（左侧） ===== -->
+<g stroke="#7d95a8" stroke-width="1" font-size="10.5" fill="#8fb3cc">
+  <line x1="40" y1="740" x2="40" y2="325"/>
+  <line x1="34" y1="740" x2="46" y2="740"/><line x1="34" y1="575" x2="46" y2="575"/>
+  <line x1="34" y1="480" x2="46" y2="480"/><line x1="34" y1="325" x2="46" y2="325"/>
+</g>
+<text x="26" y="660" fill="#8fb3cc" font-size="11" transform="rotate(-90 26 660)" text-anchor="middle">H1660（升顶+200=1860）</text>
+<text x="52" y="655" fill="#5fd08a" font-size="10">660 床面</text>
+<text x="52" y="530" fill="#5fd08a" font-size="10">床→顶 1000</text>
+<text x="52" y="400" fill="#4aa3ff" font-size="10">升顶空间200</text>
+
+<!-- ===== 纵向尺寸链（底部） ===== -->
+<g stroke="#7d95a8" stroke-width="1">
+  <line x1="60" y1="725" x2="345" y2="725"/><line x1="345" y1="725" x2="940" y2="725"/><line x1="940" y1="725" x2="1090" y2="725"/>
+  <line x1="60" y1="755" x2="1090" y2="755"/>
+</g>
+<g font-size="10.5" fill="#8fb3cc" text-anchor="middle">
+  <text x="202" y="718">前悬 780（溃缩）</text>
+  <text x="642" y="718">轴距 2520</text>
+  <text x="1015" y="718">尾悬 820</text>
+  <text x="575" y="772">全长 L = 4120</text>
+</g>
+<!-- 前轴 / 后轴刻度 -->
+<line x1="345" y1="660" x2="345" y2="730" stroke="#43586c" stroke-width="1" stroke-dasharray="6 4"/>
+<line x1="940" y1="660" x2="940" y2="730" stroke="#43586c" stroke-width="1" stroke-dasharray="6 4"/>
+
+<!-- 关键X锚点标注 -->
+<g font-size="9.5" fill="#6b7a8c" text-anchor="middle">
+  <text x="415" y="690">x1800 腿托/座垫铰</text><text x="545" y="690">x2180 座/背铰</text>
+  <text x="615" y="703">x2460 背/台接缝</text><text x="960" y="703">x3840 台/尾门</text>
+</g>
+</svg>
+<div class="note">图示为<b>驻车大床模式</b>（所有变形件展开）。1:20比例，网格=100mm。所有数字由内部约束反推，推导见④。</div>
+</div>
+
+<!-- ══════════ ② 横剖面 ══════════ -->
+<div class="panel" id="p2">
+<svg viewBox="0 0 1000 640" width="960" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0L8,4L0,8z" fill="#7d95a8"/></marker>
+<pattern id="g2" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1a212b"/></pattern></defs>
+<rect width="1000" height="640" fill="url(#g2)"/>
+<!-- scale 0.25 : W1690→423px centered. px_x = 288 + (x-845)*0.25 -->
+
+<!-- 车身横剖（前座舱处）: 底板660→y575, 顶1660→y325, 宽1690→x288..712 -->
+<path d="M300,690 L300,600 Q296,575 320,570 L680,570 Q704,575 700,600 L700,690" fill="none" stroke="#4a6076" stroke-width="2.5"/>
+<path d="M316,568 Q330,420 400,392 L500,378 L600,392 Q670,420 684,568" fill="none" stroke="#4a6076" stroke-width="2.5"/>
+<line x1="288" y1="575" x2="712" y2="575" stroke="#5fd08a" stroke-width="3"/>
+
+<!-- 旋转圆校验：R347 → 87px -->
+<circle cx="380" cy="500" r="87" fill="none" stroke="#b48ead" stroke-width="1.6" stroke-dasharray="6 4" opacity=".8"/>
+<circle cx="380" cy="500" r="6" fill="none" stroke="#b48ead" stroke-width="2"/>
+<circle cx="620" cy="500" r="87" fill="none" stroke="#b48ead" stroke-width="1.6" stroke-dasharray="6 4" opacity=".8"/>
+<circle cx="620" cy="500" r="6" fill="none" stroke="#b48ead" stroke-width="2"/>
+<!-- 座椅轮廓（前向） -->
+<path d="M356,500 L368,404 L390,401 L386,500 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.6"/>
+<path d="M596,500 L608,404 L630,401 L626,500 Z" fill="#22303e" stroke="#8fb3cc" stroke-width="1.6"/>
+
+<!-- 中岛立柱（中央，椭圆） -->
+<ellipse cx="500" cy="540" rx="23" ry="18" fill="#1c2a36" stroke="#b48ead" stroke-width="2"/>
+<ellipse cx="500" cy="450" rx="23" ry="16" fill="#1c2a36" stroke="#d8c0e0" stroke-width="2"/>
+<line x1="486" y1="452" x2="486" y2="536" stroke="#b48ead" stroke-width="2.5"/>
+<line x1="514" y1="452" x2="514" y2="536" stroke="#b48ead" stroke-width="2.5"/>
+<line x1="500" y1="466" x2="500" y2="524" stroke="#b48ead" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/>
+
+<!-- 底部电池提示 -->
+<rect x="360" y="600" width="280" height="24" fill="#132434" stroke="#56c8d8" stroke-width="1.5" rx="4" opacity=".8"/>
+<text x="500" y="617" fill="#56c8d8" font-size="10" text-anchor="middle">电池顶 660（即舱地板）</text>
+
+<!-- 旋转圆标注 -->
+<text x="380" y="398" fill="#b48ead" font-size="11" text-anchor="middle">旋转圆 R347</text>
+<text x="380" y="612" fill="#b48ead" font-size="10" text-anchor="middle">座垫下预留Ø693洞</text>
+<text x="620" y="612" fill="#b48ead" font-size="10" text-anchor="middle">（底板开口）</text>
+<!-- 间隙标注 -->
+<line x1="467" y1="500" x2="475" y2="500" stroke="#f0a35e" stroke-width="1.5"/>
+<text x="500" y="492" fill="#f0a35e" font-size="10" text-anchor="middle">柱↔椅缘 25~30</text>
+
+<!-- 升顶投影 -->
+<path d="M400,392 L500,378 L600,392" fill="none" stroke="#4aa3ff" stroke-width="1.6" stroke-dasharray="4 4"/>
+<text x="500" y="368" fill="#4aa3ff" font-size="10.5" text-anchor="middle">升顶开口 宽1300 × 长1800（1大1小卧位）</text>
+
+<!-- 宽度链 -->
+<g stroke="#7d95a8" stroke-width="1" font-size="10" fill="#8fb3cc" text-anchor="middle">
+  <line x1="288" y1="640" x2="712" y2="640"/>
+  <line x1="288" y1="634" x2="288" y2="646"/><line x1="712" y1="634" x2="712" y2="646"/>
+  <text x="500" y="634">内宽 1280</text>
+  <text x="356" y="588" text-anchor="start" fill="#6b7a8c">座椅净宽 480</text>
+  <text x="500" y="425" fill="#b48ead">中央岛台占宽 ≈200</text>
+</g>
+<!-- 头部空间 -->
+<line x1="730" y1="325" x2="730" y2="575" stroke="#5fd08a" stroke-width="1"/>
+<text x="736" y="450" fill="#5fd08a" font-size="10">座舱净高1000</text>
+</svg>
+<div class="note">旋转校验：座椅包络 R347 < 底板开口 R350，立柱升到顶（台面1230）后座椅在其<b>下方</b>回转，与立柱最小间隙 25mm；降柱后台面与座垫齐平（660+垫层）形成双座连体沙发。立柱为椭圆截面钢制管柱（长轴200×短轴160，壁厚≥3mm），兼做安全传力件。</div>
+</div>
+
+<!-- ══════════ ③ 俯视 ══════════ -->
+<div class="panel" id="p3">
+<svg viewBox="0 0 1180 560" width="1140" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0L8,4L0,8z" fill="#7d95a8"/></marker>
+<pattern id="g3" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#1a212b"/></pattern>
+<pattern id="h3" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line y2="7" stroke="#3a4a5a" stroke-width="1.3"/></pattern></defs>
+<rect width="1180" height="560" fill="url(#g3)"/>
+<!-- scale 0.25, x offset 90: x_px=90+x*0.25 ; car W1690→423px, y center 280: y_px=280-((x-845))*0.25 -->
+
+<path d="M120,240 Q140,205 200,195 L880,188 Q990,190 1050,208 Q1082,220 1082,280 Q1082,340 1050,352 Q990,370 880,372 L200,365 Q140,355 120,320 Q108,300 108,280 Q108,260 120,240 Z"
+      fill="#101820" stroke="#4a6076" stroke-width="2.5"/>
+
+<!-- 前备箱 0-780 → px 90..285 -->
+<rect x="102" y="215" width="185" height="130" fill="url(#h3)" opacity=".55" stroke="#f0a35e" stroke-width="1.3" stroke-dasharray="5 4"/>
+<text x="195" y="275" fill="#f0a35e" font-size="12" text-anchor="middle" font-weight="700">前备箱 780×宽×深</text>
+<text x="195" y="291" fill="#a07850" font-size="10" text-anchor="middle">双梁纵贯 · 脏区</text>
+
+<!-- 前排座椅（旋转180°示）+ 底板开口圆 -->
+<circle cx="380" cy="235" r="35" fill="none" stroke="#b48ead" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/>
+<circle cx="380" cy="325" r="35" fill="none" stroke="#b48ead" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/>
+<rect x="356" y="218" width="48" height="36" rx="7" fill="#22303e" stroke="#b48ead" stroke-width="1.8" transform="rotate(180 380 236)"/>
+<rect x="356" y="308" width="48" height="36" rx="7" fill="#22303e" stroke="#b48ead" stroke-width="1.8" transform="rotate(180 380 326)"/>
+<text x="380" y="196" fill="#b48ead" font-size="11.5" text-anchor="middle" font-weight="700">前排旋转座椅（虚线圆=底板开口Ø700）</text>
+
+<!-- 中岛 -->
+<ellipse cx="380" cy="280" rx="12" ry="26" fill="#1c2a36" stroke="#b48ead" stroke-width="1.6"/>
+<text x="425" y="278" fill="#b48ead" font-size="10.5">岛柱200</text>
+
+<!-- 二排 -->
+<rect x="712" y="216" width="50" height="42" rx="7" fill="#22303e" stroke="#8fb3cc" stroke-width="1.6"/>
+<rect x="712" y="304" width="50" height="42" rx="7" fill="#22303e" stroke="#8fb3cc" stroke-width="1.6"/>
+<text x="737" y="196" fill="#8fb3cc" font-size="11.5" text-anchor="middle" font-weight="700">二排（后轴上方 x2900-3400）</text>
+
+<!-- 床区（放平态铺满） -->
+<rect x="406" y="214" width="316" height="132" fill="#173024" opacity=".55" stroke="#5fd08a" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="565" y="266" fill="#5fd08a" font-size="11" text-anchor="middle">床前段 1800×1280</text>
+<text x="565" y="282" fill="#4a8a64" font-size="10" text-anchor="middle">（腿托490+座垫490+背130+台690 铺满）</text>
+
+<!-- 吊柜投影 -->
+<rect x="830" y="196" width="200" height="40" fill="#1a2e22" stroke="#5fd08a" stroke-width="1.4" stroke-dasharray="4 3"/>
+<rect x="830" y="324" width="200" height="40" fill="#1a2e22" stroke="#5fd08a" stroke-width="1.4" stroke-dasharray="4 3"/>
+<text x="930" y="220" fill="#5fd08a" font-size="10" text-anchor="middle">吊柜 800深·高350（头顶上方）</text>
+
+<!-- L隔板 90°位置 x3240 → px 900 -->
+<line x1="900" y1="192" x2="900" y2="368" stroke="#e8d174" stroke-width="3.5"/>
+<text x="908" y="188" fill="#e8d174" font-size="10.5">L隔板</text>
+
+<!-- 湿区/干区分色 -->
+<rect x="900" y="192" width="168" height="86" fill="url(#h3)" opacity=".5" stroke="#56c8d8" stroke-width="1"/>
+<text x="984" y="228" fill="#56c8d8" font-size="10.5" text-anchor="middle">一层湿区 深340</text>
+<rect x="900" y="278" width="168" height="90" fill="#0f2418" stroke="#5fd08a" stroke-width="1" opacity=".7"/>
+<text x="984" y="316" fill="#5fd08a" font-size="10.5" text-anchor="middle">二层干区</text>
+
+<!-- 升顶开口投影 -->
+<rect x="590" y="222" width="320" height="116" fill="none" stroke="#4aa3ff" stroke-width="1.5" stroke-dasharray="8 5"/>
+<text x="750" y="362" fill="#4aa3ff" font-size="10.5" text-anchor="middle">升顶开口 1800×1300（避开吊柜·1大1小卧位）</text>
+
+<!-- 尾门/投影 -->
+<text x="1095" y="286" fill="#6b7a8c" font-size="11" text-anchor="middle" transform="rotate(90 1095 286)">尾门 · 投影幕吊于最尾</text>
+
+<!-- 宽度总标注 -->
+<g font-size="10.5" fill="#8fb3cc" text-anchor="middle">
+  <line x1="108" y1="420" x2="1082" y2="420" stroke="#7d95a8" stroke-width="1"/>
+  <line x1="108" y1="414" x2="108" y2="426" stroke="#7d95a8"/><line x1="1082" y1="414" x2="1082" y2="426" stroke="#7d95a8"/>
+  <text x="595" y="438">外宽 1690（轮眉+60×2，内宽1280 + 车门结构 410）</text>
+</g>
+<!-- 纵向锚点 -->
+<g font-size="9.5" fill="#6b7a8c" text-anchor="middle">
+  <line x1="285" y1="460" x2="1035" y2="460" stroke="#7d95a8" stroke-width="1"/>
+  <text x="140" y="478">x780 梁后</text><text x="380" y="478">x1400 前排</text>
+  <text x="620" y="478">x2460 背/台</text><text x="900" y="478">x3240 隔板</text><text x="1035" y="478">x4120 尾</text>
+</g>
+<line x1="70" y1="280" x2="100" y2="280" stroke="#6b7a8c" stroke-width="1.5" marker-end="url(#a3)"/>
+<text x="66" y="266" fill="#6b7a8c" font-size="11">车头</text>
+</svg>
+</div>
+
+<!-- ══════════ ④ 尺寸总表 ══════════ -->
+<div class="panel" id="p4">
+<table>
+<tr><th>项目</th><th>数值 (mm)</th><th>推导 / 约束</th></tr>
+<tr><td>全长 L</td><td class="n">4120</td><td>前悬780 + 轴距2520 + 尾悬820</td></tr>
+<tr><td>轴距</td><td class="n">2520</td><td>床链 1800 + 前排区(轮前1250) + 余量；四轮包电池</td></tr>
+<tr><td>外宽 / 内宽</td><td class="n">1690 / 1280</td><td>2×480座椅 + 200岛台 + 间隙；跨界胎宽外扩</td></tr>
+<tr><td>车高</td><td class="n">1660（升顶1860）</td><td>底盘220 + 电池480(顶660) + 净高1000</td></tr>
+<tr><td>床面高度 H</td><td class="n">660</td><td>=电池顶=舱地板=二层台=全部床面，单一连续平面</td></tr>
+<tr><td><b>床链</b></td><td class="n">490+490+130+690 = 1800</td><td>腿托+座垫+靠背平铺+二层台 ≥1750 ✓（要求11）</td></tr>
+<tr><td>湿区深度</td><td class="n">340</td><td>700(人蹲坐坐直所需) − 660床面 → 上层净高 1000 ✓（约束7）</td></tr>
+<tr><td>升顶开口</td><td class="n">1800 × 1300</td><td>1大1小卧位（约束12）；1300 = 内宽1280−吊柜嵌入，2×350吊柜不侵占</td></tr>
+<tr><td>前排旋转</td><td class="n">开口 Ø700，包络 R347</td><td>椅背高920×座宽480 → √(460²+240²)=347 < 350 ✓（约束2）</td></tr>
+<tr><td>中岛立柱</td><td class="n">椭圆 200×160，行程 0→570</td><td>升顶：台面1230 > 座椅包络顶，椅在其下回转，间隙≥25；降下：台面=座垫顶660（沙发模式）</td></tr>
+<tr><td>二排位置</td><td class="n">x 2900–3400</td><td>后轴 x3520 上方（约束5），电机藏于轴心/轮包</td></tr>
+<tr><td>动力电池</td><td class="n">厚480，x1760–3520</td><td>前轴后160 → 后轴前120（约束5，不高于底板）</td></tr>
+<tr><td>溃缩区</td><td class="n">780（双梁间距≥200）</td><td>梁后=12V辅电池+前备箱；梁间全开放（约束1）</td></tr>
+<tr><td>吊柜</td><td class="n">800(长)×350(高)×左右各一条</td><td>顶两侧贴壁，中央1000净高保留（原约束）</td></tr>
+<tr><td>投影</td><td class="n">幕吊挂于 x≈3900–4100 顶部</td><td>接近最尾端（约束9），幕下拉止于二层台；横梁灯背向幕面（约束8）</td></tr>
+</table>
+<div class="note">
+<b>相互校验链：</b>660床面 → 湿区深340（一层可蹲坐冲洗）→ 上层坐直净高1000 → 车高1660 → 升顶+200。<br>
+<b>唯一耦合紧张点：</b>床面高度H。H↑→湿区变浅；H↓→电池变薄/净高↑。660是"电池可行最小厚度≈400+缓冲"与"湿区≥300"的折中。<span class="flag">若接受双层电池/更薄电芯，H可降至600，湿区加至400。</span><br>
+<b>床垫连续性实现：</b>腿托、座垫、靠背、二层台四件顶面同一平面660，接缝处共用整块弹力层（分件底板+连续软包面），四角绑带+魔术贴固定于下层结构。
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');document.getElementById(t.dataset.p).classList.add('on');
+}));
+</script>
+</body>
+</html>
