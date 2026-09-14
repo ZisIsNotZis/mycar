@@ -71,9 +71,9 @@ if ENGINE == 'cycles':
 else:
     sc.render.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in \
         [i.identifier for i in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items] else 'BLENDER_EEVEE'
-    sc.eevee.taa_render_samples = envi('FILM_SAMPLES', 48)
-    if hasattr(sc.eevee, 'use_raytracing'):
-        sc.eevee.use_raytracing = True
+    sc.eevee.taa_render_samples = envi('FILM_SAMPLES', 16)   # 透壳+透明材质下采样不用高，16 够
+    if hasattr(sc.eevee, 'use_raytracing'):                  # 光线追踪在透明材质下很贵：默认关，FILM_RT=1 开
+        sc.eevee.use_raytracing = bool(envi('FILM_RT', 0))
     sc.render.use_motion_blur = True
     sc.render.motion_blur_shutter = 0.35
 
