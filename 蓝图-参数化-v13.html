@@ -73,7 +73,7 @@
    ===================================================================== */
 
 const DEF = {
-  L:   {v:3240,min:3000,max:5400,st:10, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
+  L:   {v:3350,min:3000,max:5400,st:10, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
   W:   {v:1800,min:1500,max:2050,st:10, g:'车身', n:'外宽 W'},
   H:   {v:1900,min:1400,max:2000,st:10, g:'车身', n:'车高 H（不升顶）'},
   cowl:{v:820, min:560, max:1750,st:10, g:'车身', n:'风挡基位置（前推→座舱/车顶更长）'},
@@ -81,7 +81,7 @@ const DEF = {
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
   axF: {v:850, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
-  axR: {v:2490,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（用户定值）'},
+  axR: {v:2350,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（前移→后溃缩变长）'},
   gf:  {v:140, min:100, max:260, st:5,  g:'底盘', n:'前离地'},
   gr:  {v:150, min:100, max:260, st:5,  g:'底盘', n:'后离地'},
   bt:  {v:320, min:120, max:360, st:5,  g:'底盘', n:'电池厚（=地板高）'},
@@ -90,16 +90,13 @@ const DEF = {
   bw:  {v:1200,min:800, max:1500,st:10, g:'底盘', n:'电池宽'},
   rot: {v:0,   min:0,   max:180, st:5,  g:'前排座椅', n:'前座椅旋转（0朝前 / 180朝后）',deg:1},
   base:{v:150, min:0,   max:300, st:10, g:'前排座椅', n:'座垫离地板高'},
-  fSlide:{v:170,min:0,  max:400, st:10, g:'前排座椅', n:'床模式前座后移（滑轨；让床 1.8m 而会客净距不动）'},
-  fLift:{v:50,  min:-150,max:200, st:10, g:'前排座椅', n:'前座升降（-降 +升）'},
   xF:  {v:1610,min:900, max:2600,st:10, g:'前排座椅', n:'H 点 x（用户定值）'},
   fCl: {v:460, min:350, max:650, st:5,  g:'前排座椅', n:'座垫长（床链第 1 段·必需）'},
   fCa: {v:20,  min:-10, max:30,  st:1,  g:'前排座椅', n:'座垫角（前缘上翘；旋转后自动归零）',deg:1},
   fBl: {v:600, min:400, max:800, st:5,  g:'前排座椅', n:'靠背长'},
   fBa: {v:10,  min:-10, max:60,  st:1,  g:'前排座椅', n:'靠背角（后仰为正；旋转后自动立直为 0）',deg:1},
-  fCt: {v:150, min:80,  max:320, st:5,  g:'前排座椅', n:'坐垫厚'},
+  fCt: {v:200, min:80,  max:320, st:5,  g:'前排座椅', n:'坐垫厚（= 二排，使两个座面同高，省掉座椅升降）'},
   xR:  {v:2670,min:1500,max:3600,st:10, g:'二排座椅', n:'H 点 x（用户定值·靠背铰点）'},
-  rLift:{v:0,   min:-150,max:200, st:10, g:'二排座椅', n:'二排升降（-降 +升）'},
   rCl: {v:460, min:350, max:700, st:5,  g:'二排座椅', n:'座垫长'},
   rCa: {v:5,   min:-10, max:30,  st:1,  g:'二排座椅', n:'座垫角（前缘上翘）',deg:1},
   rBl: {v:300, min:200, max:800, st:5,  g:'二排座椅', n:'靠背长（放平后占尾仓长度；床链的第 4 段）'},
@@ -121,12 +118,12 @@ const DEF = {
   ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（储物）'},
   flapLen:{v:420,min:200, max:800, st:10, g:'尾箱/隔板',n:'可翻隔板长（抬起即贵妃榻靠背）'},
   px0: {v:1150,min:900, max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘（自动限在车顶内）'},
-  px1: {v:2980,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
+  px1: {v:3080,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
   pr:  {v:740, min:250, max:900, st:10, g:'升顶/吊柜',n:'升顶抬高'},
   lkD: {v:330, min:200, max:500, st:10, g:'升顶/吊柜',n:'吊柜深（横向）'},
   lkH: {v:300, min:150, max:400, st:10, g:'升顶/吊柜',n:'吊柜高'},
   scrX:{v:1330,min:900, max:3900,st:10, g:'投影',    n:'幕布 x（挂在顶横梁）'},
-  pjX: {v:2750,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
+  pjX: {v:2870,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
   tr:  {v:1.2, min:0.8, max:2.2, st:0.05,g:'投影',    n:'投射比（宽:距，<1.3 为短焦）'},
 };
 const P = {}; for (const k in DEF) P[k] = DEF[k].v;
@@ -168,9 +165,8 @@ function build(p, m){
   const FB = (p.rot||0) > 90;                 // 是否已转成朝后（旋转是连续量，便于动画）
 
   d.floor = p.gf + p.bt;                       // 地板上表面 = 电池顶面
-  d.slideBed = ((p.rot||0)>90) ? p.fSlide : 0;  // 做床时前座后移量（滑轨）
-  d.legSpanBed = (p.xR - p.rCl) - (p.xF + d.slideBed);   // 做床时腿托必须跨过的洞
-  d.bedTopEarly = d.floor + p.base + p.rCt + p.rLift;   // 床面高（座椅 builder 需要先用）
+  d.legSpanBed = (p.xR - p.rCl) - p.xF;         // 做床时腿托必须跨过的洞（脚部空洞）
+  d.bedTopEarly = d.floor + p.base + p.rCt;            // 床面高（座椅 builder 需要先用）
   d.archRF = p.tdf/2 + 60; d.archRR = p.tdr/2 + 60;
   d.archF = {c:[p.axF, p.tdf/2], r:d.archRF, top:p.tdf+60, wheelTop:p.tdf};   // 轮心=半径高（轮胎落地）
   d.archR = {c:[p.axR, p.tdr/2], r:d.archRR, top:p.tdr+60, wheelTop:p.tdr};
@@ -191,7 +187,7 @@ function build(p, m){
   /* ---------- 车壳外形基准 ----------
      必须在座椅之前算：贵妃榻靠背角要按"真风挡线"反解（v12 只比风挡基，头其实已经穿出去了）。 */
   d.cowlX = Math.min(p.cowl, (p.L-90)-1400);            // 风挡基位置：可直接前推（座舱/车顶更长）
-  d.cowlY = d.floor + p.base + p.fCt + 320;             // 用常量堆叠高，避开 fLift
+  d.cowlY = d.floor + p.base + p.fCt + 320;             // 用常量堆叠高（与座椅姿态无关）
   d.hoodY0 = Math.max(p.gf+340, d.cowlY - d.cowlX*Math.tan(10*D2R));   // 机盖 10°：更扁→前备箱更高
   d.hoodAt = (x)=>d.hoodY0+(d.cowlY-d.hoodY0)*Math.min(1,Math.max(0,x/Math.max(1,d.cowlX)));
   d.roofX0 = Math.min(d.cowlX + (p.H-d.cowlY)*0.36, p.L-900);
@@ -223,7 +219,7 @@ function build(p, m){
   d.segPtDist=segPtDist;
   /* 贵妃榻（前排旋转 + 做床）靠背角：反解"头/靠背顶都不穿风挡"的最大角，再把用户要的角夹住 */
   d.chaiseMaxBA = (()=>{
-    const hipX=(p.xF - p.fCl) + 8, hipY=d.floor + p.base + p.fCt + p.fLift + AN.hipAboveSeat;
+    const hipX=(p.xF - p.fCl) + 8, hipY=d.floor + p.base + p.fCt + AN.hipAboveSeat;
     const inside=(deg)=>{ const b=deg*D2R, dx=-Math.sin(b), dy=Math.cos(b);
       const hC=[hipX+dx*(AN.torso+215), hipY+dy*(AN.torso+215)];
       const bT=[hipX+dx*p.fBl, hipY+dy*p.fBl];
@@ -236,7 +232,7 @@ function build(p, m){
   /* 二排半躺角的上限：头不能穿过后风挡（紧凑车身 + 尾门斜度的必然约束，D36） */
   d.rearGlassLine=[ [d.roofX1,p.H], [p.L-140, p.gr+700] ];
   d.rearMaxBA = (()=>{
-    const hipX=p.xR-8, hipY=d.floor + p.base + p.rCt + p.rLift + AN.hipAboveSeat;
+    const hipX=p.xR-8, hipY=d.floor + p.base + p.rCt + AN.hipAboveSeat;
     const inside=(deg)=>{ const b=deg*D2R, dx=Math.sin(b), dy=Math.cos(b);
       const hC=[hipX+dx*(AN.torso+215), hipY+dy*(AN.torso+215)];
       return segPtDist(hC, d.rearGlassLine[0], d.rearGlassLine[1]) >= AN.headR+35 && hC[1]+AN.headR <= p.H-30; };
@@ -250,8 +246,7 @@ function build(p, m){
     const F = row==='front';
     const FOLDx = (fOld==null? FOLD : fOld);
     const bedM = FOLD > 0.5;
-    const slide = (F && FB && bedM) ? p.fSlide : 0;           // 做床时前座后滑（滑轨）
-    const HX = F? p.xF + slide : p.xR;
+    const HX = F? p.xF : p.xR;
     const CL = F? p.fCl: p.rCl;
     const CA = ((F? (FB ? 0 : p.fCa) : p.rCa * (1-FOLDx)))*D2R;   // 前排旋转后坐垫归零；二排放平同理
     const BL = F? p.fBl: p.rBl;
@@ -260,7 +255,7 @@ function build(p, m){
     const BA0 = F ? BA0raw : (FOLDx<0.6 ? Math.min(BA0raw, d.rearBaLimit) : BA0raw);
     const BA = BA0*D2R;                        // 二排放平=水平；前排旋转+做床→贵妃榻
     const CT = F? p.fCt: p.rCt;
-    const topY = d.floor + p.base + CT + (F? p.fLift : 0);   // 前座可用 fLift 对齐床面
+    const topY = d.floor + p.base + CT;                      // 两个座面同高：对齐靠 base/fCt，不靠升降机构
     const face = F ? (FB ? -1 : 1) : 1;                      // +1 朝车头
     const axisX = HX - CL/2;                                 // 旋转轴（座垫中点）
     const mx = x => face===1 ? x : 2*axisX - x;              // 180° 旋转
@@ -424,7 +419,7 @@ function build(p, m){
      层3 箱体：地板 → 座面高；盖由撑杆托住（信箱式） */
   d.isl=(()=>{
     const ix0=p.ix-p.iLen/2, ix1=p.ix+p.iLen/2;
-    const seatPlane=d.front.topY;                         // 前座面（跟 fLift 走）= 层2 顶面
+    const seatPlane=d.front.topY;                         // 前座面 = 层2 顶面
     const tabNom=d.floor+p.ihh;                           // 台面标称顶面（餐桌高）
     const sink=p.islSink*Math.max(0, tabNom-seatPlane);   // 进度 1 = 恰好沉到座面（齐平）
     const tabY=tabNom-sink, riser=Math.max(0, tabY-seatPlane);
@@ -567,9 +562,9 @@ function build(p, m){
   }
 
   /* 尾仓：一层湿区（可冲洗）+ 固定隔板/二层平台 + 可翻隔板 */
-  const stX0=Math.max(p.axR+d.archRR, 0), stY0=p.gr+20;   // 后轮之后 → 尾门，一路到离地
+  const stX0=p.xR, stY0=p.gr+20;                 // 从二排靠背铰点 → 尾门（与床尾段相接，见 D44）
   g.push(rect(stX0, stY0, (p.L-90)-stX0, d.bedTop-stY0,'wet','#0e2430'));
-  g.push(txt((stX0+p.L)/2, stY0+(d.bedTop-stY0)*0.5+4, `下层储物仓 ${Math.round((p.L-90)-stX0)}×${Math.round(d.bedTop-stY0)}(到离地)`,'wet-t',11));
+  g.push(txt((stX0+p.L-90)/2, stY0+(d.bedTop-stY0)*0.5+4, `下层储物仓 ${Math.round((p.L-90)-stX0)}×${Math.round(d.bedTop-stY0)}(到离地)`,'wet-t',11));
   g.push(ln([d.deckX0,d.bedTop],[d.deckX1,d.bedTop],22,'deck'));
   g.push(txt((d.deckX0+d.deckX1)/2, d.bedTop-28, `固定隔板/二层平台 ${Math.round(d.deckLen)}`,'bed-t',9.5));
   /* 可翻隔板：铰在 deckX1；0°=平铺补床尾，90°=立起成尾柱隔断 */
@@ -667,15 +662,14 @@ function build(p, m){
         else   { man(d.humanR,'man-r');                       // 净空不够 → 只能坐（说明书）
                  g.push(txt(sx, d.bedTop+1050,`升顶不足：pr 再加 ${Math.round(d.standNeed-d.popTop)} 才能站`,'warn-t',10)); }
       }
-      if (m.pop==='bunk'){
-        // 上铺：锚点与体型由**帐篷内腔**反解 —— 人必须躺在帐篷里（用户：脚不能伸到帐篷外）
-        const inn0=d.px0+d.popInset, inn1=d.px1-d.popInset, occ=d.bunkOccupant;
-        const hb=bodyJoints({kind:'lie', anchor:[inn1-AN.headR*occ.k, d.bunkY+20], dir:1, tilt:0, k:occ.k});
-        hb.bunk=true; man(hb,'man-b'); d.drawn.push({name:'上铺', h:hb});
-        g.push(txt((inn0+inn1)/2, d.bunkY-100,
-          `上铺内腔 ${Math.round(inn1-inn0)} · 可睡身长 ${Math.round(occ.k*AN.topY)}${occ.k<0.999?'（小孩）':'（成人）'}`,'bunk-t',10));
-      }
     }
+  }
+  if (!HIDE_MAN && m.pop==='bunk'){            // 上铺的人与下铺无关：两种 bedMode 下都要画
+    const inn0=d.px0+d.popInset, inn1=d.px1-d.popInset, occ=d.bunkOccupant;
+    const hb=bodyJoints({kind:'lie', anchor:[inn1-AN.headR*occ.k, d.bunkY+20], dir:1, tilt:0, k:occ.k});
+    hb.bunk=true; man(hb,'man-b'); d.drawn.push({name:'上铺', h:hb});
+    g.push(txt((inn0+inn1)/2, d.bunkY-100,
+      `上铺内腔 ${Math.round(inn1-inn0)} · 可睡身长 ${Math.round(occ.k*AN.topY)}${occ.k<0.999?'（小孩）':'（成人）'}`,'bunk-t',10));
   }
   /* 升顶 + 吊柜 */
   const gx=d.px0, gy=d.px1-0;
@@ -772,7 +766,7 @@ function checks(p,m,B){
   const hF=d.humanF, glassLim=d.glassAt(hF.headC[1]);
   H('C39', hF.headC[0]-AN.headR >= glassLim-0.5,
     `前排头在风挡之内（头前缘 ${R(hF.headC[0]-AN.headR)} ≥ 风挡面 ${R(glassLim)}）`,
-    `前排头穿出风挡 ${R(glassLim-(hF.headC[0]-AN.headR))}mm（后移 xF 或前推风挡基 cowl）`, 'xF/cowl/fLift');
+    `前排头穿出风挡 ${R(glassLim-(hF.headC[0]-AN.headR))}mm（后移 xF 或前推风挡基 cowl）`, 'xF/cowl');
   I('C39b', `前排旋转后靠背立直（=床头的挡板）；这个座位几何上最多能躺 ${d.chaiseMaxBA}°`);
   /* 二排半躺：头不能穿过后风挡/尾门（紧凑车身的必然约束，D35） */
   if (FB && !d.bedMode){
@@ -807,8 +801,8 @@ function checks(p,m,B){
   H('C13', !hitPart, `可翻隔板 ${p.pAng}° 不穿插人体`, `可翻隔板 ${p.pAng}° 顶到人体`, 'pAng/flapLen');
   H('C14', p.W-2*p.lkD>=AN.shW, `吊柜间距 ${p.W-2*p.lkD} ≥ 肩宽 ${AN.shW}`,
     `吊柜太深：两侧只剩 ${p.W-2*p.lkD} < 肩宽 ${AN.shW}`, 'lkD/W');
-  H('C35', d.bedTop>=d.archRtop, `床面 ${R(d.bedTop)} ≥ 后轮包顶 ${R(d.archRtop)}（轮包不顶床；故 rLift ≥ ${R(d.archRtop-(d.floor+p.base+p.rCt))}）`,
-    `床面 ${R(d.bedTop)} 低于后轮包顶 ${R(d.archRtop)}：床会被轮包顶起（rLift 最多降到 ${R(d.archRtop-(d.floor+p.base+p.rCt))}）`, 'rLift/rCt/bt/base/tdr');
+  H('C35', d.bedTop>=d.archRtop, `床面 ${R(d.bedTop)} ≥ 后轮包顶 ${R(d.archRtop)}（轮包不顶床）`,
+    `床面 ${R(d.bedTop)} 低于后轮包顶 ${R(d.archRtop)}：床会被轮包顶起（加大 base/rCt/bt 或缩小后轮）`, 'rCt/bt/base/tdr');
   H('C15', p.axF-p.tdf/2>=60 && p.axR+p.tdr/2<=p.L-60, `前后轮都在车身内`, `车轮越出车身`, 'axF/axR/td/L');
   H('C16', (p.L-p.axR)/p.L<0.5, `尾悬 ${R((p.L-p.axR)/p.L*100)}% < 50%`, `尾悬 ${R((p.L-p.axR)/p.L*100)}% 过大`, 'axR/L');
   H('C17', p.px1-p.px0>=600 && p.px0>=d.roofX0 && p.px1<=d.roofX1, `升顶开口 ${p.px0}–${p.px1} 在车顶有效区`,
@@ -833,7 +827,7 @@ function checks(p,m,B){
   /* —— 床面与前座的连接（用户最高优先级）—— */
   if (d.bedMode){
     H('C25a', Math.abs(d.levelDiff)<=15, `床面与前座面齐平（差 ${R(d.levelDiff)}）`,
-      `床面与前座面差 ${R(d.levelDiff)}mm（用 fLift 对齐：${R(-d.levelDiff)}）`, 'fLift/fCt/rCt');
+      `床面与前座面差 ${R(d.levelDiff)}mm：让 fCt = rCt 即可同高（现在 fCt=${p.fCt} rCt=${p.rCt}）`, 'fCt/rCt/base');
     H('C25b', Math.abs(d.seamGap)<=40, `腿托与前座垫无缝（缝 ${R(d.seamGap)}）`,
       `腿托与前座垫缝 ${R(d.seamGap)}mm（调 rLl 或 xR）`, 'rLl/xR/rCl/fCl');
     if (!FB) out.push({id:'C25c',ok:false,lv:'hard',t:'坐床需前排旋转 180°（否则腿托插进靠背）',fix:'前排旋转'});
@@ -854,7 +848,7 @@ function checks(p,m,B){
   const isl=d.isl;
   if (FB && !d.bedMode && p.islLid>=80) H('C42', Math.abs(isl.couchDiff)<=15,
     `中排坐面与前座面齐平（差 ${R(isl.couchDiff)}）→ 两座+中排 = 三人沙发`,
-    `中排坐面与前座面差 ${R(isl.couchDiff)}mm：用 fLift 把前座对齐（或调 base/fCt）`, 'fLift/base/fCt');
+    `中排坐面与前座面差 ${R(isl.couchDiff)}mm：调 base/fCt 让座面同高`, 'base/fCt');
   else I('C42', `中排坐面 ${R(isl.seatPlane)}（跟前座面走）· 台面 ${R(isl.tabY)}·箱体 ${Math.round(isl.vol)}L`);
   if (d.bedMode) H('C43', isl.top<=d.bedTop+16 && p.islLid<20 && p.islBox<20,
     `床模式下中岛顶面 ${R(isl.top)} ≈ 床面 ${R(d.bedTop)}（台面段下沉 ${R(isl.sink)}，两层都放平）`,
@@ -870,8 +864,8 @@ function checks(p,m,B){
   /* —— 前/后溃缩（用户第 4 条：缩小车身但撞梁长度得有）—— */
   H('C45', p.axF-d.archRF>=300, `前溃缩+前备箱 ${R(p.axF-d.archRF)} ≥ 300`,
     `车头到前轮包只剩 ${R(p.axF-d.archRF)} < 300（前撞梁/前备箱不够）`, 'axF/tdf/L');
-  H('C46', p.L-(p.axR+d.archRR)>=330, `尾部（后轮包→车尾）${R(p.L-(p.axR+d.archRR))} ≥ 330`,
-    `后轮包到车尾只剩 ${R(p.L-(p.axR+d.archRR))} < 330（后撞梁/尾仓开口不够）`, 'axR/tdr/L');
+  H('C46', p.L-(p.axR+d.archRR)>=500, `后溃缩（后轮包→车尾）${R(p.L-(p.axR+d.archRR))} ≥ 500`,
+    `后轮包到车尾只剩 ${R(p.L-(p.axR+d.archRR))} < 500：后撞梁太短，加长车尾或把后轴前移`, 'axR/tdr/L');
   /* —— 用户第 4 条：靠背铰点固定 → 靠背 + 固定隔板 + 可翻隔板 = 尾仓长度 —— */
   H('C48', d.bedBackTip<=p.L-90+1,
     `二排靠背放平后落在尾门之内（靠背 ${R(d.bedBackTip-p.xR)} + 固定 ${R(d.deckLen)} + 可翻 ${R(d.flapActual)} = ${R(d.bedRearRun)} = 尾仓长 ${R(d.trunkLen)}）`,
@@ -1114,12 +1108,11 @@ function build3D(p,m,B){
     box(p.axF-d.archRF, d.cowlX-60, d.archFtop, d.hoodAt((p.axF-d.archRF+d.cowlX-60)/2)-60, Math.min(z0,z1), Math.max(z0,z1), 'frunk3');
     break;
   }
-  /* 下层储物仓 */
-  box(Math.max(p.axR+d.archRR,0), p.L-90, p.gr+20, d.bedTop, -(p.W/2-60), p.W/2-60, 'wet3');
+  /* 下尾仓：从**二排靠背铰点**到尾门（与床尾段首尾相接，不是叠在一起；用户第 4 条） */
+  box(p.xR, p.L-90, p.gr+20, d.bedTop, -(p.W/2-60), p.W/2-60, 'wet3');
   /* 地板 / 电池 / 尾仓 */
   box(0,p.L,d.floor,d.floor+26,-hw+60,hw-60,'floor3');
   if (p.b1>p.b0) box(p.b0,p.b1,p.gf,p.gf+p.bt,-p.bw/2,p.bw/2,'batt3');
-  box(d.deckX0,p.L-90,d.lowFloor,d.bedTop,-hw+60,hw-60,'wet3');
   /* 座椅：前排左右各一（宽 500，中间留 p.iw 给扶手箱）；二排通座（宽 1200） */
   const szF=p.iw/2+10, szF1=szF+500;
   for (const [sz0,sz1,s] of [[szF,szF1,d.front],[-szF1,-szF,d.front],[ -600,600,d.rear]]){
@@ -1402,16 +1395,15 @@ function animateTo(to, dur){
 
 /* ============================ UI ============================ */
 const $=id=>document.getElementById(id);
-const BEDLIFT={rLift:-60,fLift:-10};                      // 床/露营：两排降到"床面恰好高于后轮包"
 const ISL_FLAT={islLid:0,islBox:0,islSink:0};              // 扶手箱常态：台面水平
 const PRESETS=[
   ['通勤',      ()=>animateTo({rot:0,fold:0,pAng:90,pr:0,trunk:0,frunk:0,...ISL_FLAT,M:{pop:'closed'}})],
   ['行车观影',  ()=>animateTo({rot:0,fold:0.45,pAng:90,pr:0,trunk:0,frunk:0,...ISL_FLAT,M:{pop:'closed'}})],
   ['会客办公',  ()=>animateTo({rot:180,fold:0,pAng:90,pr:0,trunk:0,frunk:0,...ISL_FLAT,M:{pop:'closed'}})],
   ['三人沙发',  ()=>animateTo({rot:180,fold:0,pAng:90,pr:0,trunk:0,frunk:0,islLid:95,islBox:0,islSink:0,M:{pop:'closed'}})],
-  ['驻车大床',  ()=>animateTo({rot:180,fold:1,pAng:0,pr:0,trunk:1,frunk:0,islLid:0,islBox:0,islSink:1,M:{pop:'closed'},...BEDLIFT})],
-  ['露营·站立', ()=>animateTo({rot:180,fold:1,pAng:0,pr:740,trunk:1,frunk:0,islLid:0,islBox:0,islSink:1,M:{pop:'stand'},...BEDLIFT})],
-  ['露营·上铺', ()=>animateTo({rot:180,fold:1,pAng:0,pr:740,trunk:1,frunk:0,islLid:0,islBox:0,islSink:1,M:{pop:'bunk'},...BEDLIFT})],
+  ['驻车大床',  ()=>animateTo({rot:180,fold:1,pAng:0,pr:0,trunk:1,frunk:0,islLid:0,islBox:0,islSink:1,M:{pop:'closed'}})],
+  ['露营·站立', ()=>animateTo({rot:180,fold:1,pAng:0,pr:740,trunk:1,frunk:0,islLid:0,islBox:0,islSink:1,M:{pop:'stand'}})],
+  ['露营·上铺', ()=>animateTo({rot:180,fold:1,pAng:0,pr:740,trunk:1,frunk:0,islLid:0,islBox:0,islSink:1,M:{pop:'bunk'}})],
 ];
 const STATES=[
   ['前排朝前', ()=>animateTo({rot:0}),   ()=>P.rot<90],
@@ -1600,7 +1592,126 @@ buildUI();
 syncUI(); computeBands();
 
 /* 供无头校验脚本使用（docs/design/蓝图工具.md §10） */
-window.MY={P,M,DEF,AN,build,checks,probe,project,hardOK,redraw,build3D,render3,glbFromScene,
+/* ============================ 影片时间轴（60 秒 demo） ============================
+   片子里的每一帧都是一次 build()/build3D() —— 与蓝图永远同源，不存在"第二份几何"。
+   bakeFilm() 输出给 scripts/bake-frames.mjs → frames.json → Blender 建对象打关键帧。 */
+const FILM={
+  fps:24, dur:60,
+  noPeople:[[500,1000]],                 // 这几帧里人体隐藏（变形过程中，与蓝图同规则）
+  shots:[['A 车位',0,240],['B 揭示',240,528],['C 变形',528,960],['D 站立',960,1248],['E 收尾',1248,1440]],
+  keys:[                                // 注意：每个属性都要显式 hold，否则会从上一帧一路插过去
+    {f:0,   P:{rot:0,fold:0,pAng:90,pr:0,islSink:0}, M:{pop:'closed'}},   // 开场 = 通勤
+    {f:520, P:{rot:0,fold:0,pAng:90,pr:0,islSink:0}},                     // 车位/揭示段：不动
+    {f:610, P:{pAng:0}},                                                  // ① 隔板放平
+    {f:620, P:{fold:0,rot:0}},
+    {f:780, P:{fold:1}},                                                  // ② 二排放平 + 腿托升起
+    {f:790, P:{rot:0}},
+    {f:900, P:{rot:180}},                                                 // ③ 前排转身
+    {f:910, P:{islSink:0}},
+    {f:1000,P:{islSink:1}},                                               // ④ 扶手箱沉到座面 → 全宽床
+    {f:1010,P:{pr:0}},
+    {f:1090,P:{pr:740}, M:{pop:'stand'}},                                 // ⑤ 抬顶（唯一电机）
+    {f:1200,M:{pop:'bunk'}},                                              // ⑥ 上铺
+    {f:1290,P:{pr:740}},
+    {f:1390,M:{pop:'closed'}, P:{pr:0}},                                  // 收尾回落
+  ],
+  cam:[                                  // 机位：始终把车放进画面；看内饰靠"车壳变透明"，相机不塞进盒子
+    {f:0,   pos:[-1600,1700,7600], tgt:[1675,900,0], shell:1.00},
+    {f:240, pos:[1300,1950,6900],  tgt:[1675,900,0], shell:1.00},
+    {f:430, pos:[6500,1650,6000],  tgt:[1675,900,0], shell:0.35},
+    {f:528, pos:[6600,1450,4000],  tgt:[1700,850,0], shell:0.28},
+    {f:760, pos:[6200,1700,3900],  tgt:[2000,900,0], shell:0.22},
+    {f:960, pos:[5100,1900,3900],  tgt:[2100,900,0], shell:0.20},
+    {f:1090,pos:[4600,2900,4300],  tgt:[2000,1200,0], shell:0.26},
+    {f:1248,pos:[5000,5200,4400],  tgt:[1950,1500,0], shell:0.34},
+    {f:1380,pos:[1400,2200,7900],  tgt:[1675,950,0], shell:1.00},
+    {f:1440,pos:[-1600,1700,7600], tgt:[1675,900,0], shell:1.00},
+  ],
+};
+const _ease=t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const _stateAt=(sub,f)=>{                          // 每个属性各自找"前一个/后一个含它的关键帧"再插值
+  const out={}, ks=FILM.keys.filter(k=>k[sub]!==undefined), props=new Set();
+  for (const k of ks) for (const x in k[sub]) props.add(x);
+  for (const x of props){
+    let a=null, b=null;
+    for (const k of ks){ if (k[sub][x]===undefined) continue; if (k.f<=f) a=k; else { b=k; break; } }
+    if (!a){ out[x]=b?b[sub][x]:undefined; continue; }
+    if (!b){ out[x]=a[sub][x]; continue; }
+    const v0=a[sub][x], v1=b[sub][x];
+    out[x]=(typeof v0==='number'&&typeof v1==='number')?lerp(v0,v1,_ease((f-a.f)/Math.max(1,b.f-a.f))):v0;
+  }
+  return out;
+};
+const _camAt=(f)=>{
+  let a=FILM.cam[0], b=FILM.cam[FILM.cam.length-1];
+  for (let i=0;i<FILM.cam.length-1;i++) if (f>=FILM.cam[i].f && f<=FILM.cam[i+1].f){ a=FILM.cam[i]; b=FILM.cam[i+1]; break; }
+  const t=_ease((f-a.f)/Math.max(1,b.f-a.f));
+  const L3=(x,y)=>x+(y-x)*t;
+  return {pos:[L3(a.pos[0],b.pos[0]),L3(a.pos[1],b.pos[1]),L3(a.pos[2],b.pos[2])],
+          tgt:[L3(a.tgt[0],b.tgt[0]),L3(a.tgt[1],b.tgt[1]),L3(a.tgt[2],b.tgt[2])],
+          shell:L3(a.shell,b.shell)};
+};
+const _shotAt=(f)=>{ for (const [n,a,b] of FILM.shots) if (f>=a&&f<=b) return n; return 'E 收尾'; };
+const _hidePeople=(f)=>FILM.noPeople.some(([a,b])=>f>=a&&f<=b);
+function filmPeople(h){                          // 关节 → 供 Blender 建胶囊
+  const K=q=>[Math.round(q[0]),Math.round(q[1])];
+  return {k:h.k||1, pose:h.pose, hip:K(h.hip), knee:K(h.knee), ankle:K(h.ankle), foot:K(h.foot),
+          shd:K(h.shd), neck:K(h.neck), headC:K(h.headC), elbow:K(h.elbow), hand:K(h.hand)};
+}
+function bakeFilm(){
+  const N=FILM.fps*FILM.dur, frames=[], partDefs={}, prev={}, presence={};
+  const num=v=>Math.round(v*10)/10;
+  for (let i=0;i<N;i++){
+    const pp=_stateAt('P',i), mm=_stateAt('M',i);
+    const p2=Object.assign({},P), m2=Object.assign({},M);
+    for (const k in pp) p2[k]=pp[k];
+    for (const k in mm) m2[k]=mm[k];
+    const B=build(p2,m2), B3=build3D(p2,m2,B), cam=_camAt(i);
+    const parts={}, alt={};
+    for (const b of B3){
+      if (!b.cls) continue;
+      alt[b.cls]=(alt[b.cls]||0)+1;
+      const key=b.cls+'/'+b.k+'/'+alt[b.cls];
+      let v=null;
+      if (b.k==='box') v=[num(b.x0),num(b.x1),num(b.y0),num(b.y1),num(b.z0),num(b.z1)];
+      else if (b.k==='cyl') v=[num(b.cx),num(b.cy),num(b.r),num(b.z0),num(b.z1)];
+      else if (b.k==='prism') v=[num(b.z0),num(b.z1)].concat(b.pts.map(q=>[num(q[0]),num(q[1])]));
+      if (!partDefs[key]) partDefs[key]={cls:b.cls,k:b.k};
+      const pv=JSON.stringify(prev[key]||null), nv=JSON.stringify(v);
+      if (pv!==nv){ parts[key]=v; prev[key]=v; }
+    }
+    const people={};
+    if (!_hidePeople(i)) for (const {name,h} of (B.d.drawn||[])){
+      const v=filmPeople(h);
+      presence[name]=presence[name]||[]; presence[name].push(i);
+      const pv=JSON.stringify(prev['@'+name]||null);
+      if (pv!==JSON.stringify(v)){ people[name]=v; prev['@'+name]=v; }
+    } else for (const name of Object.keys(presence)){ if (prev['@'+name]){ people[name]=null; prev['@'+name]=null; } }
+    frames.push({i, parts, people, cam, shot:_shotAt(i)});
+  }
+  /* 人体淡入淡出：每个"在场区间"的头 12 帧淡入、尾 12 帧淡出（用户：human fade in/out） */
+  const FADE=12, alpha={};
+  for (const name in presence){
+    const on=new Set(presence[name]), a={};
+    for (let i=0;i<N;i++) a[i]=on.has(i)?1:0;
+    let i=0;
+    while (i<N){
+      if (!on.has(i)){ i++; continue; }
+      let j=i; while (j<N && on.has(j)) j++;
+      for (let k=0;k<FADE;k++){
+        if (i+k<j) a[i+k]=Math.min(a[i+k], k/FADE);
+        if (j-1-k>=i) a[j-1-k]=Math.min(a[j-1-k], k/FADE);
+      }
+      i=j;
+    }
+    alpha[name]=a;
+  }
+  return {fps:FILM.fps, dur:FILM.dur, frames, partDefs, alpha,
+          shots:FILM.shots.map(([n,a,b])=>({name:n,f0:a,f1:b})),
+          meta:{L:P.L,W:P.W,H:P.H,AN:{legW:AN.legW,shinW:AN.shinW,footW:AN.footW,torsoW:AN.torsoW,
+                armW:AN.armW,neckW:AN.neckW,headR:AN.headR,shW:AN.shW}}};
+}
+window.MY={P,M,DEF,AN,build,checks,probe,project,hardOK,redraw,build3D,render3,glbFromScene,bakeFilm,FILM,
   ge:{segSeg,inQuad,segQuad,quadQuad},
   presets:PRESETS,
   applyPreset:(i)=>{ const was=ANIM_ON; ANIM_ON=false; PRESETS[i][1](); ANIM_ON=was; },
