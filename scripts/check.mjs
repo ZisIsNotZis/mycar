@@ -81,11 +81,11 @@ const run = (ov, mo) => p.evaluate(([ov, mo]) => {
 
 /* 5/6) 升顶站立 / 上铺 */
 {
-  const st = await run({ fold: 1, pAng: 0, pr: 700 }, { pop: 'stand' });
+  const st = await run({ fold: 1, pAng: 0, pr: 800 }, { pop: 'stand' });   // 用足够大的 pr 验证可达性
   const need = st.d.standNeed;
   const stand = st.d.popTop >= need;
   const top = st.humanR.headC[1] + 115;
-  const bk = await run({ fold: 1, pAng: 0, pr: 700 }, { pop: 'bunk' });
+  const bk = await run({ fold: 1, pAng: 0, pr: 800 }, { pop: 'bunk' });
   const bunkOk = bk.d.popTop - bk.d.bunkY >= 450;
   const bad = await run({ fold: 1, pAng: 0, pr: 300 }, { pop: 'stand' });
   const caught = bad.checks.some(c => c.id === 'C3' && !c.ok);
