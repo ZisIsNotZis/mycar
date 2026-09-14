@@ -69,6 +69,15 @@ blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 9
 3. **共面就会"漏色"**：内装件别和车身任何外皮共面 —— 吊柜外侧面与 `z=±W/2` 共面 → 侧面漏黄带；吊柜顶面与 `y=H` 共面 → 车顶漏黄带。凡"贴着车壳内表面"的件都内缩一个壁厚（现取 40mm / 顶面 30mm）。
 4. **分析标注不能进模型**：轮位机能包络（`arch3`）是红框分析用，导进 Blender 会把轮子整个盖住 —— 导出时按 `cls` 跳过。凡是"给眼睛看的"图元，导出前都要过一遍这个筛子。
 
+## 在 Blender 里人工检查（推荐）
+
+```bash
+~/blender/blender --python scripts/blender-open.py -- /tmp/mycar-glb/04-驻车大床.glb
+```
+
+载入 + 补灯光 + 视口设 MATERIAL + 摆到接近侧视的 3/4 视角。模型里**车身是半透明外壳、内饰实心**，
+所以能直接转着看内部。导出文件两份：`NN-形态.glb`（半透明壳）与 `NN-形态-solid.glb`（封闭实体）。
+
 ## 动画
 
 ```bash

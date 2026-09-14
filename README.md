@@ -35,7 +35,13 @@ blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 1
 /home/z/.venv/bin/python3 scripts/contact-sheet.py /tmp/mycar-glb/png /tmp/mycar-glb/sheet.png
 ```
 
-每个形态两张：**A = 外形（封闭实体）**、**B = 剖切（同机位，看内饰）**。两张只差"车壳在不在"这一个变量。
+每个形态两张：**A = 外形（封闭实体）**、**B = 半透明壳（看内饰）**。两张只差"车壳透不透"这一个变量。
+
+人工转动检查：
+
+```bash
+~/blender/blender --python scripts/blender-open.py -- /tmp/mycar-glb/04-驻车大床.glb
+```
 Blender 装在 `~/blender`（官方 4.5.13 LTS tarball，免 root），`~/.local/bin/blender` 已软链。
 
 ## 状态

@@ -101,8 +101,9 @@ const DEF = {
   rBl: {v:520, min:400, max:800, st:5,  g:'二排座椅', n:'靠背长'},
   rBa: {v:14,  min:-10, max:60,  st:1,  g:'二排座椅', n:'靠背角（坐姿）',deg:1},
   rCt: {v:200, min:80,  max:320, st:5,  g:'二排座椅', n:'坐垫厚'},
-  rLl: {v:600, min:150, max:700, st:5,  g:'二排座椅', n:'腿托长（放平后跨脚部空洞）'},
-  rLa: {v:35,  min:0,   max:90,  st:1,  g:'二排座椅', n:'腿托下垂角（坐姿）',deg:1},
+  rLl: {v:300, min:150, max:500, st:5,  g:'二排座椅', n:'腿托基础长（收起态）'},
+  legExt:{v:300,min:0, max:500, st:10, g:'二排座椅', n:'腿托伸出量（做床时伸出）'},
+  rLa: {v:70,  min:0,   max:90,  st:1,  g:'二排座椅', n:'腿托下垂角（收起态）',deg:1},
   fold:{v:0,   min:0,   max:1,   st:0.02,g:'二排座椅', n:'变形进度（0=坐姿 1=全平床）'},
   ix:  {v:1650,min:800, max:3600,st:10, g:'中岛',     n:'中岛 x'},
   iw:  {v:220, min:100, max:320, st:10, g:'中岛',     n:'中岛宽'},
@@ -206,14 +207,17 @@ function build(p, m){
     let leg=null;
     if (!F){
       const LA = (p.rLa*(1-FOLDx))*D2R;
+      const legLen = p.rLl + p.legExt*FOLDx;      // 收起=基础长，做床=伸出（真车腿托就是伸缩的）
       const hp = [mx(cfx), cfy];
-      const tipX = hp[0] + (face===1?-1:1)*(p.rLl*Math.cos(LA));
-      const tipY = cfy - p.rLl*Math.sin(LA);
+      const tipX = hp[0] + (face===1?-1:1)*(legLen*Math.cos(LA));
+      const tipY = cfy - legLen*Math.sin(LA);
       const th = Math.max(40, CT*0.45);
-      leg = {hp, tip:[tipX,tipY], LA,
+      leg = {hp, tip:[tipX,tipY], LA, len:legLen,
              sh:[[hp[0],hp[1]],[tipX,tipY],[tipX,tipY-th],[hp[0],hp[1]-th]]};
     }
-    return {row,F,HX,CL,CA,BL,BA,CT,topY,face,axisX,hinge:[HX,topY],
+    const base0=Math.min(mx(HX),mx(cfx))+40, base1=Math.max(mx(HX),mx(cfx))-40;
+    const baseQ=[[base0,d.floor],[base1,d.floor],[base1,topY-CT],[base0,topY-CT]];
+    return {row,F,HX,CL,CA,BL,BA,CT,topY,face,axisX,hinge:[HX,topY],baseQ,base0,base1,
             footY: F ? ((m.fbwd && bedM) ? d.bedTopEarly : d.floor) : d.floor,
             cush, back, head:hd, leg, mx};
   }
@@ -363,7 +367,7 @@ function build(p, m){
     g.push(poly(s.back.sh,cls,'#22303e'));
     g.push(poly(s.head.sh,cls,'#22303e'));
     if (s.leg) g.push(poly(s.leg.sh,'seat','#22303e'));
-    g.push(rect(Math.min(s.cush.p0[0],s.cush.p1[0])+40, d.floor, Math.abs(s.cush.p1[0]-s.cush.p0[0])-80, s.topY-s.CT-d.floor, 'seatbase','#1a232e'));
+    g.push(poly(s.baseQ,'seatbase','#1a232e'));
     g.push(cir(s.hinge,15,'pin'));
     if (s.leg) g.push(cir(s.leg.hp,15,'pin'));
   }
@@ -556,6 +560,20 @@ function checks(p,m,B){
   H('C29', p.bw<=inner || (p.b0>=p.axF+d.archRF && p.b1<=p.axR-d.archRR),
     `电池${p.bw<=inner?'窄到能从轮包之间穿过':'完全避开了轮位切片'}`,
     `电池既宽于轮包内间距（${inner}），又伸进了轮位切片——那里只能放转向/三电`, 'bw/b0/b1');
+  /* 腿托（收起态）必须给脚留出地板：既不能插进前排底座，也不能占掉脚位 */
+  const legQ0=d.rear.leg?d.rear.leg.sh:null;
+  if (legQ0){
+    const hitBase=quadQuad(legQ0,d.front.baseQ), hitCu0=quadQuad(legQ0,d.front.cush.sh), hitBk0=quadQuad(legQ0,d.front.back.sh);
+    H('C33', !hitBase&&!hitCu0&&!hitBk0, `收起的腿托不碰前排（底座/坐垫/靠背）`,
+      `收起的腿托钻进前排${hitBase?'底座':(hitCu0?'坐垫':'靠背')}——脚位被占`, 'rLl/rLa/legExt/xR');
+    const zx0=d.frontCushRearX, zx1=p.xR-p.rCl, zy=d.floor+80, N=40;
+    let free=0;
+    for (let i=0;i<=N;i++){ const x=zx0+(zx1-zx0)*i/N;
+      if (!inQuad([x,zy],legQ0)) free++; }
+    const zoneLen=Math.max(0,zx1-zx0), freeLen=zoneLen*free/N;
+    H('C34', freeLen>=250, `脚部地板净空间 ${R(freeLen)} ≥ 250（腿托不占脚位）`,
+      `脚部地板只剩 ${R(freeLen)} < 250：腿托收起后仍占掉脚位（缩短 rLl 或加大 rLa）`, 'rLl/rLa/xR');
+  }
   S('C30', !inSlice(d.humanF.ankle[0]) && !inSlice(d.humanF.foot[0]),
     `前排脚在前轮位切片之外（脚尖 ${R(d.humanF.foot[0])}，切片后缘 ${R(p.axF+d.archF.r)}）`,
     `前排脚落在前轮位切片内（脚尖 ${R(d.humanF.foot[0])} < 切片后缘 ${R(p.axF+d.archF.r)}）— 升高 fLift 把脚往后拉，或后移 xF`, 'fLift/xF');
@@ -702,8 +720,9 @@ function build3D(p,m,B){
   }
   return o;
 }
+const KL=0.30, KZ=0.17;          // 斜二测系数：越小越接近正侧视
 function project3(p,m,B,B3){
-  const hw=p.W/2, KL=0.5, KZ=0.30;
+  const hw=p.W/2;
   let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
   for (const b of B3){
     const xs=[]; const ys=[];
@@ -720,29 +739,29 @@ function project3(p,m,B,B3){
   return {k, hw:p.W/2, SX:sx=>SVGW/2+(sx-cx)*k, SY:sy=>SVGH/2-(sy-cy)*k};
 }
 const S3={
-  body3:{fill:'#111a24',stroke:'#4a6076'}, glass3:{fill:'#0a2436',stroke:'#3a5a70'},
-  tyre3:{fill:'#0a0f14',stroke:'#5a7086','fill-opacity':.45}, rim3:{fill:'#1a2635',stroke:'#5a7086','fill-opacity':.45},
-  arch3:{fill:'#3a1f22',stroke:'#e57373','fill-opacity':.3},
-  floor3:{fill:'#1b2a38',stroke:'#7d95a8'}, batt3:{fill:'#132434',stroke:'#56c8d8'},
-  wet3:{fill:'#0e2430',stroke:'#3a5a70'}, seat3:{fill:'#22303e',stroke:'#8fb3cc'},
-  seatO3:{fill:'#2b2436',stroke:'#b48ead'}, bed3:{fill:'#1d4a2c',stroke:'#5fd08a'},
-  isl3:{fill:'#241d2e',stroke:'#b48ead'}, tbl3:{fill:'#26333f',stroke:'#8fb3cc'}, base3:{fill:'#141b24',stroke:'#41586c',},
+  body3:{fill:'#9fb4c8',stroke:'#d0e0ee','fill-opacity':.10}, glass3:{fill:'#6f9dc4',stroke:'#9fc0dd','fill-opacity':.12},
+  tyre3:{fill:'#3a4048',stroke:'#9fb0be','fill-opacity':.9}, rim3:{fill:'#6b7a88',stroke:'#b8c8d4','fill-opacity':.85},
+  arch3:{fill:'#3a1f22',stroke:'#e57373','fill-opacity':.16},
+  floor3:{fill:'#5d6f7d',stroke:'#9bb0c0'}, batt3:{fill:'#2f7d8f',stroke:'#56c8d8'},
+  wet3:{fill:'#2b5b6b',stroke:'#56c8d8'}, seat3:{fill:'#5a6b7d',stroke:'#a8c0d4'},
+  seatO3:{fill:'#8a6ea0',stroke:'#c8a8e0'}, bed3:{fill:'#3f8a58',stroke:'#7fe0a0'},
+  isl3:{fill:'#6a5a80',stroke:'#b48ead'}, tbl3:{fill:'#7d8b98',stroke:'#b0c0cc'}, base3:{fill:'#46566a',stroke:'#6b8098',},
   seatbase:{fill:'#1a232e',stroke:'#41586c','stroke-width':1.2},
-  lk3:{fill:'#2a2519',stroke:'#e8d174'}, pop3:{fill:'#12304a',stroke:'#4aa3ff'},
-  tent3:{fill:'#0f2438',stroke:'#4aa3ff','fill-opacity':.35}, bunk3:{fill:'#12304a',stroke:'#4aa3ff'},
-  scr3:{fill:'#2a2a12',stroke:'#e8d174'}, pj3:{fill:'#2b2033',stroke:'#b48ead'},
-  man3:{fill:'#e8b0a0',stroke:'#e8b0a0','fill-opacity':.35}, none3:{fill:'none',stroke:'none'},
+  lk3:{fill:'#b8a054',stroke:'#e8d174'}, pop3:{fill:'#3f7fbf',stroke:'#6fb4e8'},
+  tent3:{fill:'#5f8fb8',stroke:'#8fc4e8','fill-opacity':.3}, bunk3:{fill:'#3f7fbf',stroke:'#6fb4e8'},
+  scr3:{fill:'#c8b878',stroke:'#e8d174'}, pj3:{fill:'#7a6a90',stroke:'#b48ead'},
+  man3:{fill:'#d69a86',stroke:'#e8b0a0','fill-opacity':.55}, none3:{fill:'none',stroke:'none'},
 };
 function render3(B3,S){
   const NS='http://www.w3.org/2000/svg', svg=document.getElementById('sv');
   svg.replaceChildren();
   const bg=document.createElementNS(NS,'rect');
-  bg.setAttribute('width',SVGW); bg.setAttribute('height',SVGH); bg.setAttribute('fill','#0d1117');
+  bg.setAttribute('width',SVGW); bg.setAttribute('height',SVGH); bg.setAttribute('fill','#1c2530');
   svg.appendChild(bg);
   const add=(tag,attrs,txt)=>{const e=document.createElementNS(NS,tag);
     for(const k in attrs) if(attrs[k]!=null) e.setAttribute(k,attrs[k]); if(txt!=null)e.textContent=txt;
     svg.appendChild(e); return e;};
-  const P3=(x,y,z)=>[S.SX(x+z*0.5), S.SY(y+z*0.30)];
+  const P3=(x,y,z)=>[S.SX(x+z*KL), S.SY(y+z*KZ)];
   const quad=(a,b,c,d,cls,op)=>{ const st=S3[cls]||S3.floor3;
     add('path',{d:`M${a[0]},${a[1]}L${b[0]},${b[1]}L${c[0]},${c[1]}L${d[0]},${d[1]}Z`,
       fill:st.fill,stroke:st.stroke,'stroke-width':1,'fill-opacity':(st['fill-opacity']!=null?st['fill-opacity']:(op||1))}); };
@@ -750,11 +769,11 @@ function render3(B3,S){
   for (const b of B3.filter(x=>x.k==='prism')){
     const st=S3[b.cls]||S3.body3;
     const far=b.pts.map(q=>P3(q[0],q[1],b.z0));
-    add('path',{d:'M'+far.map(q=>q[0]+','+q[1]).join('L')+'Z',fill:'#0b1119',stroke:'#33475b','stroke-width':1});
+    add('path',{d:'M'+far.map(q=>q[0]+','+q[1]).join('L')+'Z',fill:'#1c2530',stroke:'#3b4a58','stroke-width':1,'fill-opacity':.45});
     for (let i=0;i<b.pts.length;i++){
       const a=b.pts[i], c=b.pts[(i+1)%b.pts.length];
       if (Math.hypot(c[0]-a[0],c[1]-a[1])<60) continue;
-      quad(P3(a[0],a[1],b.z0),P3(c[0],c[1],b.z0),P3(c[0],c[1],b.z1),P3(a[0],a[1],b.z1), b.cls, .32);
+      quad(P3(a[0],a[1],b.z0),P3(c[0],c[1],b.z0),P3(c[0],c[1],b.z1),P3(a[0],a[1],b.z1), b.cls, (b.cls==='body3'||b.cls==='glass3')?0.13:0.34);
     }
   }
   const list=[...B3].filter(b=>b.k!=='prism'&&b.k!=='none3')
@@ -764,14 +783,15 @@ function render3(B3,S){
       const st=S3[b.cls]||S3.tyre3; const zc=((b.z0||0)+(b.z1||0))/2;
       // 远侧轮画淡一点
       const c0=P3(b.cx,b.cy,b.z0), c1=P3(b.cx,b.cy,b.z1);
-      add('ellipse',{cx:c1[0],cy:c1[1],rx:b.r*S.k,ry:b.r*S.k,fill:st.fill,'fill-opacity':(zc>0?0.35:0.8),stroke:st.stroke,'stroke-width':1});
+      add('ellipse',{cx:c1[0],cy:c1[1],rx:b.r*S.k,ry:b.r*S.k,fill:st.fill,'fill-opacity':(zc>0?0.5:0.85),stroke:st.stroke,'stroke-width':1});
       quad([c0[0]-b.r*S.k,c0[1]],[c0[0]+b.r*S.k,c0[1]],[c1[0]+b.r*S.k,c1[1]],[c1[0]-b.r*S.k,c1[1]],b.cls,.9);
       add('ellipse',{cx:c0[0],cy:c0[1],rx:b.r*S.k,ry:b.r*S.k,fill:st.fill,'fill-opacity':0.8,stroke:st.stroke,'stroke-width':1});
       continue;
     }
     const st=S3[b.cls]||S3.floor3;
     const zc=((b.z0||0)+(b.z1||0))/2, hwz=S.hw;
-    const f=(st['fill-opacity']!=null?st['fill-opacity']:.92)*(zc<-hwz*0.45?0.55:(zc>hwz*0.45?1:0.85));
+    const far=zc<-hwz*0.45;
+    const f=(st['fill-opacity']!=null?st['fill-opacity']:.96)*(far?0.22:1.0);   // 玻璃壳内放实心件：远侧压暗当幽灵
     const A=P3(b.x0,b.y0,b.z0),Bp=P3(b.x1,b.y0,b.z0),C=P3(b.x1,b.y1,b.z0),D=P3(b.x0,b.y1,b.z0);
     const A2=P3(b.x0,b.y0,b.z1),B2=P3(b.x1,b.y0,b.z1),C2=P3(b.x1,b.y1,b.z1),D2=P3(b.x0,b.y1,b.z1);
     quad(A,Bp,C,D,b.cls,f*0.7);                   // 远端面（暗）
@@ -798,59 +818,69 @@ function hex2lin(h){ const n=parseInt((h||'#556677').replace('#',''),16);
   const f=c=>{ c/=255; return c<=0.04045? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
   return [f(n>>16&255), f(n>>8&255), f(n&255)]; }
 function glbFromScene(opts){
-  const CUT=!(opts&&opts.solid);           // 默认剖切（近侧面去掉，内饰可见）
+  const SOLID=!!(opts&&opts.solid);
   const B=build(P,M), B3=build3D(P,M,B);
-  const pos=[], col=[], idx=[];
+  const pos=[], col=[], idx=[], idxS=[];      // idx=实心件，idxS=外壳（导出时半透明）
+  const SHELL=new Set(['body3','glass3','tent3']);
+  const tgt=cls=>(SOLID?idx:(SHELL.has(cls)?idxS:idx));
   const V=(x,y,z,c)=>{ pos.push(z/1000, y/1000, x/1000); col.push(c[0],c[1],c[2],1); return pos.length/3-1; };
   const C=cls=>hex2lin(GLB_PAL[cls]||(S3[cls]||S3.floor3).fill);
-  const quads=(v,faces)=>{ for (const f of faces){ const q=f.map(i=>v[i]); idx.push(q[0],q[1],q[2], q[0],q[2],q[3]); } };
+  const quads=(v,faces,t)=>{ for (const f of faces){ const q=f.map(i=>v[i]); t.push(q[0],q[1],q[2], q[0],q[2],q[3]); } };
   const box=(x0,x1,y0,y1,z0,z1,cls)=>{
     const c=C(cls), v=[];
     for (const z of [z0,z1]) for (const y of [y0,y1]) for (const x of [x0,x1]) v.push(V(x,y,z,c));
-    quads(v,[[0,1,3,2],[4,5,7,6],[0,1,5,4],[2,3,7,6],[0,2,6,4],[1,3,7,5]]);
+    quads(v,[[0,1,3,2],[4,5,7,6],[0,1,5,4],[2,3,7,6],[0,2,6,4],[1,3,7,5]],tgt(cls));
   };
   const prism=(pts,z0,z1,cls,cut)=>{
-    const c=C(cls);
+    const c=C(cls), t=tgt(cls);
     const a=pts.map(q=>V(q[0],q[1],z0,c)), b=pts.map(q=>V(q[0],q[1],z1,c));
-    for (let i=1;i<pts.length-1;i++) idx.push(a[0],a[i],a[i+1]);          // 远侧面
-    if (!cut) for (let i=1;i<pts.length-1;i++) idx.push(b[0],b[i],b[i+1]); // 近侧面（剖切时去掉）
+    for (let i=1;i<pts.length-1;i++) t.push(a[0],a[i],a[i+1]);           // 远侧面
+    for (let i=1;i<pts.length-1;i++) t.push(b[0],b[i],b[i+1]);           // 近侧面（外壳半透明，两片都要）
     for (let i=0;i<pts.length;i++){ const j=(i+1)%pts.length;
-      idx.push(a[i],a[j],b[j], a[i],b[j],b[i]); }
+      t.push(a[i],a[j],b[j], a[i],b[j],b[i]); }
   };
   const cyl=(cx,cy,r,z0,z1,cls)=>{
-    const c=C(cls), N=20, ra=[], rb=[];
+    const c=C(cls), t=tgt(cls), N=20, ra=[], rb=[];
     for (let i=0;i<N;i++){ const t=i/N*Math.PI*2, x=cx+Math.cos(t)*r, y=cy+Math.sin(t)*r;
       ra.push(V(x,y,z0,c)); rb.push(V(x,y,z1,c)); }
     const ca=V(cx,cy,z0,c), cb=V(cx,cy,z1,c);
     for (let i=0;i<N;i++){ const j=(i+1)%N;
-      idx.push(ra[i],ra[j],rb[j], ra[i],rb[j],rb[i]);
-      idx.push(ca,ra[j],ra[i]); idx.push(cb,rb[i],rb[j]); }
+      t.push(ra[i],ra[j],rb[j], ra[i],rb[j],rb[i]);
+      t.push(ca,ra[j],ra[i]); t.push(cb,rb[i],rb[j]); }
   };
   for (const b of B3){
     if (b.cls==='arch3') continue;        // 轮位机能包络是"分析标注"，不进模型（否则把轮子整个盖住）
     if (b.k==='box') box(b.x0,b.x1,b.y0,b.y1,b.z0,b.z1,b.cls);
-    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls,CUT);
+    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls,false);
     else if (b.k==='cyl') cyl(b.cx,b.cy,b.r,b.z0,b.z1,b.cls);
   }
-  /* buffer：POSITION(f32×3) | COLOR_0(f32×4) | indices(u32)，各段 4 字节对齐 */
-  const nV=pos.length/3, nI=idx.length;
-  const posBuf=new Float32Array(pos), colBuf=new Float32Array(col), idxBuf=new Uint32Array(idx);
-  const off1=posBuf.byteLength, off2=off1+colBuf.byteLength;
-  const bin=new Uint8Array(off2+idxBuf.byteLength);
+  /* buffer：POSITION(f32×3) | COLOR_0(f32×4) | idx实心 | idx外壳，各段 4 字节对齐 */
+  const nV=pos.length/3, hasShell=idxS.length>0;
+  const posBuf=new Float32Array(pos), colBuf=new Float32Array(col);
+  const idxBuf=new Uint32Array(idx), idxBufS=new Uint32Array(idxS);
+  const off1=posBuf.byteLength, off2=off1+colBuf.byteLength, off3=off2+idxBuf.byteLength;
+  const bin=new Uint8Array(off3+(hasShell?idxBufS.byteLength:0));
   bin.set(new Uint8Array(posBuf.buffer),0); bin.set(new Uint8Array(colBuf.buffer),off1); bin.set(new Uint8Array(idxBuf.buffer),off2);
+  if (hasShell) bin.set(new Uint8Array(idxBufS.buffer),off3);
   let mn=[1e9,1e9,1e9], mx=[-1e9,-1e9,-1e9];
   for (let i=0;i<pos.length;i+=3) for (let a=0;a<3;a++){ const v=pos[i+a]; if(v<mn[a])mn[a]=v; if(v>mx[a])mx[a]=v; }
+  const prim=[{attributes:{POSITION:0,COLOR_0:1},indices:2,material:0}];
+  if (hasShell) prim.push({attributes:{POSITION:0,COLOR_0:1},indices:3,material:1});
+  const bvs=[{buffer:0,byteOffset:0,byteLength:posBuf.byteLength,target:34962},
+             {buffer:0,byteOffset:off1,byteLength:colBuf.byteLength,target:34962},
+             {buffer:0,byteOffset:off2,byteLength:idxBuf.byteLength,target:34963}];
+  const acc=[{bufferView:0,componentType:5126,count:nV,type:'VEC3',min:mn,max:mx},
+             {bufferView:1,componentType:5126,count:nV,type:'VEC4'},
+             {bufferView:2,componentType:5125,count:idx.length,type:'SCALAR'}];
+  if (hasShell){ bvs.push({buffer:0,byteOffset:off3,byteLength:idxBufS.byteLength,target:34963});
+                 acc.push({bufferView:3,componentType:5125,count:idxS.length,type:'SCALAR'}); }
+  const mats=[{name:'parts',doubleSided:true,pbrMetallicRoughness:{baseColorFactor:[1,1,1,1],metallicFactor:0.15,roughnessFactor:0.8}}];
+  if (hasShell) mats.push({name:'shell',doubleSided:true,alphaMode:'BLEND',
+      pbrMetallicRoughness:{baseColorFactor:[1,1,1,0.18],metallicFactor:0.05,roughnessFactor:0.35}});
   const json={ asset:{version:'2.0',generator:'mycar 蓝图 v12 · 剖面引擎'},
     scene:0, scenes:[{nodes:[0]}], nodes:[{mesh:0,name:'mycar'}],
-    meshes:[{name:'mycar',primitives:[{attributes:{POSITION:0,COLOR_0:1},indices:2,material:0}]}],
-    materials:[{name:'paint',doubleSided:true,pbrMetallicRoughness:{baseColorFactor:[1,1,1,1],metallicFactor:0.15,roughnessFactor:0.75}}],
-    buffers:[{byteLength:bin.byteLength}],
-    bufferViews:[{buffer:0,byteOffset:0,byteLength:posBuf.byteLength,target:34962},
-                 {buffer:0,byteOffset:off1,byteLength:colBuf.byteLength,target:34962},
-                 {buffer:0,byteOffset:off2,byteLength:idxBuf.byteLength,target:34963}],
-    accessors:[{bufferView:0,componentType:5126,count:nV,type:'VEC3',min:mn,max:mx},
-               {bufferView:1,componentType:5126,count:nV,type:'VEC4'},
-               {bufferView:2,componentType:5125,count:nI,type:'SCALAR'}] };
+    meshes:[{name:'mycar',primitives:prim}], materials:mats,
+    buffers:[{byteLength:bin.byteLength}], bufferViews:bvs, accessors:acc };
   const pad4=(n)=>(4-(n%4))%4;
   const js=JSON.stringify(json), jsPad=js+' '.repeat(pad4(js.length));
   const jsBuf=new TextEncoder().encode(jsPad);
@@ -861,7 +891,7 @@ function glbFromScene(opts){
   u32(0,0x46546C67); u32(4,2); u32(8,total);
   u32(12,jsBuf.byteLength); u32(16,0x4E4F534A); out.set(jsBuf,20);
   const bo=20+jsBuf.byteLength; u32(bo,binPad.byteLength); u32(bo+4,0x004E4942); out.set(binPad,bo+8);
-  return {bytes:out, json, tri:nI/3, vert:nV};
+  return {bytes:out, json, tri:(idx.length+idxS.length)/3, vert:nV};
 }
 function downloadGLB(){
   const {bytes,tri,vert}=glbFromScene();
