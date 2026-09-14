@@ -73,45 +73,44 @@
    ===================================================================== */
 
 const DEF = {
-  L:   {v:3550,min:3300,max:5400,st:25, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
+  L:   {v:3240,min:3000,max:5400,st:10, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
   W:   {v:1800,min:1500,max:2050,st:10, g:'车身', n:'外宽 W'},
   H:   {v:1900,min:1400,max:2000,st:10, g:'车身', n:'车高 H（不升顶）'},
   cowl:{v:820, min:560, max:1750,st:10, g:'车身', n:'风挡基位置（前推→座舱/车顶更长）'},
-  rearInset:{v:320,min:200,max:700,st:10, g:'车身', n:'车顶后缘内缩（越小→尾门越立：二排能更躺、尾仓与开口更长）'},
+  rearInset:{v:200,min:150,max:700,st:10, g:'车身', n:'车顶后缘内缩（越小→尾门越立：二排能更躺、尾仓与开口更长）'},
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
   axF: {v:850, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
-  axR: {v:2500,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（用户定值）'},
+  axR: {v:2490,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（用户定值）'},
   gf:  {v:140, min:100, max:260, st:5,  g:'底盘', n:'前离地'},
   gr:  {v:150, min:100, max:260, st:5,  g:'底盘', n:'后离地'},
   bt:  {v:320, min:120, max:360, st:5,  g:'底盘', n:'电池厚（=地板高）'},
   b0:  {v:1250,min:600, max:3200,st:10, g:'底盘', n:'电池前缘（用户定值）'},
-  b1:  {v:2100,min:1500,max:4400,st:10, g:'底盘', n:'电池后缘（做短做轻）'},
+  b1:  {v:2150,min:1500,max:4400,st:10, g:'底盘', n:'电池后缘（用户定值）'},
   bw:  {v:1200,min:800, max:1500,st:10, g:'底盘', n:'电池宽'},
   rot: {v:0,   min:0,   max:180, st:5,  g:'前排座椅', n:'前座椅旋转（0朝前 / 180朝后）',deg:1},
   base:{v:150, min:0,   max:300, st:10, g:'前排座椅', n:'座垫离地板高'},
+  fSlide:{v:170,min:0,  max:400, st:10, g:'前排座椅', n:'床模式前座后移（滑轨；让床 1.8m 而会客净距不动）'},
   fLift:{v:50,  min:-150,max:200, st:10, g:'前排座椅', n:'前座升降（-降 +升）'},
-  xF:  {v:1820,min:900, max:2600,st:10, g:'前排座椅', n:'H 点 x（靠背铰点）'},
+  xF:  {v:1610,min:900, max:2600,st:10, g:'前排座椅', n:'H 点 x（用户定值）'},
   fCl: {v:460, min:350, max:650, st:5,  g:'前排座椅', n:'座垫长（床链第 1 段·必需）'},
-  fCa: {v:5,   min:-10, max:30,  st:1,  g:'前排座椅', n:'座垫角（前缘上翘）',deg:1},
+  fCa: {v:20,  min:-10, max:30,  st:1,  g:'前排座椅', n:'座垫角（前缘上翘；旋转后自动归零）',deg:1},
   fBl: {v:600, min:400, max:800, st:5,  g:'前排座椅', n:'靠背长'},
-  fBa: {v:14,  min:-10, max:60,  st:1,  g:'前排座椅', n:'靠背角（后仰为正）',deg:1},
+  fBa: {v:10,  min:-10, max:60,  st:1,  g:'前排座椅', n:'靠背角（后仰为正；旋转后自动立直为 0）',deg:1},
   fCt: {v:150, min:80,  max:320, st:5,  g:'前排座椅', n:'坐垫厚'},
-  chaiseBa:{v:32, min:0, max:60, st:1,  g:'前排座椅', n:'贵妃榻靠背角（旋转+做床；被风挡自动夹住）',deg:1},
-  xR:  {v:2880,min:1500,max:3600,st:10, g:'二排座椅', n:'H 点 x（靠背铰点）'},
+  xR:  {v:2670,min:1500,max:3600,st:10, g:'二排座椅', n:'H 点 x（用户定值·靠背铰点）'},
   rLift:{v:0,   min:-150,max:200, st:10, g:'二排座椅', n:'二排升降（-降 +升）'},
   rCl: {v:460, min:350, max:700, st:5,  g:'二排座椅', n:'座垫长'},
   rCa: {v:5,   min:-10, max:30,  st:1,  g:'二排座椅', n:'座垫角（前缘上翘）',deg:1},
-  rBl: {v:480, min:400, max:800, st:5,  g:'二排座椅', n:'靠背长'},
+  rBl: {v:300, min:200, max:800, st:5,  g:'二排座椅', n:'靠背长（放平后占尾仓长度；床链的第 4 段）'},
   rBa: {v:14,  min:-10, max:60,  st:1,  g:'二排座椅', n:'靠背角（坐姿）',deg:1},
   rCt: {v:200, min:80,  max:320, st:5,  g:'二排座椅', n:'坐垫厚'},
   rLl: {v:300, min:150, max:500, st:5,  g:'二排座椅', n:'腿托基础长（收起态）'},
-  legExt:{v:300,min:0, max:500, st:10, g:'二排座椅', n:'腿托伸出量（做床时伸出）'},
   rLa: {v:70,  min:0,   max:90,  st:1,  g:'二排座椅', n:'腿托下垂角（收起态）',deg:1},
   fold:{v:0,   min:0,   max:1,   st:0.02,g:'二排座椅', n:'变形进度（0=坐姿 1=全平床）'},
   trunk:{v:0,  min:0,   max:1,   st:0.02,g:'车身',     n:'尾门开度'},
   frunk:{v:0,  min:0,   max:1,   st:0.02,g:'车身',     n:'前备箱盖开度'},
-  ix:  {v:1590,min:800, max:3600,st:10, g:'中岛',     n:'中岛 x（居中于前排两座之间）'},
+  ix:  {v:1380,min:800, max:3600,st:10, g:'中岛',     n:'中岛 x（居中于前排两座之间）'},
   iw:  {v:220, min:100, max:320, st:10, g:'中岛',     n:'中岛宽（横向）'},
   iLen:{v:460, min:300, max:1000,st:10, g:'中岛',     n:'中岛长（纵向）'},
   ihh: {v:620, min:360, max:820, st:10, g:'中岛',     n:'台面离地板高'},
@@ -121,13 +120,13 @@ const DEF = {
   pAng:{v:0,   min:0,   max:90,  st:1,  g:'尾箱/隔板',n:'可翻隔板角（0平铺补床尾 90立起作尾柱隔断）',deg:1},
   ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（储物）'},
   flapLen:{v:420,min:200, max:800, st:10, g:'尾箱/隔板',n:'可翻隔板长（抬起即贵妃榻靠背）'},
-  px0: {v:1150,min:1200,max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘（自动限在车顶内）'},
-  px1: {v:3080,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
+  px0: {v:1150,min:900, max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘（自动限在车顶内）'},
+  px1: {v:2980,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
   pr:  {v:740, min:250, max:900, st:10, g:'升顶/吊柜',n:'升顶抬高'},
   lkD: {v:330, min:200, max:500, st:10, g:'升顶/吊柜',n:'吊柜深（横向）'},
   lkH: {v:300, min:150, max:400, st:10, g:'升顶/吊柜',n:'吊柜高'},
-  scrX:{v:1300,min:1200,max:3900,st:10, g:'投影',    n:'幕布 x（挂在顶横梁）'},
-  pjX: {v:2980,min:1600,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
+  scrX:{v:1330,min:900, max:3900,st:10, g:'投影',    n:'幕布 x（挂在顶横梁）'},
+  pjX: {v:2750,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
   tr:  {v:1.2, min:0.8, max:2.2, st:0.05,g:'投影',    n:'投射比（宽:距，<1.3 为短焦）'},
 };
 const P = {}; for (const k in DEF) P[k] = DEF[k].v;
@@ -169,6 +168,8 @@ function build(p, m){
   const FB = (p.rot||0) > 90;                 // 是否已转成朝后（旋转是连续量，便于动画）
 
   d.floor = p.gf + p.bt;                       // 地板上表面 = 电池顶面
+  d.slideBed = ((p.rot||0)>90) ? p.fSlide : 0;  // 做床时前座后移量（滑轨）
+  d.legSpanBed = (p.xR - p.rCl) - (p.xF + d.slideBed);   // 做床时腿托必须跨过的洞
   d.bedTopEarly = d.floor + p.base + p.rCt + p.rLift;   // 床面高（座椅 builder 需要先用）
   d.archRF = p.tdf/2 + 60; d.archRR = p.tdr/2 + 60;
   d.archF = {c:[p.axF, p.tdf/2], r:d.archRF, top:p.tdf+60, wheelTop:p.tdf};   // 轮心=半径高（轮胎落地）
@@ -221,7 +222,6 @@ function build(p, m){
     return m; };
   d.segPtDist=segPtDist;
   /* 贵妃榻（前排旋转 + 做床）靠背角：反解"头/靠背顶都不穿风挡"的最大角，再把用户要的角夹住 */
-  d.chaiseBaWanted = p.chaiseBa;
   d.chaiseMaxBA = (()=>{
     const hipX=(p.xF - p.fCl) + 8, hipY=d.floor + p.base + p.fCt + p.fLift + AN.hipAboveSeat;
     const inside=(deg)=>{ const b=deg*D2R, dx=-Math.sin(b), dy=Math.cos(b);
@@ -232,8 +232,7 @@ function build(p, m){
     let best=-1; for (let a=0;a<=70;a+=0.5){ if (inside(a)) best=a; else if (best>=0) break; }
     return best;
   })();
-  d.chaiseBa = Math.min(p.chaiseBa, Math.max(0, d.chaiseMaxBA));
-  d.chaiseClamped = d.chaiseBa < p.chaiseBa - 0.01;
+  d.chaiseBa = 0;      // 前排旋转后靠背一律立直（用户定）；d.chaiseMaxBA 降为"这个座位最多能躺多少度"的参考值
   /* 二排半躺角的上限：头不能穿过后风挡（紧凑车身 + 尾门斜度的必然约束，D36） */
   d.rearGlassLine=[ [d.roofX1,p.H], [p.L-140, p.gr+700] ];
   d.rearMaxBA = (()=>{
@@ -250,12 +249,13 @@ function build(p, m){
   function seat(row, fOld){
     const F = row==='front';
     const FOLDx = (fOld==null? FOLD : fOld);
-    const HX = F? p.xF : p.xR;
-    const CL = F? p.fCl: p.rCl;
-    const CA = ((F? p.fCa : p.rCa * (1-FOLDx)))*D2R;          // 二排放平时坐垫角归零
-    const BL = F? p.fBl: p.rBl;
     const bedM = FOLD > 0.5;
-    const BA0raw = F ? ((FB && bedM) ? d.chaiseBa : p.fBa) : (p.rBa*(1-FOLDx) + 90*FOLDx);
+    const slide = (F && FB && bedM) ? p.fSlide : 0;           // 做床时前座后滑（滑轨）
+    const HX = F? p.xF + slide : p.xR;
+    const CL = F? p.fCl: p.rCl;
+    const CA = ((F? (FB ? 0 : p.fCa) : p.rCa * (1-FOLDx)))*D2R;   // 前排旋转后坐垫归零；二排放平同理
+    const BL = F? p.fBl: p.rBl;
+    const BA0raw = F ? (FB ? 0 : p.fBa) : (p.rBa*(1-FOLDx) + 90*FOLDx);   // 前排旋转后靠背立直（= 床头的挡板）
     // 二排半躺：头不能穿后风挡；FOLDx≥0.6 是"放平做床"，那时人不坐这里，不夹
     const BA0 = F ? BA0raw : (FOLDx<0.6 ? Math.min(BA0raw, d.rearBaLimit) : BA0raw);
     const BA = BA0*D2R;                        // 二排放平=水平；前排旋转+做床→贵妃榻
@@ -281,7 +281,7 @@ function build(p, m){
     let leg=null;
     if (!F){
       const LA = (p.rLa*(1-FOLDx))*D2R;
-      const legLen = p.rLl + p.legExt*FOLDx;      // 收起=基础长，做床=伸出（真车腿托就是伸缩的）
+      const legLen = p.rLl + Math.max(0, d.legSpanBed - p.rLl)*FOLDx;   // 收起=基础长；做床=恰好跨过脚部空洞（派生，保证无缝）
       const hp = [mx(cfx), cfy];
       const tipX = hp[0] + (face===1?-1:1)*(legLen*Math.cos(LA));
       const tipY = cfy - legLen*Math.sin(LA);
@@ -359,6 +359,9 @@ function build(p, m){
   d.deckX1 = Math.max(d.bedBackTip, (p.L-90) - p.flapLen);   // 可翻隔板铰点（固定隔板可为 0）
   d.deckLen = d.deckX1 - d.deckX0;             // 固定隔板长（0 = 由可翻隔板直接接管，无缝）
   d.flapActual = (p.L-90) - d.deckX1;          // 可翻隔板实际长（受尾门位置封顶）
+  /* 用户第 4 条：二排靠背铰点是固定点 → 靠背 + 固定隔板 + 可翻隔板 = 下尾仓长度 */
+  d.trunkLen = (p.L-90) - p.xR;                // 尾仓长度（从靠背铰点算到尾门）
+  d.bedRearRun = (d.bedBackTip-p.xR) + d.deckLen + d.flapActual;
   d.lowFloor = d.bedTop - p.ud;
   d.FB = FB;
   d.frontCushRearX  = Math.max(d.front.cush.p0[0], d.front.cush.p1[0]);
@@ -385,6 +388,14 @@ function build(p, m){
   d.rowGap   = (p.xR - p.rCl) - d.frontCushRearX;    // 两排净间距（会客桌板）
   d.colH     = p.H - d.lowFloor;                     // 尾柱净高（竖放可两层）
   d.bedMode  = FOLD > 0.5;
+  /* 床面躺姿锚点：头贴着**车壳后界在该高度处的位置**（尾门是斜的，不能用 L-90 当墙） */
+  d.rearXAt=(y)=>{ let m=-1e9;
+    for (let i=0;i<d.bodyPts.length;i++){ const a=d.bodyPts[i], c2=d.bodyPts[(i+1)%d.bodyPts.length];
+      if ((a[1]-y)*(c2[1]-y)>0 || Math.abs(c2[1]-a[1])<1e-9) continue;
+      const t=(y-a[1])/(c2[1]-a[1]); if (t<0||t>1) continue;
+      m=Math.max(m, a[0]+t*(c2[0]-a[0])); }
+    return m>0?m:p.L; };
+  d.bedHeadY = d.bedTop + 65;                    // 躺姿头心高度（= 床面 + 65）
   d.chaise   = FB && d.bedMode;                      // 前排被迫贵妃榻
   d.usableW  = p.W - 2*p.lkD;                        // 吊柜之间净宽 = 幕布宽度上限
   d.throwD   = Math.abs(p.pjX - p.scrX);
@@ -436,16 +447,18 @@ function build(p, m){
     const aB=Math.max(0,(d.hoodAt(frx1)-60 + d.hoodAt(frxW)-60)/2 - d.archFtop) * Math.max(0,frx1-frxW); // 轮包上
     const aF=aA+aB;
     const vF=aF*FRW/1e6;
-    const stX=Math.max(p.axR+d.archRR,0), stY=p.gr+20;
-    const aL=((p.L-90)-stX)*(d.bedTop-stY);                                          // 下层仓剖面
-    const vL=aL*CABW/1e6;
+    const stY=p.gr+20, hL=d.bedTop-stY, archEnd=Math.max(p.axR+d.archRR,0), innerW=p.W-2*190;
+    const tX0=p.xR;                                     // 下尾仓从**二排靠背铰点**起算（用户第 4 条）
+    const tFull=Math.max(0,(p.L-90)-Math.max(tX0,archEnd));
+    const tNar =Math.max(0,Math.min(archEnd,p.L-90)-tX0);   // 与后轮包重叠那一段只能走窄处
+    const vL=(tFull*CABW + tNar*innerW)*hL/1e6;
     const vLK=2*p.lkD*p.lkH*(d.roofX1-d.roofX0-260)/1e6;                             // 吊柜 ×2
     const vIS=d.isl.vol;                                                             // 扶手箱（箱体内部）
     const vSE=2*(p.fCl-80)*500*Math.max(0,p.base-40)/1e6;                            // 两座下抽屉
     const hi=Math.max(0,p.L-90-d.deckX1)*CABW*Math.max(0, d.colH-120)/1e6;          // 临时高尾仓（隔板立起时）
     const tot=vF+vL+vLK+vIS+vSE;
     return {frunk:vF, lower:vL, lockers:vLK, island:vIS, underSeat:vSE, highTrunk:hi, total:tot,
-            dims:{frunk:[frx1-frx0, d.hoodAt(frx0)-60-fry0, FRW], lower:[(p.L-90)-stX, d.bedTop-stY, CABW],
+            dims:{frunk:[frx1-frx0, d.hoodAt(frx0)-60-fry0, FRW], lower:[(p.L-90)-p.xR, hL, CABW],
                   lockers:[p.lkD,p.lkH,d.roofX1-d.roofX0-260], island:[p.iLen,p.iw,Math.max(0,d.isl.seatPlane-(d.floor+30))],
                   seat:[p.fCl-80,500,Math.max(0,p.base-40)], high:[p.L-90-d.deckX1, Math.max(0,d.colH-120), CABW]}};
   })();
@@ -483,6 +496,7 @@ function build(p, m){
               [p.L-140,p.gr+700],[p.L,p.gr+430],[p.L,p.gr],
               [p.axR+afR.dx,d.rocker], ...afR.pts, [p.axF+afF.dx,d.rocker], ...afF.pts, [0,d.rocker]];
   d.bodyPts=bPts;
+  d.bedOccupantX = d.rearXAt(d.bedHeadY) - AN.headR - 20;   // 头后缘离车壳后界 20（车壳要先有）
   d.bodyTopAt=(x)=>{                       // 车壳在该 x 处的顶面高度（含尾门斜面），供"投影仪是否在车内"用
     let top=0;
     for (let i=0;i<bPts.length;i++){
@@ -631,10 +645,10 @@ function build(p, m){
   if (!HIDE_MAN){
     if (d.bedMode && m.pop!=='stand'){
       const upright = p.pAng >= 70;                 // 隔板立起 → 当椅背用，人坐着靠它
-      const hj = upright
+      let hj = upright
         ? bodyJoints({kind:'sit', seat:{F:false, face:1, hinge:[d.deckX1-150, d.bedTop], topY:d.bedTop, CA:0,
             back:{dir:[Math.sin(12*D2R), Math.cos(12*D2R)]}, footY:d.floor}})
-        : bodyJoints({kind:'lie', anchor:[p.L-90-200, d.bedTop], dir:1, tilt:p.pAng});
+        : bodyJoints({kind:'lie', anchor:[d.bedOccupantX, d.bedTop], dir:1, tilt:p.pAng});
       man(hj,'man-r');
       d.drawn.push({name: upright?'床面(靠隔板坐)':'床面躺姿', h:hj});
       d.headTop=hj.headC[0]+AN.headR;
@@ -758,8 +772,8 @@ function checks(p,m,B){
   const hF=d.humanF, glassLim=d.glassAt(hF.headC[1]);
   H('C39', hF.headC[0]-AN.headR >= glassLim-0.5,
     `前排头在风挡之内（头前缘 ${R(hF.headC[0]-AN.headR)} ≥ 风挡面 ${R(glassLim)}）`,
-    `前排头穿出风挡 ${R(glassLim-(hF.headC[0]-AN.headR))}mm（改小 chaiseBa 或后移 xF）`, 'chaiseBa/xF/fLift');
-  if (d.chaiseClamped) I('C39b', `贵妃榻靠背角被风挡夹住：${p.chaiseBa}° → ${d.chaiseMaxBA}°（这是几何上限，不是预估）`);
+    `前排头穿出风挡 ${R(glassLim-(hF.headC[0]-AN.headR))}mm（后移 xF 或前推风挡基 cowl）`, 'xF/cowl/fLift');
+  I('C39b', `前排旋转后靠背立直（=床头的挡板）；这个座位几何上最多能躺 ${d.chaiseMaxBA}°`);
   /* 二排半躺：头不能穿过后风挡/尾门（紧凑车身的必然约束，D35） */
   if (FB && !d.bedMode){
     const hR=d.humanR, lim=d.rearGlassAt(hR.headC[1]);
@@ -858,6 +872,17 @@ function checks(p,m,B){
     `车头到前轮包只剩 ${R(p.axF-d.archRF)} < 300（前撞梁/前备箱不够）`, 'axF/tdf/L');
   H('C46', p.L-(p.axR+d.archRR)>=330, `尾部（后轮包→车尾）${R(p.L-(p.axR+d.archRR))} ≥ 330`,
     `后轮包到车尾只剩 ${R(p.L-(p.axR+d.archRR))} < 330（后撞梁/尾仓开口不够）`, 'axR/tdr/L');
+  /* —— 用户第 4 条：靠背铰点固定 → 靠背 + 固定隔板 + 可翻隔板 = 尾仓长度 —— */
+  H('C48', d.bedBackTip<=p.L-90+1,
+    `二排靠背放平后落在尾门之内（靠背 ${R(d.bedBackTip-p.xR)} + 固定 ${R(d.deckLen)} + 可翻 ${R(d.flapActual)} = ${R(d.bedRearRun)} = 尾仓长 ${R(d.trunkLen)}）`,
+    `靠背放平后伸出尾门 ${R(d.bedBackTip-(p.L-90))}mm：靠背 ${R(p.rBl)} 太长或车尾太短（改 rBl / xR / L）`, 'rBl/xR/L');
+  if (d.bedMode && d.bedMan) H('C50', d.bedMan.foot[0]>=d.bedFrontX-1,
+    `床面躺姿完整落在床面上（脚端余量 ${R(d.bedMan.foot[0]-d.bedFrontX)}）`,
+    `人躺不下：脚端超出床面前缘 ${R(d.bedFrontX-d.bedMan.foot[0])}mm（床比人短）`, 'L/xF/fCl/rBl/fSlide');
+  if (d.flapActual<150) S('C49', false,
+    `可翻隔板只有 ${R(d.flapActual)}mm（<150）：竖起来当不了尾柱隔断、放平当不了贵妃榻靠背`,
+    `可翻隔板只有 ${R(d.flapActual)}mm（<150）：把车尾加长或把二排靠背缩短`, 'rBl/xR/flapLen/L');
+  else I('C49', `可翻隔板 ${R(d.flapActual)}mm（铰点 = 靠背放平后的尾端）· 尾仓长 ${R(d.trunkLen)} = 靠背+固定+可翻`);
   const st2=d.storage;
   I('C40', `储物合计 ${Math.round(st2.total)} L = 前备箱 ${Math.round(st2.frunk)} + 下层仓 ${Math.round(st2.lower)} + 吊柜 ${Math.round(st2.lockers)} + 中岛 ${Math.round(st2.island)} + 座下 ${Math.round(st2.underSeat)}`);
   I('C41', `电池 ${d.kWh} kWh / ${Math.round(d.battL)} L · 幕布 ${d.scrIn}″ · 可睡 ${Math.round(d.bedCap)}（当前 ${Math.round(d.sleepRun)}）`);
@@ -888,7 +913,7 @@ function checks(p,m,B){
     const legQ0s=shrinkQuad(legQ0,12);
     const hitBase=quadQuad(legQ0s,d.front.baseQ), hitCu0=quadQuad(legQ0s,d.front.cush.sh), hitBk0=quadQuad(legQ0s,d.front.back.sh);
     H('C33', !hitBase&&!hitCu0&&!hitBk0, `收起的腿托不碰前排（底座/坐垫/靠背）`,
-      `收起的腿托钻进前排${hitBase?'底座':(hitCu0?'坐垫':'靠背')}——脚位被占`, 'rLl/rLa/legExt/xR');
+      `收起的腿托钻进前排${hitBase?'底座':(hitCu0?'坐垫':'靠背')}——脚位被占`, 'rLl/rLa/xR');
     const zx0=d.frontCushRearX, zx1=p.xR-p.rCl, zy=d.floor+80, N=40;
     let free=0;
     for (let i=0;i<=N;i++){ const x=zx0+(zx1-zx0)*i/N;
@@ -986,10 +1011,9 @@ function probe(p,m){
   I('S02', `储物 ${R(st.total)} L＝前备箱 ${R(st.frunk)}＋尾仓 ${R(st.lower)}＋吊柜 ${R(st.lockers)}＋扶手箱 ${R(st.island)}＋座下 ${R(st.underSeat)}`);
   for (const s of d.storageRows) I('S03', `· ${s.name} ${R(s.v)} L`);
 
-  /* --- 溃缩区 / 轴距 --- */
-  A('C01', p.axF-d.archRF>=300, `前溃缩+前备箱长度 ${R(p.axF-d.archRF)} ≥ 300（车头到前轮包）`);
-  A('C02', p.L-(p.axR+d.archRR)>=330, `尾部（尾轮包→车尾）${R(p.L-(p.axR+d.archRR))} ≥ 330（后溃缩 + 尾仓口）`);
-  I('C03', `轴距 ${R(p.axR-p.axF)} · 前悬 ${R(p.axF)} · 尾悬 ${R(p.L-p.axR)} · 全长 ${p.L}`);
+  /* --- 轴距/悬伸（只报数；"够不够"是设计规则，归 checks 的 C45/C46） --- */
+  I('C03', `轴距 ${R(p.axR-p.axF)} · 前悬 ${R(p.axF)} · 尾悬 ${R(p.L-p.axR)} · 全长 ${p.L}`+
+           ` · 前溃缩 ${R(p.axF-d.archRF)} / 后溃缩 ${R(p.L-(p.axR+d.archRR))}`);
   return out;
 }
 
