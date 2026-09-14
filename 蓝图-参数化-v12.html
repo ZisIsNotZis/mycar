@@ -86,6 +86,7 @@ const DEF = {
   b0:  {v:1440,min:600, max:3200,st:10, g:'底盘', n:'电池前缘'},
   b1:  {v:2470,min:1500,max:4400,st:10, g:'底盘', n:'电池后缘（做短：小/轻优先）'},
   bw:  {v:1200,min:800, max:1500,st:10, g:'底盘', n:'电池宽'},
+  rot: {v:0,   min:0,   max:180, st:5,  g:'前排座椅', n:'前座椅旋转（0朝前 / 180朝后）',deg:1},
   base:{v:150, min:0,   max:300, st:10, g:'前排座椅', n:'座垫离地板高'},
   fLift:{v:50,  min:-150,max:200, st:10, g:'前排座椅', n:'前座升降（-降 +升）'},
   xF:  {v:1850,min:900, max:2600,st:10, g:'前排座椅', n:'H 点 x（靠背铰点）'},
@@ -105,6 +106,8 @@ const DEF = {
   legExt:{v:300,min:0, max:500, st:10, g:'二排座椅', n:'腿托伸出量（做床时伸出）'},
   rLa: {v:70,  min:0,   max:90,  st:1,  g:'二排座椅', n:'腿托下垂角（收起态）',deg:1},
   fold:{v:0,   min:0,   max:1,   st:0.02,g:'二排座椅', n:'变形进度（0=坐姿 1=全平床）'},
+  trunk:{v:0,  min:0,   max:1,   st:0.02,g:'车身',     n:'尾门开度'},
+  frunk:{v:0,  min:0,   max:1,   st:0.02,g:'车身',     n:'前备箱盖开度'},
   ix:  {v:1650,min:800, max:3600,st:10, g:'中岛',     n:'中岛 x'},
   iw:  {v:220, min:100, max:320, st:10, g:'中岛',     n:'中岛宽'},
   ihh: {v:620, min:360, max:820, st:10, g:'中岛',     n:'台面离地板高'},
@@ -144,6 +147,8 @@ function inQuad(p,q){ let s=0;
     if(cr>1e-9) s|=1; else if(cr<-1e-9) s|=2; }
   return s!==3; }
 function segQuad(a,b,q){ return inQuad(a,q)||inQuad(b,q)||q.some((_,i)=>segSeg(a,b,q[i],q[(i+1)%4])); }
+function shrinkQuad(q,d){ const cx=(q[0][0]+q[1][0]+q[2][0]+q[3][0])/4, cy=(q[0][1]+q[1][1]+q[2][1]+q[3][1])/4;
+  return q.map(p=>[p[0]+(p[0]>cx?-d:d), p[1]+(p[1]>cy?-d:d)]); }
 function quadQuad(a,b){ return a.some(p=>inQuad(p,b))||b.some(p=>inQuad(p,a))||a.some((_,i)=>segQuad(a[i],a[(i+1)%4],b)); }
 const ln  =(a,b,w,cls)=>        ({k:'line',a,b,w:w||0,cls:cls||'l0'});
 const poly=(pts,cls,fill)=>     ({k:'poly',pts,cls:cls||'l0',fill:fill||''});
@@ -154,6 +159,7 @@ const txt =(x,y,s,cls,size,anchor)=>({k:'text',at:[x,y],s,cls:cls||'txt',size:si
 /* ============================ build ============================ */
 function build(p, m){
   const g=[], d={}, FOLD=p.fold, POP=m.pop;
+  const FB = (p.rot||0) > 90;                 // 是否已转成朝后（旋转是连续量，便于动画）
 
   d.floor = p.gf + p.bt;                       // 地板上表面 = 电池顶面
   d.bedTopEarly = d.floor + p.base + p.rCt + p.rLift;   // 床面高（座椅 builder 需要先用）
@@ -183,11 +189,11 @@ function build(p, m){
     const CA = ((F? p.fCa : p.rCa * (1-FOLDx)))*D2R;          // 二排放平时坐垫角归零
     const BL = F? p.fBl: p.rBl;
     const bedM = FOLD > 0.5;
-    const BA0 = F ? ((m.fbwd && bedM) ? Math.max(p.fBa, 50) : p.fBa) : (p.rBa*(1-FOLDx) + 90*FOLDx);
+    const BA0 = F ? ((FB && bedM) ? 32 : p.fBa) : (p.rBa*(1-FOLDx) + 90*FOLDx);   // 贵妃榻 32°：头部留在风挡之后
     const BA = BA0*D2R;                        // 二排放平=水平；前排旋转+做床→贵妃榻
     const CT = F? p.fCt: p.rCt;
     const topY = d.floor + p.base + CT + (F? p.fLift : 0);   // 前座可用 fLift 对齐床面
-    const face = F ? (m.fbwd ? -1 : 1) : 1;                  // +1 朝车头
+    const face = F ? (FB ? -1 : 1) : 1;                      // +1 朝车头
     const axisX = HX - CL/2;                                 // 旋转轴（座垫中点）
     const mx = x => face===1 ? x : 2*axisX - x;              // 180° 旋转
     const cfx = HX - CL*Math.cos(CA);                        // 坐垫前缘
@@ -218,7 +224,7 @@ function build(p, m){
     const base0=Math.min(mx(HX),mx(cfx))+40, base1=Math.max(mx(HX),mx(cfx))-40;
     const baseQ=[[base0,d.floor],[base1,d.floor],[base1,topY-CT],[base0,topY-CT]];
     return {row,F,HX,CL,CA,BL,BA,CT,topY,face,axisX,hinge:[HX,topY],baseQ,base0,base1,
-            footY: F ? ((m.fbwd && bedM) ? d.bedTopEarly : d.floor) : d.floor,
+            footY: F ? ((FB && bedM) ? d.bedTopEarly : d.floor) : d.floor,
             cush, back, head:hd, leg, mx};
   }
   d.front = seat('front');
@@ -226,8 +232,25 @@ function build(p, m){
   d.rearFlat = seat('rear',1);        // 放平态（床长/碰撞判据用，与当前 fold 无关）
 
   /* ---------- 人体（关节链，头永不脱离躯干）---------- */
-  function human(s){
-    const f = s.face, fl = s.F ? 0 : FOLD;          // 前排不参与变形
+  /* 统一人体：所有姿态都用同一套关节表（AN）与同一个 joints 函数。
+     调用方只描述"姿态"，几何推导只有这一份。 */
+  function bodyJoints(o){
+    const A=AN, dir=o.dir||1;
+    if (o.kind==='stand'){
+      const [x,y0]=o.anchor;
+      return {hip:[x,y0+A.hipY], knee:[x,y0+A.kneeY], ankle:[x,y0+A.ankleY], foot:[x,y0+A.ankleY],
+              shd:[x,y0+A.shdY], headC:[x,y0+A.topY-A.headR],
+              elbow:[x+95,y0+A.hipY+40], hand:[x+80,y0+A.hipY-220], pose:'stand'};
+    }
+    if (o.kind==='lie'){                       // anchor = 头心 x；dir = 由髋指向头的方向
+      const [hx,y0]=o.anchor, t=(o.tilt||0)*D2R, L=(215+A.torso)*Math.cos(t);
+      const hip=[hx-dir*L, y0+65];
+      const shd=[hip[0]+dir*A.torso*Math.cos(t), hip[1]+A.torso*Math.sin(t)];
+      const headC=[shd[0]+dir*215*Math.cos(t), shd[1]+215*Math.sin(t)];
+      const knee=[hip[0]-dir*A.thigh, y0+65], ankle=[knee[0]-dir*A.shin, y0+55], toe=[ankle[0]-dir*A.footL, y0+40];
+      return {hip,knee,ankle,foot:toe,shd,headC,elbow:[shd[0]+dir*220,shd[1]+60],hand:[hip[0]+dir*120,hip[1]+120],pose:'lie'};
+    }
+    const s=o.seat, f=s.face, fl=s.F?0:FOLD;   // kind==='sit'（含贵妃榻：由座面/支撑面自动决定）
     const hip = [s.hinge[0] - f*8, s.topY + AN.hipAboveSeat];
     const knee= [hip[0] - f*AN.thigh*Math.cos(s.CA), hip[1] + AN.thigh*Math.sin(s.CA)];
     // 踝：坐姿落在支撑面（地板 / 贵妃榻时为床面），fl→沿腿托伸平
@@ -248,8 +271,9 @@ function build(p, m){
     const handSit=[knee[0]-toeDir*30, knee[1]+120];
     const handLie=[hip[0]+bd[0]*300, hip[1]+bd[1]*300];
     const hand=[lerp(handSit[0],handLie[0],fl), lerp(handSit[1],handLie[1],fl)];
-    return {hip,knee,ankle,foot,shd,headC,elbow,hand,over,need,face:f,seat:s};
+    return {hip,knee,ankle,foot,shd,headC,elbow,hand,over,need,face:f,pose:'sit'};
   }
+  const human=(s)=>bodyJoints({kind:'sit', seat:s});
   d.humanF = human(d.front);
   d.humanR = human(d.rear);
 
@@ -262,18 +286,19 @@ function build(p, m){
   d.deckLen = d.deckX1 - d.deckX0;             // 固定隔板长（0 = 由可翻隔板直接接管，无缝）
   d.flapActual = (p.L-90) - d.deckX1;          // 可翻隔板实际长（受尾门位置封顶）
   d.lowFloor = d.bedTop - p.ud;
+  d.FB = FB;
   d.frontCushRearX  = Math.max(d.front.cush.p0[0], d.front.cush.p1[0]);
   d.frontCushFrontX = Math.min(d.front.cush.p0[0], d.front.cush.p1[0]);
   d.seamGap  = d.frontCushRearX - d.bedFlatTip;      // 0 = 与前座垫无缝
   d.levelDiff= d.bedTop - d.front.topY;              // 0 = 与前座面齐平
-  d.bedFrontX= m.fbwd ? d.frontCushFrontX : d.bedFlatTip;
+  d.bedFrontX= FB ? d.frontCushFrontX : d.bedFlatTip;
   d.bedRun   = (p.L-90) - d.bedFrontX;
   d.sleepRun = (p.pAng>5 ? d.deckX1 + d.flapActual*Math.cos(p.pAng*D2R) : (p.L-90)) - d.bedFrontX;
   d.flapAngle = p.pAng;
   d.rowGap   = (p.xR - p.rCl) - d.frontCushRearX;    // 两排净间距（会客桌板）
   d.colH     = p.H - d.lowFloor;                     // 尾柱净高（竖放可两层）
   d.bedMode  = FOLD > 0.5;
-  d.chaise   = m.fbwd && d.bedMode;                  // 前排被迫贵妃榻
+  d.chaise   = FB && d.bedMode;                      // 前排被迫贵妃榻
   d.usableW  = p.W - 2*p.lkD;                        // 吊柜之间净宽 = 幕布宽度上限
   d.throwD   = Math.abs(p.pjX - p.scrX);
   d.scrW     = Math.min(d.usableW, d.throwD / p.tr);
@@ -332,9 +357,23 @@ function build(p, m){
   }
   g.push(ln([60,d.floor],[p.L-90,d.floor],26,'floor'));
 
-  /* 前备箱（说明书第二章） */
-  g.push(rect(p.axF-260, p.gf+190, 400, 150,'store2','none'));
-  g.push(txt(p.axF-60, p.gf+165,'前备箱（一级脏区）','store-t',10));
+  /* 前备箱（说明书第二章）：超大整体空腔，只有两根溃缩大梁横贯 */
+  const frx1=d.cowlX-60, fry0=d.archFtop+20;
+  const hoodAt=(x)=>{ const a=[0,p.gf+560], b=[p.axF-140,p.gf+700], c=[d.cowlX,d.cowlY];
+    if (x<=(p.axF-140)) return a[1]+(b[1]-a[1])*(x-a[0])/((p.axF-140)-a[0]);
+    return b[1]+(c[1]-b[1])*(x-(p.axF-140))/(d.cowlX-(p.axF-140)); };
+  g.push(poly([[70,fry0],[frx1,fry0],[frx1,hoodAt(frx1)-60],[70,hoodAt(70)-60]],'store2','none'));
+  for (const ry of [fry0+120, fry0+250]) g.push(ln([70,ry],[frx1,ry],16,'rail'));
+  g.push(txt((70+frx1)/2, fry0+40, `前备箱（一级脏区）${Math.round(frx1-70)}×${Math.round(hoodAt(70)-60-fry0)}`,'store-t',10));
+  /* 前备箱盖（铰在前端）开启 */
+  const fa=p.frunk*55*D2R, fH=[0,p.gf+560], fL=Math.hypot(d.cowlX-0, d.cowlY-(p.gf+560));
+  const fA0=Math.atan2(d.cowlY-(p.gf+560), d.cowlX), fE=[fH[0]+Math.cos(fA0+fa)*fL, fH[1]+Math.sin(fA0+fa)*fL];
+  g.push(ln(fH,fE,26,'door'));
+  /* 尾门（铰在尾窗上沿）开启 */
+  const ta=p.trunk*100*D2R, tH=[p.L-160, d.bodyTopAt(p.L-160)], tL=430;
+  const tE=[tH[0]+Math.cos(-Math.PI/2+ta*0+ta)*0+tL*Math.cos(Math.PI/2*1.0+ta-Math.PI/2), tH[1]-tL*Math.cos(ta)];
+  g.push(ln(tH,[tH[0]+tL*Math.sin(ta), tH[1]-tL*Math.cos(ta)],26,'door'));
+  if (p.trunk>0.02) g.push(txt(tH[0]+120, tH[1]+90, `尾门开 ${Math.round(p.trunk*100)}%`,'door-t',10,'start'));
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
   for (const [ax,arc,tag,note] of [[p.axF,d.archF,'前轮位','转向/48V/AC·溃缩件'],[p.axR,d.archR,'后轮位','同轴三电（电机+减速+逆变）']]){
@@ -367,7 +406,7 @@ function build(p, m){
   }
 
   /* 会客模式：跨行桌板（搭在墙面榫卯上，不用时从下层仓取） */
-  if (m.fbwd && !d.bedMode){
+  if (FB && !d.bedMode){
     const tY=d.rear.topY+280;
     d.table={x0:d.frontCushRearX, x1:p.xR-p.rCl, top:tY, overSeat:tY-d.rear.topY};
     g.push(rect(d.table.x0, tY-60, d.table.x1-d.table.x0, 60,'tbl','#26333f'));
@@ -376,7 +415,7 @@ function build(p, m){
 
   /* 座椅 */
   for (const s of [d.front,d.rear]){
-    const cls=(s.F && m.fbwd)?'seat-o':'seat';
+    const cls=(s.F && FB)?'seat-o':'seat';
     g.push(poly(s.cush.sh,cls,'#22303e'));
     g.push(poly(s.back.sh,cls,'#22303e'));
     g.push(poly(s.head.sh,cls,'#22303e'));
@@ -394,7 +433,8 @@ function build(p, m){
   g.push(txt(ix0+p.iw+16, tabY-40, `中岛台面离地 ${Math.round(tabY)}`,'isl-t',10,'start'));
 
   /* 人体 */
-  const man=(h,cls)=>{
+  const man=(h,cls)=>{                       // 唯一的画人函数（所有姿态共用）
+    if (!h) return;
     g.push(ln(h.hip,h.knee,AN.legW,cls));
     g.push(ln(h.knee,h.ankle,AN.shinW,cls));
     g.push(ln(h.ankle,h.foot,AN.footW,cls));
@@ -403,26 +443,29 @@ function build(p, m){
     g.push(ln(h.elbow,h.hand,AN.armW,cls));
     g.push(cir(h.headC,AN.headR,cls,'#e8b0a0'));
   };
-  if (d.bedMode && m.pop!=='stand'){
-    /* 床：脚朝车头（面朝幕布），头在尾门侧、枕在可翻隔板上；隔板抬起即贵妃榻靠背 */
-    const y0=d.bedTop, cls='man-r', pa=p.pAng*D2R;
-    const toe=d.bedFrontX+180, ankle=toe+AN.footL, knee=ankle+AN.shin, hip=knee+AN.thigh;
-    const shd=[hip+Math.cos(pa)*AN.torso, y0+115+Math.sin(pa)*AN.torso];
-    const head=[shd[0]+Math.cos(pa)*215, shd[1]+Math.sin(pa)*215];
-    g.push(ln([hip,y0+65],[knee,y0+65],AN.legW,cls));
-    g.push(ln([knee,y0+55],[ankle,y0+55],AN.shinW,cls));
-    g.push(ln([ankle,y0+40],[toe,y0+40],AN.footW,cls));
-    g.push(ln([hip,y0+115],shd,AN.torsoW,cls));
-    g.push(ln([shd[0],shd[1]+40],[shd[0]+Math.cos(pa)*250,shd[1]+Math.sin(pa)*250+40],AN.armW,cls));
-    g.push(cir(head,AN.headR,cls,'#e8b0a0'));
-    d.headTop = head[0]+AN.headR;
-    g.push(txt(hip, y0+330, `👤1750 头朝尾门（面朝幕布 ${Math.round(p.scrX)}）`,'bed-t',10));
-    g.push(txt(toe-140, y0+180, `脚端余量 ${Math.round(toe-d.bedFrontX)}`, 'bed-t',9.5,'end'));
-  } else {
-    if (m.pop!=='stand') man(d.humanR,'man-r');   // 站姿模式：床面留空给站立
-    man(d.humanF,'man-f');
+  const HIDE_MAN = (typeof ANIM!=='undefined' && ANIM.active);   // 过渡动画中人体淡出（用户：消失再出现）
+  if (!HIDE_MAN){
+    if (d.bedMode && m.pop!=='stand'){
+      man(bodyJoints({kind:'lie', anchor:[p.L-90-160, d.bedTop], dir:1, tilt:p.pAng}), 'man-r');
+      const hj=bodyJoints({kind:'lie', anchor:[p.L-90-160, d.bedTop], dir:1, tilt:p.pAng});
+      g.push(txt(hj.hip[0]-200, d.bedTop+330, `👤1750 脚朝幕布 · 头靠可翻隔板`,'bed-t',10));
+      g.push(txt(hj.ankle[0]-120, d.bedTop+180, `脚端余量 ${Math.round(hj.foot[0]-d.bedFrontX)}`, 'bed-t',9.5,'end'));
+      d.headTop=hj.headC[0]+AN.headR;
+    } else {
+      if (m.pop!=='stand') man(d.humanR,'man-r');           // 站姿模式：床面留空
+      man(d.humanF,'man-f');
+      if (m.pop==='stand'){
+        const ok=d.popTop>=d.standNeed, sx=(d.px0+d.px1)/2;
+        if (ok){ man(bodyJoints({kind:'stand', anchor:[sx, d.bedTop]}), 'man-r');
+                 g.push(txt(sx, d.bedTop+AN.topY+150,'站在床面上','bed-t',10)); }
+        else   { man(d.humanR,'man-r');                       // 净空不够 → 只能坐（说明书）
+                 g.push(txt(sx, d.bedTop+1050,`升顶不足：pr 再加 ${Math.round(d.standNeed-d.popTop)} 才能站`,'warn-t',10)); }
+      }
+      if (m.pop==='bunk'){
+        man(bodyJoints({kind:'lie', anchor:[d.px1-380, d.bunkY+20], dir:1, tilt:0}), 'man-b');
+      }
+    }
   }
-
   /* 升顶 + 吊柜 */
   const gx=d.px0, gy=d.px1-0;
   if (POP==='closed'){
@@ -494,19 +537,25 @@ function build(p, m){
 /* ============================ 校验 ============================ */
 function checks(p,m,B){
   const d=B.d, out=[];
+  const FB=(p.rot||0)>90;
   const H=(id,ok,t,bad,fix)=>out.push({id,ok,lv:'hard',t:ok?t:bad,fix});
   const S=(id,ok,t,bad,fix)=>out.push({id,ok,lv:'soft',t:ok?t:bad,fix});
   const I=(id,t)=>out.push({id,ok:true,lv:'info',t,fix:''});
   const R=Math.round;
 
-  H('C1', d.sleepRun>=1750, `可睡长度 ${R(d.sleepRun)} ≥ 1750（平段+可翻隔板投影）`,
-      `可睡长度 ${R(d.sleepRun)} < 1750（平段 ${R((p.pAng>5?d.deckX1:(p.L-90))-d.bedFrontX)} + 隔板投影 ${R(p.pAng>5?p.flapLen*Math.cos(p.pAng*D2R):0)}）`, 'xR/rCl/rLl/rBl/flapLen/L');
+  d.bedCap=(p.L-90)-d.frontCushFrontX;      // 全部放平/旋转后的最大可睡长度（能力判据）
+  H('C1', d.bedCap>=1750, `最大可睡 ${R(d.bedCap)} ≥ 1750（前座垫前缘→尾门）`,
+      `最大可睡只有 ${R(d.bedCap)} < 1750（缩短前座/后移 xR 或加长 L）`, 'xF/fCl/xR/rBl/L');
+  if (d.bedMode) H('C1b', d.sleepRun>=1750, `当前配置可睡 ${R(d.sleepRun)} ≥ 1750（平段+隔板投影 ${R(p.pAng>5?d.flapActual*Math.cos(p.pAng*D2R):0)}）`,
+      `当前配置只有 ${R(d.sleepRun)} 可睡：可翻隔板抬起 ${p.pAng}° 吃掉了 ${R((p.L-90)-d.deckX1-d.flapActual*Math.max(0,Math.cos(p.pAng*D2R)))}（放平隔板）`, 'pAng/flapLen/L');
   if (m.pop==='stand') H('C3', d.popTop>=d.standNeed, `站姿净空 ${R(d.popTop)} ≥ ${R(d.standNeed)}`,
       `站姿不够：pr 再加 ${R(d.standNeed-d.popTop)}`, 'pr');
   else I('C3', `站立所需 pr ≥ ${R(d.standNeed-p.H)}（现 ${p.pr}）`);
   if (m.pop==='bunk') H('C4', p.pr>=480, `上铺净空 ${p.pr} ≥ 480`, `上铺净空不足 ${p.pr} < 480`, 'pr');
   H('C5', d.bedTop+960<=p.H, `床面坐姿净空 ${R(d.bedTop+960)} ≤ 车高 ${p.H}`,
       `床面坐姿不够（${R(d.bedTop+960)} > ${p.H}）`, 'H/rCt/bt');
+  H('C39', d.humanF.headC[0]-AN.headR >= d.cowlX-40, `前排头不穿风挡（头前缘 ${R(d.humanF.headC[0]-AN.headR)} ≥ 风挡基 ${R(d.cowlX)}）`,
+    `前排头穿出风挡：头前缘 ${R(d.humanF.headC[0]-AN.headR)} < 风挡基 ${R(d.cowlX)}（减小贵妃榻靠背角或后移 xF）`, 'fBa/xF/fLift');
   for (const [tag,h0,name] of [['F',d.humanF,'前排'],['R',d.humanR,'二排']]){
     const top=h0.headC[1]+AN.headR;
     H('C6'+tag, top<=p.H-30, `${name}头顶 ${R(top)} ≤ ${p.H-30}`, `${name}头顶 ${R(top)} 穿顶（车高 ${p.H}）`, 'H/fBl/fBa/fCt');
@@ -530,8 +579,8 @@ function checks(p,m,B){
   H('C13', !hitPart, `可翻隔板 ${p.pAng}° 不穿插人体`, `可翻隔板 ${p.pAng}° 顶到人体`, 'pAng/flapLen');
   H('C14', p.W-2*p.lkD>=AN.shW, `吊柜间距 ${p.W-2*p.lkD} ≥ 肩宽 ${AN.shW}`,
     `吊柜太深：两侧只剩 ${p.W-2*p.lkD} < 肩宽 ${AN.shW}`, 'lkD/W');
-  H('C35', d.bedTop>=d.archRtop, `床面 ${R(d.bedTop)} ≥ 后轮包顶 ${R(d.archRtop)}（轮包不顶床）`,
-    `床面 ${R(d.bedTop)} 低于后轮包顶 ${R(d.archRtop)}：床会被轮包顶起（加厚 base/rCt/bt 或换小轮）`, 'rCt/bt/base/tdr');
+  H('C35', d.bedTop>=d.archRtop, `床面 ${R(d.bedTop)} ≥ 后轮包顶 ${R(d.archRtop)}（轮包不顶床；故 rLift ≥ ${R(d.archRtop-(d.floor+p.base+p.rCt))}）`,
+    `床面 ${R(d.bedTop)} 低于后轮包顶 ${R(d.archRtop)}：床会被轮包顶起（rLift 最多降到 ${R(d.archRtop-(d.floor+p.base+p.rCt))}）`, 'rLift/rCt/bt/base/tdr');
   H('C15', p.axF-p.tdf/2>=60 && p.axR+p.tdr/2<=p.L-60, `前后轮都在车身内`, `车轮越出车身`, 'axF/axR/td/L');
   H('C16', (p.L-p.axR)/p.L<0.5, `尾悬 ${R((p.L-p.axR)/p.L*100)}% < 50%`, `尾悬 ${R((p.L-p.axR)/p.L*100)}% 过大`, 'axR/L');
   H('C17', p.px1-p.px0>=600 && p.px0>=d.roofX0 && p.px1<=d.roofX1, `升顶开口 ${p.px0}–${p.px1} 在车顶有效区`,
@@ -546,8 +595,9 @@ function checks(p,m,B){
   I('C24', `中岛是中央通道件（横向居中），侧视图与坐姿重叠属正常`);
   /* —— 真碰撞判定：用同一份图元 —— */
   const fCushQ=d.front.cush.sh, fBackQ=d.front.back.sh, legQ=d.rearFlat.leg.sh;
-  const hitCush=quadQuad(legQ,fCushQ), hitBack=quadQuad(legQ,fBackQ);
-  if (m.fbwd) H('C22', !hitCush&&!hitBack, `腿托放平后与前排（已旋转 180°）不冲突`,
+  const legQs=shrinkQuad(legQ,12);      // 内缩 12mm：仅贴合不算碰撞
+  const hitCush=quadQuad(legQs,fCushQ), hitBack=quadQuad(legQs,fBackQ);
+  if (FB) H('C22', !hitCush&&!hitBack, `腿托放平后与前排（已旋转 180°）不冲突`,
       `腿托放平时插入前排${hitBack?'靠背':'坐垫'}`, 'xR/rLl/rCt/fCt');
   else I('C22', '做床需把前排旋转 180°（否则腿托会插进前排靠背）');
   H('C23', !segQuad(d.humanR.knee,d.humanR.ankle,fBackQ), `二排小腿不穿前排靠背`,
@@ -558,8 +608,7 @@ function checks(p,m,B){
       `床面与前座面差 ${R(d.levelDiff)}mm（用 fLift 对齐：${R(-d.levelDiff)}）`, 'fLift/fCt/rCt');
     H('C25b', Math.abs(d.seamGap)<=40, `腿托与前座垫无缝（缝 ${R(d.seamGap)}）`,
       `腿托与前座垫缝 ${R(d.seamGap)}mm（调 rLl 或 xR）`, 'rLl/xR/rCl/fCl');
-    if (!m.fbwd) H('C25c', false, '', '', 'fbwd');
-    if (!m.fbwd) out[out.length-1]={id:'C25c',ok:false,lv:'hard',t:'坐床需前排旋转 180°（否则腿托插进靠背）',fix:'前排旋转'};
+    if (!FB) out.push({id:'C25c',ok:false,lv:'hard',t:'坐床需前排旋转 180°（否则腿托插进靠背）',fix:'前排旋转'});
     else I('C25c','前排已旋转 → 贵妃榻，脚落在床面');
   }
   I('C26', `固定隔板 ${R(Math.max(0,d.deckLen))}（可为 0，由可翻隔板无缝接管）· 可翻隔板实际长 ${R(d.flapActual)}`);
@@ -578,7 +627,7 @@ function checks(p,m,B){
     `投影仪伸出车外：x=${p.pjX} 处车壳顶只有 ${R(pjTopOk)}，投影仪装在 ${p.H-205}`, 'pjX/H');
   H('C26b', d.colH>=900, `尾柱净高 ${R(d.colH)} ≥ 900（竖放两层）`,
     `尾柱净高 ${R(d.colH)} 不足 900`, 'H/rCt/ud/base');
-  if (m.fbwd && !d.bedMode)
+  if (FB && !d.bedMode)
     H('C27', d.rowGap>=600, `会客净间距 ${R(d.rowGap)} ≥ 600（两人笔记本对面坐）`,
       `会客净间距只有 ${R(d.rowGap)} < 600（后移 xR 或前移 xF）`, 'xR/xF/rCl/fCl');
   /* —— 投影：幕布受车宽限制，投射距离决定能不能打满 —— */
@@ -597,7 +646,8 @@ function checks(p,m,B){
   /* 腿托（收起态）必须给脚留出地板：既不能插进前排底座，也不能占掉脚位 */
   const legQ0=d.rear.leg?d.rear.leg.sh:null;
   if (legQ0){
-    const hitBase=quadQuad(legQ0,d.front.baseQ), hitCu0=quadQuad(legQ0,d.front.cush.sh), hitBk0=quadQuad(legQ0,d.front.back.sh);
+    const legQ0s=shrinkQuad(legQ0,12);
+    const hitBase=quadQuad(legQ0s,d.front.baseQ), hitCu0=quadQuad(legQ0s,d.front.cush.sh), hitBk0=quadQuad(legQ0s,d.front.back.sh);
     H('C33', !hitBase&&!hitCu0&&!hitBk0, `收起的腿托不碰前排（底座/坐垫/靠背）`,
       `收起的腿托钻进前排${hitBase?'底座':(hitCu0?'坐垫':'靠背')}——脚位被占`, 'rLl/rLa/legExt/xR');
     const zx0=d.frontCushRearX, zx1=p.xR-p.rCl, zy=d.floor+80, N=40;
@@ -611,7 +661,7 @@ function checks(p,m,B){
   S('C30', !inSlice(d.humanF.ankle[0]) && !inSlice(d.humanF.foot[0]),
     `前排脚在前轮位切片之外（脚尖 ${R(d.humanF.foot[0])}，切片后缘 ${R(p.axF+d.archF.r)}）`,
     `前排脚落在前轮位切片内（脚尖 ${R(d.humanF.foot[0])} < 切片后缘 ${R(p.axF+d.archF.r)}）— 升高 fLift 把脚往后拉，或后移 xF`, 'fLift/xF');
-  if (m.fbwd) S('C31', d.sweepTop <= p.H-p.lkH,
+  if (FB) S('C31', d.sweepTop <= p.H-p.lkH,
     `旋转扫掠最高 ${R(d.sweepTop)} ≤ 吊柜底 ${p.H-p.lkH}`,
     `旋转会扫到吊柜：先把前座降下 fLift ≤ ${R(p.H-p.lkH-p.fBl-160-d.floor-p.base-p.fCt)}（或减薄吊柜）`, 'fLift/lkH');
   if (m.pop==='stand') H('C32', d.standZone>=1200,
@@ -648,8 +698,9 @@ const STYLES={
   store2:{fill:'none',stroke:'#e8d174','stroke-width':1.4,'stroke-dasharray':'6 4'}, 'store-t':{fill:'#e8d174'},
   lk:{fill:'none',stroke:'#e8d174','stroke-width':1.4,'stroke-dasharray':'5 4'}, 'lk-t':{fill:'#e8d174'},
   'man-f':{stroke:'#a0c8e8',fill:'none'}, 'man-r':{stroke:'#e8b0a0',fill:'none'},
-  'man-b':{stroke:'#7fc4ff',fill:'none'}, 'man-bt':{fill:'#7fc4ff'},
+  'man-b':{stroke:'#7fc4ff',fill:'none'}, 'man-bt':{fill:'#7fc4ff'}, 'warn-t':{fill:'#ff5b52','font-weight':700},
   ang:{stroke:'#f0a35e','stroke-dasharray':'5 4'}, 'ang-t':{fill:'#f0a35e'}, none:{stroke:'none'},
+  door:{stroke:'#9fc4e8','stroke-width':3}, 'door-t':{fill:'#9fc4e8'}, rail:{stroke:'#7d95a8'},
   slice:{fill:'#3a1f22',stroke:'#e57373','stroke-width':1.2,'stroke-dasharray':'5 4','fill-opacity':.35},
   'slice-t':{fill:'#e57373'}, tbl:{fill:'#26333f',stroke:'#8fb3cc','stroke-width':1.6},
   'tbl-t':{fill:'#8fb3cc'}, cross:{fill:'#2b3a48',stroke:'#7d95a8','stroke-width':1.5},
@@ -718,8 +769,8 @@ function build3D(p,m,B){
   for (const [sz0,sz1,s] of [[90,590,d.front],[-590,-90,d.front],[ -600,600,d.rear]]){
     const c=bboxQ(s.cush.sh), b=bboxQ(s.back.sh);
     box(Math.min(s.cush.p0[0],s.cush.p1[0])+40,Math.max(s.cush.p0[0],s.cush.p1[0])-40,d.floor,c[2],sz0,sz1,'base3');   // 座椅底座
-    box(c[0],c[1],c[2],c[3],sz0,sz1,(s.F&&m.fbwd)?'seatO3':'seat3');
-    box(b[0],b[1],b[2],b[3],sz0,sz1,(s.F&&m.fbwd)?'seatO3':'seat3');
+    box(c[0],c[1],c[2],c[3],sz0,sz1,(s.F&&FB)?'seatO3':'seat3');
+    box(b[0],b[1],b[2],b[3],sz0,sz1,(s.F&&FB)?'seatO3':'seat3');
     if (s.leg){ const l=bboxQ(s.leg.sh); box(l[0],l[1],l[2],l[3],sz0,sz1,'seat3'); }
   }
   /* 床面（放平后） */
@@ -961,22 +1012,61 @@ function downloadGLB(){
     el.appendChild(d); }
 }
 
+/* ============================ 过渡动画 ============================
+   场景预设 = 一整组状态；状态切换 = 带缓动的连续量过渡（人体在过渡中消失再出现）。 */
+const ANIM={active:false,t0:0,dur:760,from:{},to:{},raf:0};
+const AKEYS=['rot','fold','pAng','pr','trunk','frunk'];
+let ANIM_ON=true;
+function animateTo(to, dur){
+  // 非动画键（座垫升降、幕布位置…）立即生效；只有 AKEYS 做缓动
+  const snap=()=>{ for (const k in to) if (k!=='M' && !AKEYS.includes(k)) P[k]=to[k]; };
+  snap();
+  if (!ANIM_ON){ for (const k of AKEYS) if (to[k]!=null) P[k]=to[k]; if (to.M) Object.assign(M,to.M);
+                 redraw(); syncUI(); bandsSoon(); return; }
+  const from={}; for (const k of AKEYS) from[k]=P[k];
+  const tgt={}; for (const k of AKEYS) tgt[k]=(to[k]!=null?to[k]:from[k]);
+  if (to.M) Object.assign(M,to.M);
+  ANIM.from=from; ANIM.to=tgt; ANIM.active=true; ANIM.t0=performance.now(); ANIM.dur=dur||760;
+  cancelAnimationFrame(ANIM.raf);
+  const step=(now)=>{
+    const t=Math.min(1,(now-ANIM.t0)/ANIM.dur);
+    const e=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;          // easeInOutQuad
+    for (const k of AKEYS) P[k]=+(ANIM.from[k]+(ANIM.to[k]-ANIM.from[k])*e).toFixed(3);
+    redraw(true);
+    if (t<1){ ANIM.raf=requestAnimationFrame(step); }
+    else { ANIM.active=false; redraw(); syncUI(); bandsSoon(); }
+  };
+  ANIM.raf=requestAnimationFrame(step);
+}
+
 /* ============================ UI ============================ */
 const $=id=>document.getElementById(id);
+const BEDLIFT={rLift:-60,fLift:-10};                      // 床/露营：两排降到"床面恰好高于后轮包"
 const PRESETS=[
-  ['通勤',        ()=>{M.fbwd=false;M.pop='closed';P.fold=0;P.pAng=90;}],
-  ['行车观影',    ()=>{M.fbwd=false;M.pop='closed';P.fold=0.45;P.pAng=90;}],
-  ['会客办公',    ()=>{M.fbwd=true; M.pop='closed';P.fold=0;P.pAng=90;}],
-  ['驻车大床',    ()=>{M.fbwd=true; M.pop='closed';P.fold=1;P.pAng=0;P.rLift=-120;P.fLift=-20;P.pr=P.pr<720?740:P.pr;}],
-  ['露营·站立',   ()=>{M.fbwd=true; M.pop='stand'; P.fold=1;P.pAng=0;P.rLift=-120;P.fLift=-20;P.pr=P.pr<720?740:P.pr;}],
-  ['露营·上铺',   ()=>{M.fbwd=true; M.pop='bunk';  P.fold=1;P.pAng=0;P.rLift=-120;P.fLift=-20;P.pr=P.pr<720?740:P.pr;}],
+  ['通勤',      ()=>animateTo({rot:0,fold:0,pAng:90,pr:0,trunk:0,frunk:0,M:{pop:'closed'}})],
+  ['行车观影',  ()=>animateTo({rot:0,fold:0.45,pAng:90,pr:0,trunk:0,frunk:0,M:{pop:'closed'}})],
+  ['会客办公',  ()=>animateTo({rot:180,fold:0,pAng:90,pr:0,trunk:0,frunk:0,M:{pop:'closed'}})],
+  ['驻车大床',  ()=>animateTo({rot:180,fold:1,pAng:0,pr:0,trunk:1,frunk:0,M:{pop:'closed'},...BEDLIFT})],
+  ['露营·站立', ()=>animateTo({rot:180,fold:1,pAng:0,pr:740,trunk:1,frunk:0,M:{pop:'stand'},...BEDLIFT})],
+  ['露营·上铺', ()=>animateTo({rot:180,fold:1,pAng:0,pr:740,trunk:1,frunk:0,M:{pop:'bunk'},...BEDLIFT})],
+];
+const STATES=[
+  ['前排朝前', ()=>animateTo({rot:0}),   ()=>P.rot<90],
+  ['前排旋转', ()=>animateTo({rot:180}), ()=>P.rot>90],
+  ['二排坐',   ()=>animateTo({fold:0}),  ()=>P.fold<0.5],
+  ['二排放平', ()=>animateTo({fold:1,...BEDLIFT}), ()=>P.fold>0.5],
+  ['隔板立起', ()=>animateTo({pAng:90}), ()=>P.pAng>45],
+  ['隔板放平', ()=>animateTo({pAng:0}),  ()=>P.pAng<=45],
+  ['升顶闭合', ()=>animateTo({pr:0,M:{pop:'closed'}}), ()=>M.pop==='closed'],
+  ['升顶站立', ()=>animateTo({pr:740,M:{pop:'stand'}}), ()=>M.pop==='stand'],
+  ['升顶上铺', ()=>animateTo({pr:740,M:{pop:'bunk'}}), ()=>M.pop==='bunk'],
+  ['尾门开',   ()=>animateTo({trunk:1}), ()=>P.trunk>0.5],
+  ['尾门关',   ()=>animateTo({trunk:0}), ()=>P.trunk<=0.5],
+  ['前盖开',   ()=>animateTo({frunk:1}), ()=>P.frunk>0.5],
+  ['前盖关',   ()=>animateTo({frunk:0}), ()=>P.frunk<=0.5],
+  ['动画 开/关', ()=>{ANIM_ON=!ANIM_ON;}, ()=>ANIM_ON],
 ];
 const TOGGLES=[
-  ['前排朝前', ()=>M.fbwd=false, ()=>!M.fbwd],
-  ['前排旋转', ()=>M.fbwd=true,  ()=>M.fbwd],
-  ['升顶闭合', ()=>M.pop='closed',()=>M.pop==='closed'],
-  ['升顶站立', ()=>M.pop='stand', ()=>M.pop==='stand'],
-  ['升顶上铺', ()=>M.pop='bunk',  ()=>M.pop==='bunk'],
   ['尺寸标注', ()=>M.showDim=!M.showDim, ()=>M.showDim],
   ['视图 2D/3D', ()=>M.view = (M.view==='3d'?'2d':'3d'), ()=>M.view==='3d'],
   ['轮位包络', ()=>{M3.showSlice=!M3.showSlice;}, ()=>M3.showSlice],
@@ -985,11 +1075,14 @@ function buildUI(){
   const c=$('ctrl'); c.replaceChildren();
   const mk=(cls,txt)=>{const d=document.createElement('div'); d.className=cls; if(txt!=null)d.textContent=txt; return d;};
   const row=(items)=>{ const w=mk('modes');
-    for (const [label,fn,on] of items){ const b=mk('mbtn',label); b.onclick=()=>{pushUndo(); fn(); redraw(); syncUI(); bandsSoon();};
+    for (const [label,fn,on] of items){ const b=mk('mbtn',label);
+      b.onclick=()=>{ pushUndo(); fn(); if(!ANIM.active){ redraw(); syncUI(); bandsSoon(); } };
       if(on) b._on=on; w.appendChild(b); } return w; };
-  c.appendChild(mk('sec','说明书六形态（点击即改参数）'));
+  c.appendChild(mk('sec','① 场景预设（一整组状态，带动画）'));
   c.appendChild(row(PRESETS.map(p=>[p[0],p[1],null])));
-  c.appendChild(mk('sec','状态'));
+  c.appendChild(mk('sec','② 状态切换（带动画）'));
+  c.appendChild(row(STATES));
+  c.appendChild(mk('sec','③ 显示 / 标注 / 视图（开关，不动画）'));
   c.appendChild(row(TOGGLES));
   let g0='';
   for (const k in DEF){
@@ -1032,7 +1125,7 @@ function buildUI(){
     ['撤销', ()=>{const s=undoStack.pop(); if(!s)return; const o=JSON.parse(s); Object.assign(P,o.P); Object.assign(M,o.M);}],
     ['复制参数', ()=>{navigator.clipboard?.writeText(exportJSON());}],
     ['载入参数', ()=>{const s=prompt('粘贴参数 JSON'); if(s) importJSON(s);}],
-    ['复位', ()=>{for(const k in DEF) P[k]=DEF[k].v; M.fbwd=false;M.pop='closed';M.showDim=true;M.view='2d';}],
+    ['复位', ()=>{pushUndo(); for(const k in DEF) P[k]=DEF[k].v; M.pop='closed';M.showDim=true;M.view='2d'; redraw(); syncUI(); bandsSoon();}],
     ['导出 .glb', ()=>{try{downloadGLB();}catch(e){alert('导出失败: '+e.message);}}],
   ]));
 }
@@ -1048,10 +1141,11 @@ function syncUI(){
   document.querySelectorAll('.mbtn').forEach(b=>{ if(b._on) b.classList.toggle('on', !!b._on()); });
   redraw();
 }
-function redraw(){
+function redraw(animFrame){
   const B=build(P,M);
   if (M.view==='3d') render3(build3D(P,M,B));
   else renderSVG(B, project(P,M,B));
+  if (animFrame) return;                       // 动画帧：只重绘图形
   const cs=checks(P,M,B);
   const hard=cs.filter(c=>c.lv==='hard'), bad=hard.filter(c=>!c.ok).length;
   const el=$('check'); el.replaceChildren();
