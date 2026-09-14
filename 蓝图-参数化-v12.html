@@ -401,19 +401,24 @@ function build(p, m){
   const fA0=Math.atan2(hoodY0-d.cowlY, -d.cowlX);
   g.push(ln(fH,[fH[0]+Math.cos(fA0-fa)*fL, fH[1]+Math.sin(fA0-fa)*fL],26,'door'));
   if (p.frunk>0.02) g.push(txt(300, d.cowlY+90, `前盖开 ${Math.round(p.frunk*100)}%`,'door-t',10));
-  /* 尾门：从投影仪那一带的车顶后缘起，覆盖整个车尾；两段折叠（-\ 形）开启，不占后方空间 */
+  /* 尾门：从投影仪那一带的车顶后缘起，覆盖整个车尾；两段折叠
+     极限形态由几何算出：上段转到"水平"、下段转到"竖直向下"（-\ 形的最大展开），不再往里折 */
   const tHinge=[Math.min(p.pjX+40, d.roofX1-20), p.H-40];
-  const tMid=[p.L-210, p.gr+620], tBot=[p.L-20, p.gr+110];
+  const tMid=[d.roofX1 + 0.45*((p.L-140)-d.roofX1), p.H - 0.45*(p.H-(p.gr+700))];   // 折点提到尾斜面中上段
+  const tBot=[p.L-20, p.gr+110];
   const rot2=(v,a)=>[v[0]*Math.cos(a)-v[1]*Math.sin(a), v[0]*Math.sin(a)+v[1]*Math.cos(a)];
-  const a1=p.trunk*45*D2R, a2=p.trunk*-125*D2R;   // 上段上掀 45°、下段折回 125° → 只在车尾探出 ~0.5m
+  const ang=v=>Math.atan2(v[1],v[0]);
   const v1=[tMid[0]-tHinge[0], tMid[1]-tHinge[1]], v2=[tBot[0]-tMid[0], tBot[1]-tMid[1]];
+  const a1F=-ang(v1);                              // 上段 → 水平
+  const a2F=(-Math.PI/2-ang(v2))-a1F;              // 下段 → 竖直向下（相对上段）
+  const a1=p.trunk*a1F, a2=p.trunk*a2F;
   const r1=rot2(v1,a1), e1=[tHinge[0]+r1[0], tHinge[1]+r1[1]];
   const r2=rot2(v2,a1+a2), e2=[e1[0]+r2[0], e1[1]+r2[1]];
   const tLen=Math.round(Math.hypot(v1[0],v1[1])+Math.hypot(v2[0],v2[1]));
   g.push(ln(tHinge,e1,30,'door')); g.push(ln(e1,e2,30,'door'));
   g.push(cir(e1,26,'door-c'));
-  g.push(txt(tHinge[0]-40, tHinge[1]+70, `尾门 ${tLen}·折叠式（从投影仪起）`,'door-t',9.5,'end'));
-  if (p.trunk>0.02) g.push(txt(e2[0]+40, e2[1]+40, `开 ${Math.round(p.trunk*100)}%`,'door-t',10,'start'));
+  g.push(txt(tHinge[0]-40, tHinge[1]+70, `尾门 ${tLen}·折叠式（上段${Math.round(Math.hypot(v1[0],v1[1]))}/下段${Math.round(Math.hypot(v2[0],v2[1]))}）`,'door-t',9.5,'end'));
+  if (p.trunk>0.02) g.push(txt(e2[0]+40, e2[1]+40, `开 ${Math.round(p.trunk*100)}%（后伸 ${Math.round(Math.max(e1[0],e2[0])-p.L)}）`,'door-t',10,'start'));
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
   for (const [ax,arc,tag,note] of [[p.axF,d.archF,'前轮位','转向/48V/AC·溃缩件'],[p.axR,d.archR,'后轮位','同轴三电（电机+减速+逆变）']]){
