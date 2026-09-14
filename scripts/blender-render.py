@@ -11,7 +11,8 @@ os.makedirs(outdir, exist_ok=True)
 
 # 注意：glTF 导入 Blender 后自动转成 Z-up —— X=车宽, Y=车长, Z=车高。
 # 所以机位方向是 (右, 前/后, 上)：前右侧 3/4、后左侧 3/4。
-DIRS = [mathutils.Vector((1.0, -1.15, 0.62)), mathutils.Vector((-1.0, 1.05, 0.55))]
+# A/B 用同一机位：只有"车壳在不在"这一个变量，便于对照
+DIRS = [mathutils.Vector((1.0, -1.15, 0.62)), mathutils.Vector((1.0, -1.15, 0.62))]
 
 
 def scene_setup():
@@ -69,6 +70,9 @@ def bbox_of(objs):
     return lo, hi
 
 
+_CUT = {}
+
+
 def render_one(glb, tag):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene_setup()
@@ -84,6 +88,17 @@ def render_one(glb, tag):
     bpy.context.scene.camera = cam
     for i in range(NVIEW):
         d = DIRS[i % len(DIRS)]
+        if i == 1:
+            bpy.ops.wm.read_factory_settings(use_empty=True)   # 换模型：B 视角用剖切版
+            scene_setup()
+            before2 = set(bpy.data.objects)
+            bpy.ops.import_scene.gltf(filepath=_CUT.get(tag, glb))
+            imported = [o for o in bpy.data.objects if o not in before2]
+            lo, hi = bbox_of(imported); center = (lo + hi) / 2
+            radius = max((hi - lo).length / 2, 0.5)
+            cam_data = bpy.data.cameras.new('cam2'); cam_data.lens_unit = 'FOV'; cam_data.angle = math.radians(38)
+            cam = bpy.data.objects.new('cam2', cam_data); bpy.context.scene.collection.objects.link(cam)
+            bpy.context.scene.camera = cam
         dist = radius / math.tan(cam_data.angle / 2) * 1.12
         cam.location = center + d.normalized() * dist + mathutils.Vector((0, 0, radius * 0.14))
         cam.rotation_euler = (center - cam.location).to_track_quat('-Z', 'Y').to_euler()
@@ -93,8 +108,12 @@ def render_one(glb, tag):
         print('[render] ->', out, f'({(hi-lo).x:.2f}×{(hi-lo).y:.2f}×{(hi-lo).z:.2f} m)')
 
 
-glbs = sorted(glob.glob(os.path.join(indir, '*.glb')))
-print(f'[render] {len(glbs)} 个模型 -> {outdir}（{NVIEW} 视图/个，{RES}px）')
+glbs = sorted(g for g in glob.glob(os.path.join(indir, '*.glb')) if not g.endswith('-solid.glb'))
+print(f'[render] {len(glbs)} 个形态 -> {outdir}（{NVIEW} 视图/个，{RES}px）')
 for g in glbs:
-    render_one(g, os.path.splitext(os.path.basename(g))[0])
+    tag = os.path.splitext(os.path.basename(g))[0]
+    solid = g[:-4] + '-solid.glb'
+    _CUT[tag] = g
+    # A 视角：外形（封闭实体）；B 视角：剖切（看内饰）
+    render_one(solid if os.path.exists(solid) and NVIEW > 1 else g, tag)
 print('[render] 完成')

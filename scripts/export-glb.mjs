@@ -31,16 +31,18 @@ for (const [name, patch] of SETS) {
   const r = await p.evaluate((patch) => {
     const saved = { P: { ...MY.P }, M: { ...MY.M } };
     Object.assign(MY.P, patch.P || {}); Object.assign(MY.M, patch.M || {});
-    const g = MY.glbFromScene();
+    const g = MY.glbFromScene({ solid: false });
+    const gs = MY.glbFromScene({ solid: true });
     const size = [MY.P.L, MY.P.W, MY.P.H, MY.P.fold, MY.M.fbwd, MY.M.pop];
     Object.assign(MY.P, saved.P); Object.assign(MY.M, saved.M);
     // btoa 只吃 latin1：分块转换避免栈溢出
     let bin = '', CH = 0x8000;
     for (let i = 0; i < g.bytes.length; i += CH) bin += String.fromCharCode.apply(null, g.bytes.subarray(i, i + CH));
-    return { b64: btoa(bin), tri: g.tri, vert: g.vert, size, len: g.bytes.length };
+    const enc = (bytes) => { let b2 = ''; for (let i = 0; i < bytes.length; i += CH) b2 += String.fromCharCode.apply(null, bytes.subarray(i, i + CH)); return btoa(b2); };
+    return { b64: enc(g.bytes), b64s: enc(gs.bytes), tri: g.tri, size, len: g.bytes.length };
   }, patch);
-  const fp = path.join(outdir, name + '.glb');
-  fs.writeFileSync(fp, Buffer.from(r.b64, 'base64'));
+  fs.writeFileSync(path.join(outdir, name + '.glb'), Buffer.from(r.b64, 'base64'));      // 剖切版（默认）
+  fs.writeFileSync(path.join(outdir, name + '-solid.glb'), Buffer.from(r.b64s, 'base64')); // 封闭实体版
   rows.push([name, `${(r.len / 1024).toFixed(0)}KB`, `${r.tri}面`, `L${r.size[0]} W${r.size[1]} H${r.size[2]} fold${r.size[3]} ${r.size[4] ? 'rot' : 'fwd'} ${r.size[5]}`]);
 }
 await b.close();

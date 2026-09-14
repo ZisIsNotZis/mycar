@@ -27,6 +27,17 @@ node scripts/check.mjs                                            # 11 条验收
 
 v12 判据共 30 条（硬 20 / 提醒 6 / 提示 4），含床面与前座的无缝与齐平、腿托与前座真碰撞、尾柱净高、会客净距、投影距离与幕布尺寸、轮位切片占用。
 
+## 出图（Blender）
+
+```bash
+node scripts/export-glb.mjs /tmp/mycar-glb                     # 7 形态 × (剖切 + 封闭实体)
+blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 1000
+/home/z/.venv/bin/python3 scripts/contact-sheet.py /tmp/mycar-glb/png /tmp/mycar-glb/sheet.png
+```
+
+每个形态两张：**A = 外形（封闭实体）**、**B = 剖切（同机位，看内饰）**。两张只差"车壳在不在"这一个变量。
+Blender 装在 `~/blender`（官方 4.5.13 LTS tarball，免 root），`~/.local/bin/blender` 已软链。
+
 ## 状态
 
 | 项 | 状态 |

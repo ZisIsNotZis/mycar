@@ -363,6 +363,7 @@ function build(p, m){
     g.push(poly(s.back.sh,cls,'#22303e'));
     g.push(poly(s.head.sh,cls,'#22303e'));
     if (s.leg) g.push(poly(s.leg.sh,'seat','#22303e'));
+    g.push(rect(Math.min(s.cush.p0[0],s.cush.p1[0])+40, d.floor, Math.abs(s.cush.p1[0]-s.cush.p0[0])-80, s.topY-s.CT-d.floor, 'seatbase','#1a232e'));
     g.push(cir(s.hinge,15,'pin'));
     if (s.leg) g.push(cir(s.leg.hp,15,'pin'));
   }
@@ -666,6 +667,7 @@ function build3D(p,m,B){
   /* 座椅：前排左右各一（宽 500，离壁 90）；二排通座（宽 1200） */
   for (const [sz0,sz1,s] of [[90,590,d.front],[-590,-90,d.front],[ -600,600,d.rear]]){
     const c=bboxQ(s.cush.sh), b=bboxQ(s.back.sh);
+    box(Math.min(s.cush.p0[0],s.cush.p1[0])+40,Math.max(s.cush.p0[0],s.cush.p1[0])-40,d.floor,c[2],sz0,sz1,'base3');   // 座椅底座
     box(c[0],c[1],c[2],c[3],sz0,sz1,(s.F&&m.fbwd)?'seatO3':'seat3');
     box(b[0],b[1],b[2],b[3],sz0,sz1,(s.F&&m.fbwd)?'seatO3':'seat3');
     if (s.leg){ const l=bboxQ(s.leg.sh); box(l[0],l[1],l[2],l[3],sz0,sz1,'seat3'); }
@@ -724,7 +726,8 @@ const S3={
   floor3:{fill:'#1b2a38',stroke:'#7d95a8'}, batt3:{fill:'#132434',stroke:'#56c8d8'},
   wet3:{fill:'#0e2430',stroke:'#3a5a70'}, seat3:{fill:'#22303e',stroke:'#8fb3cc'},
   seatO3:{fill:'#2b2436',stroke:'#b48ead'}, bed3:{fill:'#1d4a2c',stroke:'#5fd08a'},
-  isl3:{fill:'#241d2e',stroke:'#b48ead'}, tbl3:{fill:'#26333f',stroke:'#8fb3cc'},
+  isl3:{fill:'#241d2e',stroke:'#b48ead'}, tbl3:{fill:'#26333f',stroke:'#8fb3cc'}, base3:{fill:'#141b24',stroke:'#41586c',},
+  seatbase:{fill:'#1a232e',stroke:'#41586c','stroke-width':1.2},
   lk3:{fill:'#2a2519',stroke:'#e8d174'}, pop3:{fill:'#12304a',stroke:'#4aa3ff'},
   tent3:{fill:'#0f2438',stroke:'#4aa3ff','fill-opacity':.35}, bunk3:{fill:'#12304a',stroke:'#4aa3ff'},
   scr3:{fill:'#2a2a12',stroke:'#e8d174'}, pj3:{fill:'#2b2033',stroke:'#b48ead'},
@@ -794,7 +797,8 @@ const GLB_PAL={
 function hex2lin(h){ const n=parseInt((h||'#556677').replace('#',''),16);
   const f=c=>{ c/=255; return c<=0.04045? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
   return [f(n>>16&255), f(n>>8&255), f(n&255)]; }
-function glbFromScene(){
+function glbFromScene(opts){
+  const CUT=!(opts&&opts.solid);           // 默认剖切（近侧面去掉，内饰可见）
   const B=build(P,M), B3=build3D(P,M,B);
   const pos=[], col=[], idx=[];
   const V=(x,y,z,c)=>{ pos.push(z/1000, y/1000, x/1000); col.push(c[0],c[1],c[2],1); return pos.length/3-1; };
@@ -824,7 +828,7 @@ function glbFromScene(){
   };
   for (const b of B3){
     if (b.k==='box') box(b.x0,b.x1,b.y0,b.y1,b.z0,b.z1,b.cls);
-    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls,true);   // 车身剖切：近侧面去掉，内饰可见
+    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls,CUT);
     else if (b.k==='cyl') cyl(b.cx,b.cy,b.r,b.z0,b.z1,b.cls);
   }
   /* buffer：POSITION(f32×3) | COLOR_0(f32×4) | indices(u32)，各段 4 字节对齐 */
