@@ -781,6 +781,86 @@ function render3(B3,S){
   add('text',{x:20,y:SVGH-16,fill:'#5c7386','font-size':11},'3D 轴测：x=车长 y=高 z=车宽（+z 朝观察者）· 红=轮位机能包络（横向占 W/2−190 以外）');
 }
 
+
+/* ============================ glTF (.glb) 导出 ============================
+   与 3D 视图同源：直接吃 build3D() 的体块，mm→m，Y 向上，X=车宽、Z=车长。 */
+function hex2lin(h){ const n=parseInt((h||'#556677').replace('#',''),16);
+  const f=c=>{ c/=255; return c<=0.04045? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
+  return [f(n>>16&255), f(n>>8&255), f(n&255)]; }
+function glbFromScene(){
+  const B=build(P,M), B3=build3D(P,M,B);
+  const pos=[], col=[], idx=[];
+  const V=(x,y,z,c)=>{ pos.push(z/1000, y/1000, x/1000); col.push(c[0],c[1],c[2],1); return pos.length/3-1; };
+  const C=cls=>hex2lin((S3[cls]||S3.floor3).fill);
+  const quads=(v,faces)=>{ for (const f of faces){ const q=f.map(i=>v[i]); idx.push(q[0],q[1],q[2], q[0],q[2],q[3]); } };
+  const box=(x0,x1,y0,y1,z0,z1,cls)=>{
+    const c=C(cls), v=[];
+    for (const z of [z0,z1]) for (const y of [y0,y1]) for (const x of [x0,x1]) v.push(V(x,y,z,c));
+    quads(v,[[0,1,3,2],[4,5,7,6],[0,1,5,4],[2,3,7,6],[0,2,6,4],[1,3,7,5]]);
+  };
+  const prism=(pts,z0,z1,cls)=>{
+    const c=C(cls);
+    const a=pts.map(q=>V(q[0],q[1],z0,c)), b=pts.map(q=>V(q[0],q[1],z1,c));
+    for (let i=1;i<pts.length-1;i++){ idx.push(a[0],a[i],a[i+1]); idx.push(b[0],b[i],b[i+1]); }
+    for (let i=0;i<pts.length;i++){ const j=(i+1)%pts.length;
+      idx.push(a[i],a[j],b[j], a[i],b[j],b[i]); }
+  };
+  const cyl=(cx,cy,r,z0,z1,cls)=>{
+    const c=C(cls), N=20, ra=[], rb=[];
+    for (let i=0;i<N;i++){ const t=i/N*Math.PI*2, x=cx+Math.cos(t)*r, y=cy+Math.sin(t)*r;
+      ra.push(V(x,y,z0,c)); rb.push(V(x,y,z1,c)); }
+    const ca=V(cx,cy,z0,c), cb=V(cx,cy,z1,c);
+    for (let i=0;i<N;i++){ const j=(i+1)%N;
+      idx.push(ra[i],ra[j],rb[j], ra[i],rb[j],rb[i]);
+      idx.push(ca,ra[j],ra[i]); idx.push(cb,rb[i],rb[j]); }
+  };
+  for (const b of B3){
+    if (b.k==='box') box(b.x0,b.x1,b.y0,b.y1,b.z0,b.z1,b.cls);
+    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls);
+    else if (b.k==='cyl') cyl(b.cx,b.cy,b.r,b.z0,b.z1,b.cls);
+  }
+  /* buffer：POSITION(f32×3) | COLOR_0(f32×4) | indices(u32)，各段 4 字节对齐 */
+  const nV=pos.length/3, nI=idx.length;
+  const posBuf=new Float32Array(pos), colBuf=new Float32Array(col), idxBuf=new Uint32Array(idx);
+  const off1=posBuf.byteLength, off2=off1+colBuf.byteLength;
+  const bin=new Uint8Array(off2+idxBuf.byteLength);
+  bin.set(new Uint8Array(posBuf.buffer),0); bin.set(new Uint8Array(colBuf.buffer),off1); bin.set(new Uint8Array(idxBuf.buffer),off2);
+  let mn=[1e9,1e9,1e9], mx=[-1e9,-1e9,-1e9];
+  for (let i=0;i<pos.length;i+=3) for (let a=0;a<3;a++){ const v=pos[i+a]; if(v<mn[a])mn[a]=v; if(v>mx[a])mx[a]=v; }
+  const json={ asset:{version:'2.0',generator:'mycar 蓝图 v12 · 剖面引擎'},
+    scene:0, scenes:[{nodes:[0]}], nodes:[{mesh:0,name:'mycar'}],
+    meshes:[{name:'mycar',primitives:[{attributes:{POSITION:0,COLOR_0:1},indices:2,material:0}]}],
+    materials:[{name:'paint',doubleSided:true,pbrMetallicRoughness:{baseColorFactor:[1,1,1,1],metallicFactor:0.15,roughnessFactor:0.75}}],
+    buffers:[{byteLength:bin.byteLength}],
+    bufferViews:[{buffer:0,byteOffset:0,byteLength:posBuf.byteLength,target:34962},
+                 {buffer:0,byteOffset:off1,byteLength:colBuf.byteLength,target:34962},
+                 {buffer:0,byteOffset:off2,byteLength:idxBuf.byteLength,target:34963}],
+    accessors:[{bufferView:0,componentType:5126,count:nV,type:'VEC3',min:mn,max:mx},
+               {bufferView:1,componentType:5126,count:nV,type:'VEC4'},
+               {bufferView:2,componentType:5125,count:nI,type:'SCALAR'}] };
+  const pad4=(n)=>(4-(n%4))%4;
+  const js=JSON.stringify(json), jsPad=js+' '.repeat(pad4(js.length));
+  const jsBuf=new TextEncoder().encode(jsPad);
+  const binPad=new Uint8Array(bin.byteLength+pad4(bin.byteLength)); binPad.set(bin);
+  const total=12+8+jsBuf.byteLength+8+binPad.byteLength;
+  const out=new Uint8Array(total), dv=new DataView(out.buffer);
+  const u32=(o,v)=>{ dv.setUint32(o,v,true); };
+  u32(0,0x46546C67); u32(4,2); u32(8,total);
+  u32(12,jsBuf.byteLength); u32(16,0x4E4F534A); out.set(jsBuf,20);
+  const bo=20+jsBuf.byteLength; u32(bo,binPad.byteLength); u32(bo+4,0x004E4942); out.set(binPad,bo+8);
+  return {bytes:out, json, tri:nI/3, vert:nV};
+}
+function downloadGLB(){
+  const {bytes,tri,vert}=glbFromScene();
+  const url=URL.createObjectURL(new Blob([bytes],{type:'model/gltf-binary'}));
+  const a=document.createElement('a'); a.href=url;
+  a.download=`mycar-L${P.L}-H${P.H}-${M.fbwd?'rot':'fwd'}-${M.pop}.glb`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+  const el=$('check'); if(el){ const d=document.createElement('div'); d.className='dim';
+    d.textContent=`· 已导出 .glb：${(bytes.length/1024).toFixed(0)}KB · ${tri} 三角面 · ${vert} 顶点（mm→m，Y 向上）`;
+    el.appendChild(d); }
+}
+
 /* ============================ UI ============================ */
 const $=id=>document.getElementById(id);
 const PRESETS=[
@@ -840,7 +920,8 @@ function buildUI(){
     ['撤销', ()=>{const s=undoStack.pop(); if(!s)return; const o=JSON.parse(s); Object.assign(P,o.P); Object.assign(M,o.M);}],
     ['复制参数', ()=>{navigator.clipboard?.writeText(exportJSON());}],
     ['载入参数', ()=>{const s=prompt('粘贴参数 JSON'); if(s) importJSON(s);}],
-    ['复位', ()=>{for(const k in DEF) P[k]=DEF[k].v; M.fbwd=false;M.pop='closed';M.showDim=true;}],
+    ['复位', ()=>{for(const k in DEF) P[k]=DEF[k].v; M.fbwd=false;M.pop='closed';M.showDim=true;M.view='2d';}],
+    ['导出 .glb', ()=>{try{downloadGLB();}catch(e){alert('导出失败: '+e.message);}}],
   ]));
 }
 let undoStack=[];
@@ -911,7 +992,7 @@ try{ const s=localStorage.getItem('mycar-v12'); if(s) importJSON(s); }catch(e){}
 syncUI(); computeBands();
 
 /* 供无头校验脚本使用（docs/design/蓝图工具.md §10） */
-window.MY={P,M,DEF,AN,build,checks,project,hardOK,redraw,set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
+window.MY={P,M,DEF,AN,build,checks,project,hardOK,redraw,build3D,project3,render3,glbFromScene,set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
 </script>
 </body>
 </html>

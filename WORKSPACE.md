@@ -39,6 +39,15 @@ node scripts/check.mjs 蓝图-参数化-v12.html    # 11 条验收判据（自�
 - `chain()` 与 `render()` 是**全局函数**（classic script），所以可以从 Playwright 里直接 `page.evaluate(() => chain())` 取派生量。v12 请保留"可从外部调用"这一性质，并额外导出一个 `measure()` 返回所有 builder 的输出，便于自动校验。
 - `viewBox="0 0 1240 660"`；v11 的投影是 `X(x)=70+x*sc`、`Y(h)=600-h*sc`，`sc=min(980/L,560/总高)` —— 世界毫米与世界毫米相乘的地方**只应出现在投影**。
 
+## glTF 导出与外部查看
+
+- 蓝图页右下角「导出 .glb」→ 导出当前参数下的模型（mm→m，Y 向上，X=车宽、Z=车长，带顶点色，双面）。
+- 已用 three.js GLTFLoader 实测：`1 mesh / 1116 三角面 / 包围盒 1.80×1.76×4.10 m（= W×H×L）/ vertexColors: true`。
+- 本地快速看一眼：`f3d model.glb`（apt 有 f3d 2.2.1）。
+- 要建模/动画/渲染：Blender。**本机没有 snap**，apt 只有 4.0.2；官方 tarball 免 root：
+  `curl -LO https://mirrors.tuna.tsinghua.edu.cn/blender/release/Blender4.5/blender-4.5.13-linux-x64.tar.xz` → 解压即用。
+- 每次参数/预设不同 → 导出的是不同文件，命名带 `L/H/rot/pop` 便于对照。
+
 ## 已知坑（别再踩）
 
 1. v7→v11 由 GLM 迭代，**没有事后校验**：画出来的图与它自己的红字校验都不可信。任何继承自 v11 的结论都要重新量一遍。
