@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可变多形态座舱跨界车 · 参数化剖面蓝图 v12</title>
+<style>
+  :root{--bg:#0d1117;--panel:#141a22;--line:#2d3742;--ink:#c9d4e0;--dim:#6b7a8c;
+  --blue:#4aa3ff;--green:#5fd08a;--orange:#f0a35e;--purple:#b48ead;--cyan:#56c8d8;--yellow:#e8d174;--red:#e57373}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;font-size:13px;padding:12px}
+  h1{font-size:17px} h1 .en{color:var(--dim);font-size:11px;font-weight:400;margin-left:8px}
+  .sub{color:var(--dim);font-size:11px;margin:3px 0 8px;line-height:1.6}
+  .wrap{display:flex;gap:10px;align-items:flex-start}
+  .left{flex:1;min-width:0}
+  .right{width:344px;flex-shrink:0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
+  .ctrl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;max-height:calc(100vh - 60px);overflow-y:auto}
+  .modes{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+  .mbtn{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#10161d;color:var(--dim);cursor:pointer;font-size:11px;user-select:none}
+  .mbtn:hover{border-color:#3d5876}
+  .mbtn.on{color:#fff;background:#1c2f45;border-color:var(--blue)}
+  .sec{color:var(--dim);font-size:10px;letter-spacing:1px;margin:9px 0 4px;border-top:1px dashed var(--line);padding-top:6px}
+  .ctl{margin-bottom:5px}
+  .ctl label{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+  .ctl label b{color:var(--blue);font-family:ui-monospace,monospace;font-weight:600;min-width:50px;text-align:right}
+  .ctl input.num{width:58px;background:#0b1017;border:1px solid var(--line);color:var(--ink);border-radius:4px;font:11px ui-monospace,monospace;padding:1px 3px;text-align:right}
+  .track{position:relative;height:15px;margin-top:1px}
+  .track .base{position:absolute;left:0;right:0;top:4px;height:8px;background:#232e3a;border-radius:4px}
+  .track .band{position:absolute;inset:0;pointer-events:none}
+  .track .seg{position:absolute;top:4px;height:8px;background:#2f9260;border-radius:4px}
+  .track input{position:relative;width:100%;height:15px;-webkit-appearance:none;appearance:none;background:transparent}
+  .track input::-webkit-slider-runnable-track{height:6px;margin-top:5px;background:transparent}
+  .track input::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;margin-top:-4px;border-radius:50%;background:#4aa3ff;border:none;cursor:pointer}
+  .track input::-moz-range-track{height:6px;background:transparent}
+  .track input::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#4aa3ff;border:none;cursor:pointer}
+  .warn{color:var(--red);font-size:11px;line-height:1.5}
+  .ok{color:var(--green);font-size:11px;line-height:1.5}
+  .flag{color:var(--orange);font-size:11px;line-height:1.5}
+  .dim{color:#5c7386;font-size:11px;line-height:1.5}
+  table{border-collapse:collapse;font-size:11px;width:100%}
+  th,td{border:1px solid var(--line);padding:1px 5px;text-align:left}
+  th{color:var(--dim);font-weight:600;background:#10161d;width:38%}
+  td.n{font-family:ui-monospace,monospace;color:var(--blue);text-align:right}
+  svg{display:block;width:100%;height:auto} text{font-family:inherit}
+  .lg{display:flex;flex-wrap:wrap;gap:9px;font-size:10.5px;color:var(--dim);padding:4px 2px 0}
+  .lg i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:3px}
+</style>
+</head>
+<body>
+<h1>可变多形态座舱跨界车 <span class="en">v12 · 剖面引擎</span></h1>
+<div class="sub" id="sub"></div>
+<div class="wrap">
+  <div class="left">
+    <div class="panel">
+      <svg id="sv" viewBox="0 0 1420 880" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="lg">
+        <span><i style="background:#4a6076"></i>车身</span><span><i style="background:#5a7086"></i>车轮（车外两侧）</span>
+        <span><i style="background:#56c8d8"></i>电池/地板</span><span><i style="background:#8fb3cc"></i>座椅</span>
+        <span><i style="background:#5fd08a"></i>床面</span><span><i style="background:#e8b0a0"></i>人体</span>
+        <span><i style="background:#e8d174"></i>隔板/储物</span><span><i style="background:#4aa3ff"></i>升顶</span>
+        <span style="color:#ff5b52">■红=硬约束失败</span><span style="color:#f0a35e">■橙=提醒</span>
+      </div>
+    </div>
+  </div>
+  <div class="right"><div class="ctrl" id="ctrl"></div></div>
+</div>
+<script>
+/* =====================================================================
+   世界坐标：x = 0(前保险杠) → L(车尾)，mm；y = 离地高度 mm。
+   比例只在 SX()/SY() 里乘一次；绘制代码禁止出现"像素×比例"。
+   几何由 builder 生成；校验判据引用同一份几何（docs/design/蓝图工具.md）。
+   ===================================================================== */
+
+const DEF = {
+  L:   {v:4100,min:3300,max:5400,st:25, g:'车身', n:'全长 L'},
+  W:   {v:1800,min:1500,max:2050,st:10, g:'车身', n:'外宽 W'},
+  H:   {v:1900,min:1400,max:2000,st:10, g:'车身', n:'车高 H（不升顶）'},
+  tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
+  tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
+  axF: {v:900, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
+  axR: {v:2600,min:1700,max:4200,st:10, g:'底盘', n:'后轴位'},
+  gf:  {v:140, min:100, max:260, st:5,  g:'底盘', n:'前离地'},
+  gr:  {v:150, min:100, max:260, st:5,  g:'底盘', n:'后离地'},
+  bt:  {v:300, min:120, max:360, st:5,  g:'底盘', n:'电池厚（=地板高）'},
+  b0:  {v:1250,min:600, max:2400,st:10, g:'底盘', n:'电池前缘'},
+  b1:  {v:2560,min:1600,max:4300,st:10, g:'底盘', n:'电池后缘'},
+  bw:  {v:1200,min:800, max:1500,st:10, g:'底盘', n:'电池宽'},
+  base:{v:150, min:0,   max:300, st:10, g:'前排座椅', n:'座垫离地板高（脚坑用）'},
+  xF:  {v:1760,min:900, max:2600,st:10, g:'前排座椅', n:'H 点 x（靠背铰点）'},
+  fCl: {v:470, min:350, max:650, st:5,  g:'前排座椅', n:'座垫长'},
+  fCa: {v:5,   min:-10, max:30,  st:1,  g:'前排座椅', n:'座垫角（前缘上翘）',deg:1},
+  fBl: {v:600, min:400, max:800, st:5,  g:'前排座椅', n:'靠背长'},
+  fBa: {v:14,  min:-10, max:60,  st:1,  g:'前排座椅', n:'靠背角（后仰为正）',deg:1},
+  fCt: {v:150, min:80,  max:320, st:5,  g:'前排座椅', n:'坐垫厚'},
+  xR:  {v:2650,min:1500,max:3600,st:10, g:'二排座椅', n:'H 点 x（靠背铰点）'},
+  rCl: {v:470, min:350, max:700, st:5,  g:'二排座椅', n:'座垫长'},
+  rCa: {v:5,   min:-10, max:30,  st:1,  g:'二排座椅', n:'座垫角（前缘上翘）',deg:1},
+  rBl: {v:520, min:400, max:800, st:5,  g:'二排座椅', n:'靠背长'},
+  rBa: {v:14,  min:-10, max:60,  st:1,  g:'二排座椅', n:'靠背角（坐姿）',deg:1},
+  rCt: {v:200, min:80,  max:320, st:5,  g:'二排座椅', n:'坐垫厚'},
+  rLl: {v:250, min:150, max:650, st:5,  g:'二排座椅', n:'腿托长（放平后计入床长）'},
+  rLa: {v:35,  min:0,   max:90,  st:1,  g:'二排座椅', n:'腿托下垂角（坐姿）',deg:1},
+  fold:{v:0,   min:0,   max:1,   st:0.02,g:'二排座椅', n:'变形进度（0=坐姿 1=全平床）'},
+  ix:  {v:1650,min:800, max:3600,st:10, g:'中岛',     n:'中岛 x'},
+  iw:  {v:220, min:100, max:320, st:10, g:'中岛',     n:'中岛宽'},
+  ihh: {v:620, min:360, max:820, st:10, g:'中岛',     n:'台面离地板高'},
+  pAng:{v:90,  min:0,   max:90,  st:1,  g:'尾箱/隔板',n:'L型隔板角（90直立 0平铺）',deg:1},
+  ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（=隔板长=床中段长）'},
+  px0: {v:2150,min:1200,max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘'},
+  px1: {v:3450,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
+  pr:  {v:700, min:250, max:900, st:10, g:'升顶/吊柜',n:'升顶抬高'},
+  lkD: {v:330, min:200, max:500, st:10, g:'升顶/吊柜',n:'吊柜深（横向）'},
+  lkH: {v:300, min:150, max:400, st:10, g:'升顶/吊柜',n:'吊柜高'},
+};
+const P = {}; for (const k in DEF) P[k] = DEF[k].v;
+const M = { fbwd:false, pop:'closed', showDim:true };
+
+/* 人体关节表（175cm，说明：结构决策.md D6） */
+const AN = { ankleY:80, kneeY:480, hipY:900, shdY:1420, topY:1750,
+             shin:400, thigh:420, torso:520, headSeg:330, headR:115, hipAboveSeat:90,
+             shW:460, legW:130, shinW:100, torsoW:230, armW:78, footW:80, footL:80 };
+
+const D2R = Math.PI/180;
+const lerp=(a,b,t)=>a+(b-a)*t;
+/* --- 几何谓词：碰撞判定用同一份图元 --- */
+function segSeg(a,b,c,e){
+  const d1=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const d2=(b[0]-a[0])*(e[1]-a[1])-(b[1]-a[1])*(e[0]-a[0]);
+  const d3=(e[0]-c[0])*(a[1]-c[1])-(e[1]-c[1])*(a[0]-c[0]);
+  const d4=(e[0]-c[0])*(b[1]-c[1])-(e[1]-c[1])*(b[0]-c[0]);
+  return ((d1>0)!==(d2>0))&&((d3>0)!==(d4>0));
+}
+function inQuad(p,q){ let s=0;
+  for(let i=0;i<4;i++){ const a=q[i],b=q[(i+1)%4];
+    const cr=(b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]);
+    if(cr>1e-9) s|=1; else if(cr<-1e-9) s|=2; }
+  return s!==3; }
+function segQuad(a,b,q){ return inQuad(a,q)||inQuad(b,q)||q.some((_,i)=>segSeg(a,b,q[i],q[(i+1)%4])); }
+function quadQuad(a,b){ return a.some(p=>inQuad(p,b))||b.some(p=>inQuad(p,a))||a.some((_,i)=>segQuad(a[i],a[(i+1)%4],b)); }
+const ln  =(a,b,w,cls)=>        ({k:'line',a,b,w:w||0,cls:cls||'l0'});
+const poly=(pts,cls,fill)=>     ({k:'poly',pts,cls:cls||'l0',fill:fill||''});
+const rect=(x,y,w,h,cls,fill)=> poly([[x,y],[x+w,y],[x+w,y+h],[x,y+h]],cls,fill);
+const cir =(c,r,cls,fill)=>     ({k:'circle',c,r,cls:cls||'l0',fill:fill||''});
+const txt =(x,y,s,cls,size,anchor)=>({k:'text',at:[x,y],s,cls:cls||'txt',size:size||10,anchor:anchor||'middle'});
+
+/* ============================ build ============================ */
+function build(p, m){
+  const g=[], d={}, FOLD=p.fold, POP=m.pop;
+
+  d.floor = p.gf + p.bt;                       // 地板上表面 = 电池顶面
+  d.archRF = p.tdf/2 + 60; d.archRR = p.tdr/2 + 60;
+  d.archF = {c:[p.axF, p.gf+p.tdf/2], r:d.archRF, top:p.gf+p.tdf+60, wheelTop:p.gf+p.tdf};
+  d.archR = {c:[p.axR, p.gr+p.tdr/2], r:d.archRR, top:p.gr+p.tdr+60, wheelTop:p.gr+p.tdr};
+  d.archFtop = p.gf + p.tdf + 60; d.archRtop = p.gr + p.tdr + 60;
+  d.rocker = Math.min(p.gf,p.gr) + 30;
+
+  /* ---------- 车轮（车外两侧）---------- */
+  for (const [ax,td,gc,tag] of [[p.axF,p.tdf,p.gf,'前轮'],[p.axR,p.tdr,p.gr,'后轮']]){
+    const r=td/2, cy=gc+r;
+    g.push(cir([ax,cy], r, 'tyre','#0a0f14'));
+    g.push(cir([ax,cy], r*0.55, 'rim'));
+    for(let a=0;a<6;a++){const t=a*Math.PI/3;
+      g.push(ln([ax+Math.cos(t)*r*0.55, cy+Math.sin(t)*r*0.55],[ax+Math.cos(t)*r*0.9, cy+Math.sin(t)*r*0.9],22,'rim'));}
+    g.push(txt(ax, -140, `${tag} Ø${td}`,'txt',10));
+    g.push(txt(ax, -270, `包顶 ${Math.round(gc+td+60)}`,'txt',9));
+  }
+
+  /* ---------- 座椅（前后共用一套；朝向参数化）---------- */
+  function seat(row, fOld){
+    const F = row==='front';
+    const FOLDx = (fOld==null? FOLD : fOld);
+    const HX = F? p.xF : p.xR;
+    const CL = F? p.fCl: p.rCl;
+    const CA = ((F? p.fCa : p.rCa * (1-FOLDx)))*D2R;          // 二排放平时坐垫角归零
+    const BL = F? p.fBl: p.rBl;
+    const BA = ((F? p.fBa : p.rBa*(1-FOLDx) + 90*FOLDx))*D2R;  // 放平靠背=水平
+    const CT = F? p.fCt: p.rCt;
+    const topY = d.floor + p.base + CT;        // 座垫上表面 = 地板 + 底座 + 坐垫厚（底座留出脚坑）
+    const face = F ? (m.fbwd ? -1 : 1) : 1;                  // +1 朝车头
+    const axisX = HX - CL/2;                                 // 旋转轴（座垫中点）
+    const mx = x => face===1 ? x : 2*axisX - x;              // 180° 旋转
+    const cfx = HX - CL*Math.cos(CA);                        // 坐垫前缘
+    const cfy = topY + CL*Math.sin(CA);
+    const cush = {p0:[mx(HX),topY], p1:[mx(cfx),cfy],
+                  sh:[[mx(HX),topY],[mx(cfx),cfy],[mx(cfx),cfy-CT],[mx(HX),topY-CT]]};
+    const bx = face===1 ? Math.sin(BA) : -Math.sin(BA);
+    const by = Math.cos(BA);
+    const b0=[HX,topY], b1=[HX+BL*bx, topY+BL*by];
+    const nx = face===1 ? Math.cos(BA) : -Math.cos(BA);
+    const ny = -Math.sin(BA);
+    const BTh = Math.max(60, CT*0.7);
+    const back={p0:b0,p1:b1,ang:BA,dir:[bx,by],
+                sh:[b0,b1,[b1[0]+nx*BTh,b1[1]+ny*BTh],[b0[0]+nx*BTh,b0[1]+ny*BTh]]};
+    const hd ={p0:b1,p1:[b1[0]+180*bx,b1[1]+180*by],
+               sh:[b1,[b1[0]+180*bx,b1[1]+180*by],[b1[0]+180*bx+nx*BTh*1.1,b1[1]+180*by+ny*BTh*1.1],[b1[0]+nx*BTh*1.1,b1[1]+ny*BTh*1.1]]};
+    let leg=null;
+    if (!F){
+      const LA = (p.rLa*(1-FOLDx))*D2R;
+      const hp = [mx(cfx), cfy];
+      const tipX = hp[0] + (face===1?-1:1)*(p.rLl*Math.cos(LA));
+      const tipY = cfy - p.rLl*Math.sin(LA);
+      const th = Math.max(40, CT*0.45);
+      leg = {hp, tip:[tipX,tipY], LA,
+             sh:[[hp[0],hp[1]],[tipX,tipY],[tipX,tipY-th],[hp[0],hp[1]-th]]};
+    }
+    return {row,F,HX,CL,CA,BL,BA,CT,topY,face,axisX,hinge:[HX,topY],
+            cush, back, head:hd, leg, mx};
+  }
+  d.front = seat('front');
+  d.rear  = seat('rear');
+  d.rearFlat = seat('rear',1);        // 放平态（床长/碰撞判据用，与当前 fold 无关）
+
+  /* ---------- 人体（关节链，头永不脱离躯干）---------- */
+  function human(s){
+    const f = s.face, fl = s.F ? 0 : FOLD;          // 前排不参与变形
+    const hip = [s.hinge[0] - f*8, s.topY + AN.hipAboveSeat];
+    const knee= [hip[0] - f*AN.thigh*Math.cos(s.CA), hip[1] + AN.thigh*Math.sin(s.CA)];
+    // 踝：坐姿落在地板，fl→沿腿托伸平
+    const drop = knee[1] - (d.floor + AN.ankleY);
+    const reach = Math.sqrt(Math.max(0, AN.shin*AN.shin - drop*drop));
+    const sitAnkle = [knee[0] - f*reach, d.floor + AN.ankleY];
+    const lieAnkle = s.leg ? [s.leg.tip[0] - f*140, s.leg.tip[1] + 26] : [knee[0] - f*AN.shin, knee[1]];
+    let ank = [lerp(sitAnkle[0],lieAnkle[0],fl), lerp(sitAnkle[1],lieAnkle[1],fl)];
+    let vx=ank[0]-knee[0], vy=ank[1]-knee[1], L=Math.hypot(vx,vy)||1, over=false;
+    const need=L; if (L>AN.shin+1){ vx*=AN.shin/L; vy*=AN.shin/L; over=true; }
+    const ankle=[knee[0]+vx, knee[1]+vy];
+    const toeDir = f>0 ? -1 : 1;                      // 脚尖朝座椅前方
+    const foot=[ankle[0]+toeDir*AN.footL, ankle[1]+8];
+    const bd=s.back.dir;
+    const shd=[hip[0]+bd[0]*AN.torso, hip[1]+bd[1]*AN.torso];
+    const headC=[shd[0]+bd[0]*215, shd[1]+bd[1]*215];
+    const elbow=[shd[0]+bd[0]*150 + toeDir*100, shd[1]-140];
+    const handSit=[knee[0]-toeDir*30, knee[1]+120];
+    const handLie=[hip[0]+bd[0]*300, hip[1]+bd[1]*300];
+    const hand=[lerp(handSit[0],handLie[0],fl), lerp(handSit[1],handLie[1],fl)];
+    return {hip,knee,ankle,foot,shd,headC,elbow,hand,over,need,face:f,seat:s};
+  }
+  d.humanF = human(d.front);
+  d.humanR = human(d.rear);
+
+  /* ---------- 床面 / 尾台 / 隔板 ---------- */
+  d.bedTop = d.rear.topY;
+  d.bedFlatTip = d.rearFlat.leg.tip[0];              // 放平后腿托前端
+  d.bedBackTip = d.rearFlat.back.p1[0];              // 放平后靠背尾端
+  d.deckX0 = d.bedBackTip + p.ud;                      // 尾台前缘 = 靠背尾端 + 床中段(=隔板长)
+  d.deckLen = (p.L-90) - d.deckX0;
+  d.bedRun = (p.L-90) - d.bedFlatTip;                  // 放平后可睡长度（含尾台）
+  d.lowFloor = d.bedTop - p.ud;
+  d.bedGapNow = (FOLD>0.5 && p.pAng>5) ? p.ud : 0;     // 当前画面里床中段的缺口
+
+  /* ---------- 升顶 ---------- */
+  d.cowlX = Math.max(p.axF+220, d.front.cush.p1[0]-120);
+  d.cowlY = d.front.topY + 320;
+  d.roofX0 = Math.min(d.cowlX + (p.H-d.cowlY)*0.36, p.L-900);
+  d.roofX1 = p.L - 430;
+  d.px1 = p.px1;
+  d.px0 = Math.min(p.px0, p.px1 - 600);
+  d.footPit = d.floor + p.base - (d.floor + AN.ankleY + AN.footW/2);   // 前排座下净高余量
+  d.popTop = p.H + (POP==='closed' ? 0 : p.pr);
+  d.bunkY = p.H - 20;
+  d.standNeed = d.bedTop + AN.topY + 60;
+
+  /* ============================ 图元 ============================ */
+  /* 车身外轮廓（含真实轮包缺口：弧心=轮心） */
+  const archCut=(ax,td,gc,rev)=>{
+    const cy=gc+td/2, R=td/2+60, dy=cy-d.rocker;
+    const dx=Math.sqrt(Math.max(1,R*R-dy*dy));
+    const a0=Math.atan2(dy,-dx), a1=Math.atan2(dy,dx), out=[], N=18;
+    for(let i=0;i<=N;i++){ const t=rev?1-i/N:i/N, a=a0+(a1-a0)*t;
+      out.push([ax+Math.cos(a)*R, cy+Math.sin(a)*R]); }
+    return {pts:out, dx};
+  };
+  const afF=archCut(p.axF,p.tdf,p.gf,true), afR=archCut(p.axR,p.tdr,p.gr,true);
+  const bPts=[[0,p.gf],[0,p.gf+560],[p.axF-140,p.gf+700],[d.cowlX,d.cowlY],[d.roofX0,p.H],[d.roofX1,p.H],
+              [p.L-140,p.gr+700],[p.L,p.gr+430],[p.L,p.gr],
+              [p.axR+afR.dx,d.rocker], ...afR.pts, [p.axF+afF.dx,d.rocker], ...afF.pts, [0,d.rocker]];
+  g.push(poly(bPts,'body','#0f151d'));
+  const belt=Math.max(d.cowlY+120, d.front.topY+150);
+  g.push(poly([[d.cowlX+70,belt],[d.roofX0+95,p.H-45],[d.roofX1-120,p.H-45],[p.L-320,p.H-300],[p.L-320,belt]],'glass','#0a2436'));
+
+  /* 电池 + 地板 */
+  if (p.b1>p.b0){
+    g.push(rect(p.b0,p.gf,p.b1-p.b0,p.bt,'batt','#132434'));
+    g.push(txt((p.b0+p.b1)/2, p.gf+p.bt/2+4, `电池 ${p.b0}–${p.b1} ×宽${p.bw} ≈${Math.round((p.b1-p.b0)*p.bw*p.bt*160/1e9)}kWh`,'batt-t',11));
+  }
+  g.push(ln([60,d.floor],[p.L-90,d.floor],26,'floor'));
+
+  /* 前备箱（说明书第二章） */
+  g.push(rect(p.axF-260, p.gf+190, 400, 150,'store2','none'));
+  g.push(txt(p.axF-60, p.gf+165,'前备箱（一级脏区）','store-t',10));
+
+  /* 尾仓：一层湿区 + 二层尾台 */
+  g.push(rect(d.deckX0, d.lowFloor, (p.L-90)-d.deckX0, p.ud,'wet','#0e2430'));
+  g.push(txt((d.deckX0+p.L)/2, d.lowFloor+20, `一层湿区 深${p.ud}·可冲洗`,'wet-t',10));
+  g.push(ln([d.deckX0,d.bedTop],[p.L-90,d.bedTop],22,'deck'));
+
+  /* L型隔板：铰在 (deckX0, bedTop)；0°=向前平铺补床中段，90°=下垂成前壁 */
+  const pa=p.pAng*D2R;
+  const pTip=[d.deckX0 - p.ud*Math.cos(pa), d.bedTop - p.ud*Math.sin(pa)];
+  const pN=[Math.sin(pa), Math.cos(pa)], pTh=40;
+  g.push(poly([[d.deckX0,d.bedTop],pTip,[pTip[0]+pN[0]*pTh,pTip[1]+pN[1]*pTh],[d.deckX0+pN[0]*pTh,d.bedTop+pN[1]*pTh]],'part','#3a3320'));
+  g.push(cir([d.deckX0,d.bedTop],14,'pin'));
+  g.push(txt(pTip[0], d.bedTop+70, `L隔板 ${p.pAng}°`, 'part-t',10,p.pAng>45?'start':'middle'));
+
+  /* 床面（变形中/放平后） */
+  if (FOLD>0.02){
+    g.push(ln([d.bedFlatTip,d.bedTop],[p.L-90,d.bedTop],26,'bed'));
+    const segs=[['腿托',d.bedFlatTip,p.xR],['座垫',p.xR,p.xR+p.rCl],['靠背',p.xR+p.rCl,d.bedBackTip],['中段',d.bedBackTip,d.deckX0],['尾台',d.deckX0,p.L-90]];
+    for (const [s0,a,b] of segs) if (b-a>40) g.push(txt((a+b)/2, d.bedTop-28, `${s0}${Math.round(b-a)}`,'bed-t',9.5));
+    g.push(txt(p.L/2, d.bedTop+180, `放平后可睡长度 ${Math.round(d.bedRun)}（👤1750）`,'bed-t',11));
+  }
+
+  /* 座椅 */
+  for (const s of [d.front,d.rear]){
+    const cls=(s.F && m.fbwd)?'seat-o':'seat';
+    g.push(poly(s.cush.sh,cls,'#22303e'));
+    g.push(poly(s.back.sh,cls,'#22303e'));
+    g.push(poly(s.head.sh,cls,'#22303e'));
+    if (s.leg) g.push(poly(s.leg.sh,'seat','#22303e'));
+    g.push(cir(s.hinge,15,'pin'));
+    if (s.leg) g.push(cir(s.leg.hp,15,'pin'));
+  }
+
+  /* 中岛 */
+  const ix0=p.ix-p.iw/2, tabY=d.floor+p.ihh;
+  d.isl={ix:p.ix, ix0, iw:p.iw, tabY, overSeat:tabY-d.rear.topY};
+  g.push(rect(ix0,d.floor,p.iw,tabY-d.floor-90,'isl','#241d2e'));
+  g.push(rect(ix0-20,tabY-90,p.iw+40,90,'isl-top','#332842'));
+  g.push(txt(ix0+p.iw+16, tabY-40, `中岛台面离地 ${Math.round(tabY)}`,'isl-t',10,'start'));
+
+  /* 人体 */
+  const man=(h,cls)=>{
+    g.push(ln(h.hip,h.knee,AN.legW,cls));
+    g.push(ln(h.knee,h.ankle,AN.shinW,cls));
+    g.push(ln(h.ankle,h.foot,AN.footW,cls));
+    g.push(ln(h.hip,h.shd,AN.torsoW,cls));
+    g.push(ln(h.shd,h.elbow,AN.armW,cls));
+    g.push(ln(h.elbow,h.hand,AN.armW,cls));
+    g.push(cir(h.headC,AN.headR,cls,'#e8b0a0'));
+  };
+  if (m.pop!=='stand') man(d.humanR,'man-r');   // 站姿模式：床面留空给站立
+  man(d.humanF,'man-f');
+
+  /* 升顶 + 吊柜 */
+  const gx=d.px0, gy=d.px1-0;
+  if (POP==='closed'){
+    g.push(ln([gx,p.H],[gy,p.H],34,'pop'));
+    g.push(txt((gx+gy)/2, p.H+40, `升顶闭合（可抬 ${p.pr}）`,'pop-t',10));
+  } else {
+    g.push(ln([gx,p.H],[gx,d.popTop],16,'tent'));
+    g.push(ln([gx,d.popTop],[gy,d.popTop],30,'pop'));
+    g.push(ln([gx,d.popTop],[gy,p.H],0,'none'));
+    g.push(ln([gx+80,p.H+110],[gx+80,d.popTop-120],0,'tent'));
+    g.push(ln([gy-80,p.H+110],[gy-80,d.popTop-120],0,'tent'));
+    g.push(txt((gx+gy)/2, d.popTop+40, `玻璃顶盖 +${p.pr} · 开口 ${Math.round(gy-gx)}`,'pop-t',10));
+    if (POP==='bunk'){
+      g.push(ln([gx,d.bunkY],[gy,d.bunkY],26,'bunk'));
+      g.push(txt((gx+gy)/2,d.bunkY-40,'上铺板：搭在两侧壁面 + 顶横梁（1 大人 + 1 小孩）','bunk-t',10));
+      const bx=gy-460, sy=d.bunkY+30;
+      g.push(ln([bx,sy],[bx-AN.thigh,sy],AN.legW,'man-b'));
+      g.push(ln([bx,sy],[bx+AN.shin,sy],AN.shinW,'man-b'));
+      g.push(ln([bx,sy+35],[bx-AN.torso,sy+35],AN.torsoW,'man-b'));
+      g.push(cir([bx-AN.torso-215,sy+35],AN.headR,'man-b','#7fc4ff'));
+    } else {
+      const sx=(gx+gy)/2;
+      g.push(ln([sx,d.bedTop+AN.ankleY],[sx,d.bedTop+AN.kneeY],AN.shinW,'man-b'));
+      g.push(ln([sx,d.bedTop+AN.kneeY],[sx,d.bedTop+AN.hipY],AN.legW,'man-b'));
+      g.push(ln([sx,d.bedTop+AN.hipY],[sx,d.bedTop+AN.shdY],AN.torsoW,'man-b'));
+      g.push(cir([sx,d.bedTop+AN.shdY+215],AN.headR,'man-b','#7fc4ff'));
+      g.push(txt(sx, d.bedTop+AN.topY+150,'站在床面上（不升顶只能坐）','man-bt',10));
+    }
+  }
+  g.push(rect(d.roofX0+130, p.H-p.lkH, d.roofX1-d.roofX0-260, p.lkH,'lk','none'));
+  g.push(txt(d.roofX0+170, p.H-p.lkH-16, `两侧吊柜 ×2 深${p.lkD} 高${p.lkH}（中间净空）`,'lk-t',10,'start'));
+
+  /* 尺寸链 */
+  if (m.showDim){
+    const chain=[[0,'0'],[d.floor,'地板'],[d.front.topY,'前座面'],[d.rear.topY,'二排座面'],[p.H,'车高']];
+    if (POP!=='closed') chain.push([d.popTop,'升顶']);
+    g.push(ln([-150,0],[-150,Math.max(p.H,d.popTop)+140],8,'dim'));
+    for (const [y,t] of chain){ g.push(ln([-185,y],[-115,y],8,'dim')); g.push(txt(-200,y+4,`${t} ${Math.round(y)}`,'dim-t',9.5,'end')); }
+    g.push(ln([0,-170],[p.L,-170],8,'dim')); g.push(txt(p.L/2,-195,`全长 ${p.L}`,'dim-t',10));
+    g.push(ln([0,-310],[p.axF,-310],8,'dim')); g.push(txt(p.axF/2,-328,`前悬 ${p.axF}`,'dim-t',9.5));
+    g.push(ln([p.axF,-310],[p.axR,-310],8,'dim')); g.push(txt((p.axF+p.axR)/2,-328,`轴距 ${Math.round(p.axR-p.axF)}`,'dim-t',9.5));
+    g.push(ln([p.axR,-310],[p.L,-310],8,'dim')); g.push(txt((p.axR+p.L)/2,-328,`尾悬 ${Math.round(p.L-p.axR)}`,'dim-t',9.5));
+    for (const s of [d.front,d.rear]){
+      const dd=s.back.dir, len=230;
+      g.push(ln(s.back.p0,[s.back.p0[0]+dd[0]*len, s.back.p0[1]+dd[1]*len],5,'ang'));
+      g.push(txt(s.back.p0[0]+dd[0]*(len+80), s.back.p0[1]+dd[1]*(len+120), `${s.F?'前排':'二排'}靠背 ${Math.round(s.back.ang/D2R)}°`,'ang-t',9.5));
+    }
+  }
+  return {prims:g, d, p, m};
+}
+
+/* ============================ 校验 ============================ */
+function checks(p,m,B){
+  const d=B.d, out=[];
+  const H=(id,ok,t,bad,fix)=>out.push({id,ok,lv:'hard',t:ok?t:bad,fix});
+  const S=(id,ok,t,bad,fix)=>out.push({id,ok,lv:'soft',t:ok?t:bad,fix});
+  const I=(id,t)=>out.push({id,ok:true,lv:'info',t,fix:''});
+  const R=Math.round;
+
+  H('C1', d.bedRun>=1750, `放平后可睡 ${R(d.bedRun)} ≥ 1750`,
+      `放平后只有 ${R(d.bedRun)} 可睡（需 ≥1750）`, 'xR/rCl/rLl/rBl/L');
+  H('C2', d.deckLen>=200, `尾台 ${R(d.deckLen)} ≥ 200`,
+      `尾台只剩 ${R(d.deckLen)}（靠背/隔板越过尾门）`, 'xR/rBl/ud/L');
+  if (m.pop==='stand') H('C3', d.popTop>=d.standNeed, `站姿净空 ${R(d.popTop)} ≥ ${R(d.standNeed)}`,
+      `站姿不够：pr 再加 ${R(d.standNeed-d.popTop)}`, 'pr');
+  else I('C3', `站立所需 pr ≥ ${R(d.standNeed-p.H)}（现 ${p.pr}）`);
+  if (m.pop==='bunk') H('C4', p.pr>=480, `上铺净空 ${p.pr} ≥ 480`, `上铺净空不足 ${p.pr} < 480`, 'pr');
+  H('C5', d.bedTop+960<=p.H, `床面坐姿净空 ${R(d.bedTop+960)} ≤ 车高 ${p.H}`,
+      `床面坐姿不够（${R(d.bedTop+960)} > ${p.H}）`, 'H/rCt/bt');
+  for (const [tag,h0,name] of [['F',d.humanF,'前排'],['R',d.humanR,'二排']]){
+    const top=h0.headC[1]+AN.headR;
+    H('C6'+tag, top<=p.H-30, `${name}头顶 ${R(top)} ≤ ${p.H-30}`, `${name}头顶 ${R(top)} 穿顶（车高 ${p.H}）`, 'H/fBl/fBa/fCt');
+    S('C10'+tag, !h0.over, `${name}脚落在支撑面上`, `${name}脚够不到支撑（小腿差 ${R(h0.need-AN.shin)}mm）`, 'fCt/rCt/bt/gf');
+  }
+  S('C7', d.front.cush.p1[0] >= p.axF+d.archRF-60,
+    `前排坐垫前缘 ${R(d.front.cush.p1[0])} 避开前轮包（包后缘 ${R(p.axF+d.archRF)}）`,
+    `前排坐垫压在前轮包上（前缘 ${R(d.front.cush.p1[0])} < 包后缘 ${R(p.axF+d.archRF)}）— 挤占脚部横向空间`, 'xF/fCl/axF');
+  const inner=p.W-2*190;
+  H('C8', p.bw<=inner, `电池宽 ${p.bw} ≤ 轮包内间距 ${inner}`, `电池宽 ${p.bw} > 轮包内间距 ${inner}`, 'bw/W');
+  H('C9', p.b0>=p.axF && p.b1<=p.axR, `电池在前后轴之间（${p.b0}–${p.b1}）`,
+    `电池越出轴间（前轴 ${p.axF} / 后轴 ${p.axR}）`, 'b0/b1/axF/axR');
+  const tab=d.floor+p.ihh-d.rear.topY;
+  H('C11', tab>=250&&tab<=340, `台面高出座面 ${R(tab)}（餐桌 250–340）`,
+    `台面高出座面 ${R(tab)}，餐桌带应为 250–340`, 'ihh/rCt/bt');
+  const pTipX=d.deckX0-p.ud*Math.cos(p.pAng*D2R), pTipY=d.bedTop-p.ud*Math.sin(p.pAng*D2R);
+  const pN2=[Math.sin(p.pAng*D2R), Math.cos(p.pAng*D2R)], pTh2=40;
+  const partQ=[[d.deckX0,d.bedTop],[pTipX,pTipY],[pTipX+pN2[0]*pTh2,pTipY+pN2[1]*pTh2],[d.deckX0+pN2[0]*pTh2,d.bedTop+pN2[1]*pTh2]];
+  const hitPart=[d.humanR,d.humanF].some(h=>[[h.hip,h.knee],[h.knee,h.ankle],[h.hip,h.shd],[h.shd,h.headC]]
+      .some(([a,bb])=>segQuad(a,bb,partQ)));
+  H('C13', !hitPart, `隔板 ${p.pAng}° 不穿插人体`, `隔板 ${p.pAng}° 顶到人体`, 'pAng/ud/xR');
+  H('C14', p.W-2*p.lkD>=AN.shW, `吊柜间距 ${p.W-2*p.lkD} ≥ 肩宽 ${AN.shW}`,
+    `吊柜太深：两侧只剩 ${p.W-2*p.lkD} < 肩宽 ${AN.shW}`, 'lkD/W');
+  H('C15', p.axF-p.tdf/2>=60 && p.axR+p.tdr/2<=p.L-60, `前后轮都在车身内`, `车轮越出车身`, 'axF/axR/td/L');
+  H('C16', (p.L-p.axR)/p.L<0.5, `尾悬 ${R((p.L-p.axR)/p.L*100)}% < 50%`, `尾悬 ${R((p.L-p.axR)/p.L*100)}% 过大`, 'axR/L');
+  H('C17', p.px1-p.px0>=600 && p.px0>=d.roofX0 && p.px1<=d.roofX1, `升顶开口 ${p.px0}–${p.px1} 在车顶有效区`,
+    `升顶开口越界（车顶有效 ${R(d.roofX0)}–${R(d.roofX1)}，且开口需 ≥600）`, 'px0/px1');
+  H('C18', p.H<=2000, `车高 ${p.H} ≤ 2000（限高）`, `车高 ${p.H} 超 2m 限高`, 'H');
+  S('C19', d.lowFloor>=p.gr+60, `尾仓下层底 ${R(d.lowFloor)} 高于离地`, `尾仓下层底 ${R(d.lowFloor)} 太低`, 'ud/rCt/bt');
+  const underFront = d.humanR.ankle[0] > d.front.cush.p1[0] && d.humanR.ankle[0] < d.front.cush.p0[0];
+  S('C20', !underFront || d.footPit>=20,
+    underFront? `二排脚滑入前排座下 ✓（净高 ${R(d.footPit)}）` : `二排脚不在前排座下（无需脚坑）`,
+    `二排脚要滑入前排座下，但座下净高只有 ${R(d.footPit)}（需 ≥20；加座垫离地板高 base）`, 'base');
+  I('C21', `脚坑净高 ${R(d.footPit)} · 座面离地 ${R(d.rear.topY)}`);
+  I('C24', `中岛是中央通道件（横向居中），侧视图与坐姿重叠属正常`);
+  /* —— 真碰撞判定：用同一份图元 —— */
+  const fCushQ=d.front.cush.sh, fBackQ=d.front.back.sh, legQ=d.rearFlat.leg.sh;
+  const hitCush=quadQuad(legQ,fCushQ), hitBack=quadQuad(legQ,fBackQ);
+  H('C22', !hitCush&&!hitBack, `腿托放平后与前排座椅不冲突`,
+    `腿托放平时插入前排${hitBack?'靠背':'坐垫'}（需 rCt−fCt ≥ 腿托厚，或后移 xR）`, 'rCt/fCt/xR/rLl');
+  H('C23', !segQuad(d.humanR.knee,d.humanR.ankle,fBackQ), `二排小腿不穿前排靠背`,
+    `二排小腿穿过前排靠背`, 'xR/rBa/xF/rCt');
+  return out;
+}
+const hardOK=(p,m)=>checks(p,m,build(p,m)).filter(c=>c.lv==='hard').every(c=>c.ok);
+
+/* ============================ 投影与渲染 ============================ */
+const SVGW=1420, SVGH=880, PAD=64;
+function project(p,m,B){
+  const yTop = (m.pop==='closed' ? p.H : Math.max(B.d.popTop, p.H+260));
+  const box={x0:-360, x1:p.L+200, y0:-370, y1:yTop+320};
+  const k=Math.min((SVGW-2*PAD)/(box.x1-box.x0), (SVGH-2*PAD)/(box.y1-box.y0));
+  const cx=(box.x0+box.x1)/2, cy=(box.y0+box.y1)/2;
+  return {k, SX:x=>SVGW/2+(x-cx)*k, SY:y=>SVGH/2-(y-cy)*k};
+}
+const STYLES={
+  body:{fill:'#0f151d',stroke:'#4a6076','stroke-width':2.5},
+  glass:{fill:'#0a2436',stroke:'#3a5a70','stroke-width':1.4},
+  tyre:{fill:'#0a0f14',stroke:'#5a7086','stroke-width':3,'fill-opacity':.55},
+  rim:{fill:'none',stroke:'#43586c','stroke-width':3,opacity:.5},
+  batt:{fill:'#132434',stroke:'#56c8d8','stroke-width':1.8}, 'batt-t':{fill:'#56c8d8','font-size':11,'font-weight':700},
+  floor:{stroke:'#7d95a8'}, deck:{stroke:'#7d95a8'}, dim:{stroke:'#7d95a8'}, 'dim-t':{fill:'#8fb3cc'},
+  txt:{fill:'#8fb3cc'}, seat:{fill:'#22303e',stroke:'#8fb3cc','stroke-width':1.5},
+  'seat-o':{fill:'#22303e',stroke:'#b48ead','stroke-width':1.5}, pin:{fill:'#f0a35e'},
+  isl:{fill:'#241d2e',stroke:'#b48ead','stroke-width':1.5,'fill-opacity':.65,'stroke-dasharray':'7 4'}, 'isl-top':{fill:'#332842',stroke:'#d8c0e0','stroke-width':1.8},
+  'isl-t':{fill:'#b48ead'}, wet:{fill:'#0e2430',stroke:'#3a5a70','stroke-width':1.2}, 'wet-t':{fill:'#56c8d8'},
+  part:{fill:'#3a3320',stroke:'#e8d174','stroke-width':1.8}, 'part-t':{fill:'#e8d174'},
+  bed:{stroke:'#5fd08a'}, 'bed-t':{fill:'#5fd08a'}, pop:{stroke:'#4aa3ff'}, 'pop-t':{fill:'#4aa3ff'},
+  tent:{stroke:'#4aa3ff',opacity:.75,'stroke-dasharray':'8 6'}, bunk:{stroke:'#4aa3ff'}, 'bunk-t':{fill:'#4aa3ff'},
+  store2:{fill:'none',stroke:'#e8d174','stroke-width':1.4,'stroke-dasharray':'6 4'}, 'store-t':{fill:'#e8d174'},
+  lk:{fill:'none',stroke:'#e8d174','stroke-width':1.4,'stroke-dasharray':'5 4'}, 'lk-t':{fill:'#e8d174'},
+  'man-f':{stroke:'#a0c8e8',fill:'none'}, 'man-r':{stroke:'#e8b0a0',fill:'none'},
+  'man-b':{stroke:'#7fc4ff',fill:'none'}, 'man-bt':{fill:'#7fc4ff'},
+  ang:{stroke:'#f0a35e','stroke-dasharray':'5 4'}, 'ang-t':{fill:'#f0a35e'}, none:{stroke:'none'},
+};
+function renderSVG(B,S){
+  const NS='http://www.w3.org/2000/svg', svg=document.getElementById('sv');
+  svg.replaceChildren();
+  const defs=document.createElementNS(NS,'defs');
+  const pat=document.createElementNS(NS,'pattern');
+  pat.setAttribute('id','g'); pat.setAttribute('width',50); pat.setAttribute('height',50); pat.setAttribute('patternUnits','userSpaceOnUse');
+  const pp=document.createElementNS(NS,'path');
+  pp.setAttribute('d','M50 0H0V50'); pp.setAttribute('fill','none'); pp.setAttribute('stroke','#1a212b');
+  pat.appendChild(pp); defs.appendChild(pat); svg.appendChild(defs);
+  const bg=document.createElementNS(NS,'rect');
+  bg.setAttribute('width',SVGW); bg.setAttribute('height',SVGH); bg.setAttribute('fill','url(#g)');
+  svg.appendChild(bg);
+  const add=(tag,attrs,txt)=>{ const e=document.createElementNS(NS,tag);
+    for(const k in attrs) if(attrs[k]!==undefined&&attrs[k]!==null) e.setAttribute(k,attrs[k]);
+    if(txt!=null) e.textContent=txt; svg.appendChild(e); return e; };
+  for (const pr of B.prims){
+    const st=Object.assign({}, STYLES[pr.cls]||STYLES.txt);
+    let e;
+    if (pr.k==='line'){
+      e=add('line',{x1:S.SX(pr.a[0]),y1:S.SY(pr.a[1]),x2:S.SX(pr.b[0]),y2:S.SY(pr.b[1]),
+        'stroke-width':Math.max(1.2,(pr.w||10)*S.k),'stroke-linecap':'round'});
+    } else if (pr.k==='poly'){
+      e=add('path',{d:'M'+pr.pts.map(q=>`${S.SX(q[0]).toFixed(1)},${S.SY(q[1]).toFixed(1)}`).join('L')+'Z','stroke-width':1.6});
+    } else if (pr.k==='circle'){
+      e=add('circle',{cx:S.SX(pr.c[0]),cy:S.SY(pr.c[1]),r:Math.max(2,pr.r*S.k),'stroke-width':Math.max(1.5,pr.r*S.k*0.22),'fill-opacity':.3});
+    } else {
+      e=add('text',{x:S.SX(pr.at[0]),y:S.SY(pr.at[1]),'text-anchor':pr.anchor,'font-size':pr.size},pr.s);
+    }
+    for (const k in st) e.setAttribute(k, st[k]);
+  }
+}
+</script>
+<script>
+/* ============================ UI ============================ */
+const $=id=>document.getElementById(id);
+const PRESETS=[
+  ['通勤',        ()=>{M.fbwd=false;M.pop='closed';P.fold=0;P.pAng=90;}],
+  ['观影45°',     ()=>{M.fbwd=false;M.pop='closed';P.fold=0;P.pAng=45;}],
+  ['会客办公',    ()=>{M.fbwd=true; M.pop='closed';P.fold=0;P.pAng=90;}],
+  ['驻车大床',    ()=>{M.fbwd=false;M.pop='closed';P.fold=1;P.pAng=0;}],
+  ['露营·站立',   ()=>{M.fbwd=false;M.pop='stand'; P.fold=1;P.pAng=0;}],
+  ['露营·上铺',   ()=>{M.fbwd=false;M.pop='bunk';  P.fold=1;P.pAng=0;}],
+  ['干湿清洗',    ()=>{M.fbwd=false;M.pop='closed';P.fold=0;P.pAng=90;}],
+];
+const TOGGLES=[
+  ['前排朝前', ()=>M.fbwd=false, ()=>!M.fbwd],
+  ['前排旋转', ()=>M.fbwd=true,  ()=>M.fbwd],
+  ['升顶闭合', ()=>M.pop='closed',()=>M.pop==='closed'],
+  ['升顶站立', ()=>M.pop='stand', ()=>M.pop==='stand'],
+  ['升顶上铺', ()=>M.pop='bunk',  ()=>M.pop==='bunk'],
+  ['尺寸标注', ()=>M.showDim=!M.showDim, ()=>M.showDim],
+];
+function buildUI(){
+  const c=$('ctrl'); c.replaceChildren();
+  const mk=(cls,txt)=>{const d=document.createElement('div'); d.className=cls; if(txt!=null)d.textContent=txt; return d;};
+  const row=(items)=>{ const w=mk('modes');
+    for (const [label,fn,on] of items){ const b=mk('mbtn',label); b.onclick=()=>{pushUndo(); fn(); redraw(); syncUI(); bandsSoon();};
+      if(on) b._on=on; w.appendChild(b); } return w; };
+  c.appendChild(mk('sec','说明书六形态（点击即改参数）'));
+  c.appendChild(row(PRESETS.map(p=>[p[0],p[1],null])));
+  c.appendChild(mk('sec','状态'));
+  c.appendChild(row(TOGGLES));
+  let g0='';
+  for (const k in DEF){
+    const D=DEF[k];
+    if (D.g!==g0){ g0=D.g; c.appendChild(mk('sec',g0)); }
+    const w=mk('ctl');
+    const lab=document.createElement('label');
+    const nm=document.createElement('span'); nm.textContent=D.n;
+    const num=document.createElement('input'); num.type='number'; num.className='num';
+    num.min=D.min; num.max=D.max; num.step=D.st; num.id='n_'+k; num.value=P[k];
+    const val=document.createElement('b'); val.id='v_'+k;
+    lab.append(nm,num,val);
+    const tr=mk('track'); const base=mk('base'); const band=mk('band');
+    const rng=document.createElement('input'); rng.type='range';
+    rng.min=D.min; rng.max=D.max; rng.step=D.st; rng.value=P[k]; rng.id=k;
+    tr.append(base,band,rng); w.append(lab,tr); c.appendChild(w);
+    rng.addEventListener('input',()=>{P[k]=+rng.value; redraw(); syncOne(k); bandsSoon();});
+    num.addEventListener('change',()=>{let v=parseFloat(num.value); if(isNaN(v))v=P[k];
+      v=Math.min(D.max,Math.max(D.min,v)); P[k]=v; rng.value=v; redraw(); syncOne(k); bandsSoon();});
+    num.addEventListener('keydown',e=>{if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();
+      const s=(e.key==='ArrowUp'?1:-1)*D.st; let v=Math.min(D.max,Math.max(D.min,P[k]+s));
+      P[k]=v; rng.value=v; redraw(); syncOne(k); bandsSoon();}});
+  }
+  const chk=mk('div'); chk.id='check'; c.appendChild(chk);
+  const tw=mk('div'); tw.id='tblwrap'; c.appendChild(tw);
+  c.appendChild(mk('sec','参数'));
+  c.appendChild(row([
+    ['撤销', ()=>{const s=undoStack.pop(); if(!s)return; const o=JSON.parse(s); Object.assign(P,o.P); Object.assign(M,o.M);}],
+    ['复制参数', ()=>{navigator.clipboard?.writeText(exportJSON());}],
+    ['载入参数', ()=>{const s=prompt('粘贴参数 JSON'); if(s) importJSON(s);}],
+    ['复位', ()=>{for(const k in DEF) P[k]=DEF[k].v; M.fbwd=false;M.pop='closed';M.showDim=true;}],
+  ]));
+}
+let undoStack=[];
+const pushUndo=()=>{undoStack.push(JSON.stringify({P,M})); if(undoStack.length>60) undoStack.shift();};
+const exportJSON=()=>JSON.stringify({P,M});
+function importJSON(s){try{const o=JSON.parse(s); Object.assign(P,o.P||{}); Object.assign(M,o.M||{}); redraw(); syncUI(); bandsSoon();}catch(e){alert('JSON 解析失败');}}
+function syncOne(k){ const D=DEF[k];
+  $('v_'+k).textContent = D.deg ? Math.round(P[k])+'°' : (D.st<1 ? (+P[k]).toFixed(2) : Math.round(P[k]));
+  const n=$('n_'+k); if(n && document.activeElement!==n) n.value=P[k]; }
+function syncUI(){
+  for (const k in DEF){ const r=$(k); if(r) r.value=P[k]; syncOne(k); }
+  document.querySelectorAll('.mbtn').forEach(b=>{ if(b._on) b.classList.toggle('on', !!b._on()); });
+  redraw();
+}
+function redraw(){
+  const B=build(P,M);
+  renderSVG(B, project(P,M,B));
+  const cs=checks(P,M,B);
+  const hard=cs.filter(c=>c.lv==='hard'), bad=hard.filter(c=>!c.ok).length;
+  const el=$('check'); el.replaceChildren();
+  const t=document.createElement('div'); t.className='sec';
+  t.textContent=`约束校验（硬 ${hard.length-bad}✓ / ${bad}✗ · 提醒 ${cs.filter(c=>c.lv==='soft'&&!c.ok).length}）`;
+  el.appendChild(t);
+  for (const c of cs){
+    const l=document.createElement('div');
+    l.className = c.lv==='info' ? 'dim' : (c.ok?'ok':(c.lv==='hard'?'warn':'flag'));
+    l.textContent=(c.lv==='info'?'· ':(c.ok?'✓ ':'✗ '))+c.t+(c.ok||c.lv==='info'?'':`   → 动 ${c.fix}`);
+    el.appendChild(l);
+  }
+  const rows=[['项','值'],['L×W×H',`${P.L}×${P.W}×${P.H}`],
+    ['轴距/尾悬',`${Math.round(P.axR-P.axF)} / ${Math.round(P.L-P.axR)}`],
+    ['地板/座面',`${Math.round(B.d.floor)} / ${Math.round(B.d.front.topY)}·${Math.round(B.d.rear.topY)}`],
+    ['放平可睡',`${Math.round(B.d.bedRun)}`],['床中段/尾台',`${P.ud} / ${Math.round(B.d.deckLen)}`],
+    ['台面离地',`${Math.round(B.d.floor+P.ihh)}`],['升顶总高',`${Math.round(B.d.popTop)}`],
+    ['二排头顶',`${Math.round(B.d.humanR.headC[1]+AN.headR)}`]];
+  const tw=$('tblwrap'); tw.replaceChildren();
+  const tab=document.createElement('table');
+  for (const [a,b] of rows){ const tr=document.createElement('tr');
+    const a1=document.createElement('th'); a1.textContent=a;
+    const b1=document.createElement('td'); b1.className='n'; b1.textContent=b;
+    tr.append(a1,b1); tab.appendChild(tr); }
+  tw.appendChild(tab);
+  $('sub').textContent='世界坐标 mm：x 0=前保险杠 → 车尾 · y=离地高。本图=中心线剖面（地板/电池/座椅/人体），车轮与轮包在车外两侧，按真实位置半透明表示。';
+  try{ localStorage.setItem('mycar-v12', exportJSON()); }catch(e){}
+}
+/* 有效区间色带：固定其余参数，扫该滑块，标出硬约束全过的区间 */
+let bandTimer=null;
+function bandsSoon(){ clearTimeout(bandTimer); bandTimer=setTimeout(computeBands,240); }
+function computeBands(){
+  const N=40;
+  for (const k in DEF){
+    const D=DEF[k], rng=$(k); if(!rng) continue;
+    const band=rng.parentElement.querySelector('.band'); band.replaceChildren();
+    let cur=null; const segs=[];
+    for (let i=0;i<=N;i++){
+      const q=Object.assign({},P); q[k]=D.min+(D.max-D.min)*i/N;
+      let ok=false; try{ ok=hardOK(q,M); }catch(e){ ok=false; }
+      if (ok){ cur?cur.b=i:cur={a:i,b:i}; } else if (cur){ segs.push(cur); cur=null; }
+    }
+    if (cur) segs.push(cur);
+    for (const s of segs){ const el=document.createElement('div'); el.className='seg';
+      el.style.left=(s.a/N*100)+'%'; el.style.width=Math.max(1,(s.b-s.a)/N*100)+'%'; band.appendChild(el); }
+  }
+}
+buildUI();
+try{ const s=localStorage.getItem('mycar-v12'); if(s) importJSON(s); }catch(e){}
+syncUI(); computeBands();
+
+/* 供无头校验脚本使用（docs/design/蓝图工具.md §10） */
+window.MY={P,M,DEF,AN,build,checks,project,hardOK,redraw,set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
+</script>
+</body>
+</html>

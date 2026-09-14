@@ -1,7 +1,8 @@
 # 01 · 把蓝图重写为 v12 剖面引擎
 
-Status: ready-for-agent
+Status: done
 Blocked by: —
+Deliverable: 蓝图-参数化-v12.html + scripts/check.mjs（11/11 通过）
 Need-review: true（行为变化：全部图元坐标 + 全部校验判据）
 Need-test-cases: true（见下方验收标准，1–11 条由 `scripts/check.mjs` 自动判定）
 
@@ -43,3 +44,4 @@ Need-test-cases: true（见下方验收标准，1–11 条由 `scripts/check.mjs
 - 2026-09-14 · pi · 建立工单；完成 v11 审计（`../audit-v11.md`）。
 - 2026-09-14 · pi · 用户拍板：D1 车高 ≤2m（不升顶）；D2 升顶=站立 + 上铺（1 大人 + 1 小孩），第三层不承重、只靠四周壁面与顶横梁受力；D3 脚坑不改抬升、改图层表达（并更正我关于"电池在轮子里"的误报）；D4 合并 oh/axF；D5 前后排共用 seat builder；D6 人体改关节链；D7 二排联动必须建模；D8 校验与画面同源。选定"统一投影剖面引擎"而非就地修补。
 - 2026-09-14 · pi · 文档先行：`docs/design/整车结构设计说明书.md`（移入 SSOT）、`docs/design/结构决策.md`、`docs/design/蓝图工具.md`、`README.md`、`AGENTS.md`、`WORKSPACE.md`、`docs/people.md`、`scripts/render.mjs`，并首次提交 git 历史。
+- 2026-09-14 · pi · v12 剖面引擎完成：单文件 `蓝图-参数化-v12.html`（36 参数、7 图层、18 条判据、有效区间色带、六形态预设、撤销与存取）；`scripts/check.mjs` 11/11 通过、无 console 报错。引擎过程中发现两条新的设计约束（已记入 `docs/design/结构决策.md` D9/D10）：①腿托放平后必须完全落在前排靠背之后，锁定 xF/xR/rLl/fBa 四个量；②地板高=前离地+电池厚，且前排座垫底面须高于地板才能形成脚坑。默认整包 L=4100 全绿，搜索到 L=3525 的全绿解（v11 勘误版需要 4800）。

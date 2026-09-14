@@ -20,9 +20,20 @@ node scripts/render.mjs 蓝图-参数化-v11.html /tmp/mycar-render
 - 并把 `#root` 下每个 SVG 图元的包围盒用页面自身的 `chain()` 比例反算成**世界毫米**，写进 `measurements.json`；
 - 同时收集 `pageerror` / `console.error`（有错会打印）。
 
-**读图顺序**：先看 PNG 判断"看起来对不对"，再查 `measurements.json` 判断"数字对不对"——v11 的教训是两者会互相打架，只信一个必然误判。
+```bash
+node scripts/check.mjs 蓝图-参数化-v12.html    # 11 条验收判据（自动判定），退出码 0 = 全过
+```
 
-## 蓝图 HTML 的结构约定（v11 及以前）
+**读图顺序**：先看 PNG 判断"看起来对不对"，再查 `measurements.json`/`check.mjs` 判断"数字对不对"——v11 的教训是两者会互相打架，只信一个必然误判。
+
+## 蓝图 HTML 的结构约定（v12 起）
+
+- 单文件、无依赖；`DEF`（参数表：值/范围/步长/单位）+ `P`（当前值）+ `M`（状态）→ `build(P,M)` 返回**世界毫米**图元数组与派生量 `d` → `checks(P,M,B)` 每条判据引用 `d` 里的同一份几何 → `project()` 一次性投影。
+- 新增几何量时：先加进 `build()` 的 `d`，再让绘制与判据都读它；**禁止**在绘制或判据里重算第二份。
+- 碰撞判定用 `segSeg/inQuad/segQuad/quadQuad`（同文件），不要用包围盒近似（会误报）。
+- 页面暴露 `window.MY = {P,M,DEF,AN,build,checks,project,hardOK,set}`，无头脚本据此取数；改动这个接口会同时影响 `scripts/check.mjs`。
+
+## 蓝图 HTML 的结构约定（v11 及以前，仅考古）
 
 - 单文件、无依赖：`P`（参数对象）+ `M`（模式布尔）+ `chain()`（派生几何）→ `render()`（拼 SVG 字符串）。
 - `chain()` 与 `render()` 是**全局函数**（classic script），所以可以从 Playwright 里直接 `page.evaluate(() => chain())` 取派生量。v12 请保留"可从外部调用"这一性质，并额外导出一个 `measure()` 返回所有 builder 的输出，便于自动校验。
