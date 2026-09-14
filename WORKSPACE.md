@@ -48,6 +48,17 @@ node scripts/check.mjs 蓝图-参数化-v12.html    # 11 条验收判据（自�
   `curl -LO https://mirrors.tuna.tsinghua.edu.cn/blender/release/Blender4.5/blender-4.5.13-linux-x64.tar.xz` → 解压即用。
 - 每次参数/预设不同 → 导出的是不同文件，命名带 `L/H/rot/pop` 便于对照。
 
+## 批量出图流水线（蓝图 → glb → Blender 渲染）
+
+```bash
+node scripts/export-glb.mjs /tmp/mycar-glb              # 7 个预设 → .glb
+blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 900
+```
+
+- `scripts/export-glb.mjs`：无头跑页面里的 7 个预设，各导一份 .glb（已验证：31–34KB / 1100–1190 面）。
+- `scripts/blender-render.py`：Blender 4.x + Cycles（自动试 OPTIX/CUDA，回退 CPU），每个模型两个 3/4 视角，自动取包围盒摆机位。
+- 渲染前先 `blender --version` 确认；GPU 不可用时会自动降级，不是错误。
+
 ## 已知坑（别再踩）
 
 1. v7→v11 由 GLM 迭代，**没有事后校验**：画出来的图与它自己的红字校验都不可信。任何继承自 v11 的结论都要重新量一遍。
