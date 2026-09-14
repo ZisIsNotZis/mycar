@@ -658,9 +658,6 @@ function renderSVG(B,S){
 </script>
 <script>
 
-/* ============================ 3D 轴测 ============================
-   z 轴 = 车宽方向（0 = 中心线，+z 朝观察者）。斜二测投影：
-   sx = x + z*0.5，sy = y + z*0.30（y 向上）。用途：查侧视图看不到的横向干涉。 */
 function build3D(p,m,B){
   const d=B.d, hw=p.W/2, o=[];
   const box=(x0,x1,y0,y1,z0,z1,cls,label)=>o.push({k:'box',x0,x1,y0,y1,z0,z1,cls,label});
@@ -720,90 +717,112 @@ function build3D(p,m,B){
   }
   return o;
 }
-const KL=0.30, KZ=0.17;          // 斜二测系数：越小越接近正侧视
-function project3(p,m,B,B3){
-  const hw=p.W/2;
-  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
-  for (const b of B3){
-    const xs=[]; const ys=[];
-    const pts = b.k==='prism'? b.pts.map(q=>[q[0],q[1]]) : [[b.x0,b.y0],[b.x1,b.y1]];
-    for (const [x,y] of pts) for (const z of (b.k==='prism'?[b.z0,b.z1]:[b.z0,b.z1])){
-      const sx=x+z*KL, sy=y+z*KZ; if(sx<x0)x0=sx; if(sx>x1)x1=sx; if(sy<y0)y0=sy; if(sy>y1)y1=sy; }
-  }
-  if (B3.some(b=>b.k==='cyl')) for (const b of B3.filter(b=>b.k==='cyl'))
-    for (const z of [b.z0,b.z1]){ const sx=b.cx+z*KL, sy=b.cy+z*KZ;
-      if(sx-b.r<x0)x0=sx-b.r; if(sx+b.r>x1)x1=sx+b.r; if(sy-b.r<y0)y0=sy-b.r; if(sy+b.r>y1)y1=sy+b.r; }
-  x0-=260; x1+=260; y0-=260; y1+=360;
-  const k=Math.min((SVGW-2*PAD)/(x1-x0), (SVGH-2*PAD)/(y1-y0));
-  const cx=(x0+x1)/2, cy=(y0+y1)/2;
-  return {k, hw:p.W/2, SX:sx=>SVGW/2+(sx-cx)*k, SY:sy=>SVGH/2-(sy-cy)*k};
-}
-const S3={
-  body3:{fill:'#9fb4c8',stroke:'#d0e0ee','fill-opacity':.10}, glass3:{fill:'#6f9dc4',stroke:'#9fc0dd','fill-opacity':.12},
-  tyre3:{fill:'#3a4048',stroke:'#9fb0be','fill-opacity':.9}, rim3:{fill:'#6b7a88',stroke:'#b8c8d4','fill-opacity':.85},
-  arch3:{fill:'#3a1f22',stroke:'#e57373','fill-opacity':.16},
-  floor3:{fill:'#5d6f7d',stroke:'#9bb0c0'}, batt3:{fill:'#2f7d8f',stroke:'#56c8d8'},
-  wet3:{fill:'#2b5b6b',stroke:'#56c8d8'}, seat3:{fill:'#5a6b7d',stroke:'#a8c0d4'},
-  seatO3:{fill:'#8a6ea0',stroke:'#c8a8e0'}, bed3:{fill:'#3f8a58',stroke:'#7fe0a0'},
-  isl3:{fill:'#6a5a80',stroke:'#b48ead'}, tbl3:{fill:'#7d8b98',stroke:'#b0c0cc'}, base3:{fill:'#46566a',stroke:'#6b8098',},
-  seatbase:{fill:'#1a232e',stroke:'#41586c','stroke-width':1.2},
-  lk3:{fill:'#b8a054',stroke:'#e8d174'}, pop3:{fill:'#3f7fbf',stroke:'#6fb4e8'},
-  tent3:{fill:'#5f8fb8',stroke:'#8fc4e8','fill-opacity':.3}, bunk3:{fill:'#3f7fbf',stroke:'#6fb4e8'},
-  scr3:{fill:'#c8b878',stroke:'#e8d174'}, pj3:{fill:'#7a6a90',stroke:'#b48ead'},
-  man3:{fill:'#d69a86',stroke:'#e8b0a0','fill-opacity':.55}, none3:{fill:'none',stroke:'none'},
-};
-function render3(B3,S){
-  const NS='http://www.w3.org/2000/svg', svg=document.getElementById('sv');
-  svg.replaceChildren();
-  const bg=document.createElementNS(NS,'rect');
-  bg.setAttribute('width',SVGW); bg.setAttribute('height',SVGH); bg.setAttribute('fill','#1c2530');
-  svg.appendChild(bg);
-  const add=(tag,attrs,txt)=>{const e=document.createElementNS(NS,tag);
-    for(const k in attrs) if(attrs[k]!=null) e.setAttribute(k,attrs[k]); if(txt!=null)e.textContent=txt;
-    svg.appendChild(e); return e;};
-  const P3=(x,y,z)=>[S.SX(x+z*KL), S.SY(y+z*KZ)];
-  const quad=(a,b,c,d,cls,op)=>{ const st=S3[cls]||S3.floor3;
-    add('path',{d:`M${a[0]},${a[1]}L${b[0]},${b[1]}L${c[0]},${c[1]}L${d[0]},${d[1]}Z`,
-      fill:st.fill,stroke:st.stroke,'stroke-width':1,'fill-opacity':(st['fill-opacity']!=null?st['fill-opacity']:(op||1))}); };
-  /* 车身按"剖切"画：只画远侧面 + 连接面，近侧面去掉 → 内部可见 */
-  for (const b of B3.filter(x=>x.k==='prism')){
-    const st=S3[b.cls]||S3.body3;
-    const far=b.pts.map(q=>P3(q[0],q[1],b.z0));
-    add('path',{d:'M'+far.map(q=>q[0]+','+q[1]).join('L')+'Z',fill:'#1c2530',stroke:'#3b4a58','stroke-width':1,'fill-opacity':.45});
-    for (let i=0;i<b.pts.length;i++){
-      const a=b.pts[i], c=b.pts[(i+1)%b.pts.length];
-      if (Math.hypot(c[0]-a[0],c[1]-a[1])<60) continue;
-      quad(P3(a[0],a[1],b.z0),P3(c[0],c[1],b.z0),P3(c[0],c[1],b.z1),P3(a[0],a[1],b.z1), b.cls, (b.cls==='body3'||b.cls==='glass3')?0.13:0.34);
-    }
-  }
-  const list=[...B3].filter(b=>b.k!=='prism'&&b.k!=='none3')
-    .sort((a,b)=>(a.z0-b.z0) || ((a.x0||a.cx)-(b.x0||b.cx)));
-  for (const b of list){
-    if (b.k==='cyl'){
-      const st=S3[b.cls]||S3.tyre3; const zc=((b.z0||0)+(b.z1||0))/2;
-      // 远侧轮画淡一点
-      const c0=P3(b.cx,b.cy,b.z0), c1=P3(b.cx,b.cy,b.z1);
-      add('ellipse',{cx:c1[0],cy:c1[1],rx:b.r*S.k,ry:b.r*S.k,fill:st.fill,'fill-opacity':(zc>0?0.5:0.85),stroke:st.stroke,'stroke-width':1});
-      quad([c0[0]-b.r*S.k,c0[1]],[c0[0]+b.r*S.k,c0[1]],[c1[0]+b.r*S.k,c1[1]],[c1[0]-b.r*S.k,c1[1]],b.cls,.9);
-      add('ellipse',{cx:c0[0],cy:c0[1],rx:b.r*S.k,ry:b.r*S.k,fill:st.fill,'fill-opacity':0.8,stroke:st.stroke,'stroke-width':1});
-      continue;
-    }
-    const st=S3[b.cls]||S3.floor3;
-    const zc=((b.z0||0)+(b.z1||0))/2, hwz=S.hw;
-    const far=zc<-hwz*0.45;
-    const f=(st['fill-opacity']!=null?st['fill-opacity']:.96)*(far?0.22:1.0);   // 玻璃壳内放实心件：远侧压暗当幽灵
-    const A=P3(b.x0,b.y0,b.z0),Bp=P3(b.x1,b.y0,b.z0),C=P3(b.x1,b.y1,b.z0),D=P3(b.x0,b.y1,b.z0);
-    const A2=P3(b.x0,b.y0,b.z1),B2=P3(b.x1,b.y0,b.z1),C2=P3(b.x1,b.y1,b.z1),D2=P3(b.x0,b.y1,b.z1);
-    quad(A,Bp,C,D,b.cls,f*0.7);                   // 远端面（暗）
-    quad(A2,B2,C2,D2,b.cls,f);                    // 近端面
-    quad(D,C,C2,D2,b.cls,f);                      // 顶
-    quad(A2,B2,Bp,A,b.cls,f*0.8);                 // 底
-    quad(Bp,C,C2,B2,b.cls,f*0.9);                 // 右
-    quad(A,D,D2,A2,b.cls,f*0.95);                 // 左
-  }
-  add('text',{x:20,y:SVGH-16,fill:'#5c7386','font-size':11},'3D 轴测：x=车长 y=高 z=车宽（+z 朝观察者）· 红=轮位机能包络（横向占 W/2−190 以外）');
-}
 
+/* ============================ 3D：可旋转正交视图 ============================
+   世界：x=车长，y=离地高，z=车宽(0=中线)。鼠标拖动旋转、滚轮缩放。
+   面级排序 + 法线着色 —— 即使全是同色也能看出体积关系。 */
+const CAM={az:300, el:14, zoom:1, shell:0.14};
+const _d2r=Math.PI/180;
+
+function primFaces(b){                      // 体块 → 面（世界坐标）
+  const out=[], Q=(p0,p1,p2,p3)=>out.push([p0,p1,p2,p3]);
+  if (b.k==='box'){
+    const v=(i,j,k)=>[i?b.x1:b.x0, j?b.y1:b.y0, k?b.z1:b.z0];
+    Q(v(0,0,0),v(1,0,0),v(1,1,0),v(0,1,0)); Q(v(0,0,1),v(1,0,1),v(1,1,1),v(0,1,1));
+    Q(v(0,0,0),v(1,0,0),v(1,0,1),v(0,0,1)); Q(v(0,1,0),v(1,1,0),v(1,1,1),v(0,1,1));
+    Q(v(0,0,0),v(0,1,0),v(0,1,1),v(0,0,1)); Q(v(1,0,0),v(1,1,0),v(1,1,1),v(1,0,1));
+  } else if (b.k==='prism'){
+    out.push(b.pts.map(q=>[q[0],q[1],b.z0]));
+    out.push(b.pts.map(q=>[q[0],q[1],b.z1]).reverse());
+    for (let i=0;i<b.pts.length;i++){ const j=(i+1)%b.pts.length, p=b.pts[i], q=b.pts[j];
+      Q([p[0],p[1],b.z0],[q[0],q[1],b.z0],[q[0],q[1],b.z1],[p[0],p[1],b.z1]); }
+  } else if (b.k==='cyl'){
+    const N=18, pt=(t,z)=>[b.cx+Math.cos(t)*b.r, b.cy+Math.sin(t)*b.r, z];
+    for (let i=0;i<N;i++){ const t0=i/N*Math.PI*2, t1=(i+1)/N*Math.PI*2;
+      Q(pt(t0,b.z0),pt(t0,b.z1),pt(t1,b.z1),pt(t1,b.z0)); }
+    const c0=[], c1=[];
+    for (let i=0;i<N;i++){ const t=i/N*Math.PI*2; c0.push(pt(t,b.z0)); c1.push(pt(t,b.z1)); }
+    out.push(c0); out.push(c1.reverse());
+  }
+  return out;
+}
+function buildFaces(B3){
+  const SHELL=new Set(['body3','glass3','tent3']);
+  const f=[];
+  for (const b of B3){
+    if (b.cls==='none3') continue;
+    if (b.cls==='arch3' && !M3.showSlice) continue;
+    if (SHELL.has(b.cls) && CAM.shell<=0.001) continue;
+    for (const pts of primFaces(b)) f.push({pts, cls:b.cls, shell:SHELL.has(b.cls)});
+  }
+  return f;
+}
+const M3={showSlice:true};
+const hexRGB=h=>{const n=parseInt((h||'#8899aa').replace('#',''),16);return [n>>16&255,n>>8&255,n&255];};
+let FACES=null, FCAM=null;
+function draw3(){
+  if (!FACES) return;
+  const NS='http://www.w3.org/2000/svg', svg=$('sv');
+  svg.replaceChildren();
+  const az=CAM.az*_d2r, el=CAM.el*_d2r;
+  const dir=[Math.cos(el)*Math.cos(az), Math.sin(el), Math.cos(el)*Math.sin(az)];
+  const right=[-Math.sin(az),0,Math.cos(az)];
+  const upv=[-Math.sin(el)*Math.cos(az), Math.cos(el), -Math.sin(el)*Math.sin(az)];
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  // 投影（正交）：先定中心与比例
+  let sx0=1e9,sx1=-1e9,sy0=1e9,sy1=-1e9;
+  let ctr=[0,0,0], n0=0;
+  for (const f of FACES) for (const p of f.pts){ ctr[0]+=p[0]; ctr[1]+=p[1]; ctr[2]+=p[2]; n0++; }
+  ctr=ctr.map(v=>v/n0);
+  const P1=(p)=>{ const q=[p[0]-ctr[0],p[1]-ctr[1],p[2]-ctr[2]];
+    return [dot(q,right), dot(q,upv), dot(q,dir)]; };
+  for (const f of FACES) for (const p of f.pts){ const q=P1(p);
+    if(q[0]<sx0)sx0=q[0]; if(q[0]>sx1)sx1=q[0]; if(q[1]<sy0)sy0=q[1]; if(q[1]>sy1)sy1=q[1]; }
+  const k=Math.min((SVGW-2*PAD)/Math.max(1,sx1-sx0), (SVGH-2*PAD)/Math.max(1,sy1-sy0))*CAM.zoom;
+  const ox=SVGW/2-((sx0+sx1)/2)*k, oy=SVGH/2+((sy0+sy1)/2)*k;
+  const SXY=(p)=>{ const q=P1(p); return [ox+q[0]*k, oy-q[1]*k]; };
+  const LIGHT=[0.42,0.86,0.30];
+  const add=(tag,at)=>{const e=document.createElementNS(NS,tag);
+    for(const k2 in at) if(at[k2]!=null) e.setAttribute(k2,at[k2]); svg.appendChild(e); return e;};
+  const bg=add('rect',{x:0,y:0,width:SVGW,height:SVGH,fill:'#161d26'}); void bg;
+  // 面按深度排序（远→近），两面着色（与观察方向无关，避免法线绕向问题）
+  const list=FACES.map(f=>{
+    const q=f.pts.map(P1);
+    const depth=q.reduce((a,b)=>a+b[2],0)/q.length;
+    const n=[0,0,0];
+    for (let i=0;i<f.pts.length;i++){ const a=f.pts[i], b=f.pts[(i+1)%f.pts.length];
+      n[0]+=(a[1]-b[1])*(a[2]+b[2]); n[1]+=(a[2]-b[2])*(a[0]+b[0]); n[2]+=(a[0]-b[0])*(a[1]+b[1]); }
+    const nl=Math.hypot(n[0],n[1],n[2])||1; const nn=n.map(v=>v/nl);
+    const sgn=dot(nn,dir)>=0?1:-1;
+    const lam=0.34+0.66*Math.max(0, sgn*dot(nn,LIGHT));
+    return {f, depth, lam, q};
+  }).sort((a,b)=>a.depth-b.depth);
+  for (const it of list){
+    const st=S3[it.f.cls]||S3.floor3;
+    const rgb=hexRGB(GLB_STYLE[it.f.cls]||st.fill);
+    const a=(st['fill-opacity']!=null?st['fill-opacity']:0.96)*(it.f.shell?1:1);
+    const col=`rgb(${Math.round(rgb[0]*it.lam)},${Math.round(rgb[1]*it.lam)},${Math.round(rgb[2]*it.lam)})`;
+    const d='M'+it.q.map(p=>`${(ox+p[0]*k).toFixed(1)},${(oy-p[1]*k).toFixed(1)}`).join('L')+'Z';
+    add('path',{d, fill:col, 'fill-opacity':(it.f.shell?CAM.shell:a), stroke:st.stroke||'#000',
+      'stroke-width':it.f.shell?0.8:0.9, 'stroke-opacity':it.f.shell?0.5:0.65});
+  }
+  add('text',{x:18,y:26,fill:'#8fb3cc','font-size':12},
+      `3D 正交 · 方位 ${Math.round(CAM.az)}° 仰角 ${Math.round(CAM.el)}° · 外壳 ${Math.round(CAM.shell*100)}% · 拖动旋转 / 滚轮缩放`);
+  add('text',{x:18,y:SVGH-14,fill:'#5c7386','font-size':11},
+      'x=车长 y=离地高 z=车宽（0=中线）· 红=轮位机能包络 · 面级排序+法线着色');
+}
+const GLB_STYLE={body3:'#9fb4c8',glass3:'#5f8fc0',tyre3:'#2b2f36',rim3:'#7b8894',arch3:'#c2565e',
+  floor3:'#5d6f7d',batt3:'#2f7d8f',wet3:'#2b5b6b',seat3:'#6a7d90',seatO3:'#9a7ab0',base3:'#4a5c70',
+  bed3:'#4f9a68',isl3:'#7a6a90',tbl3:'#8d9ba8',lk3:'#c0a85c',pop3:'#4f8fd0',tent3:'#6f9fc8',
+  bunk3:'#4f8fd0',scr3:'#d0c080',pj3:'#8a7aa0',man3:'#d69a86',none3:'#000000'};
+const S3={body3:{stroke:'#d0e0ee'},glass3:{stroke:'#9fc0dd'},tyre3:{stroke:'#7b8b99'},
+  rim3:{stroke:'#a8b8c4'},arch3:{stroke:'#e57373','fill-opacity':.18},
+  floor3:{stroke:'#9bb0c0'},batt3:{stroke:'#56c8d8'},wet3:{stroke:'#56c8d8'},seat3:{stroke:'#a8c0d4'},
+  seatO3:{stroke:'#c8a8e0'},base3:{stroke:'#6b8098'},bed3:{stroke:'#7fe0a0'},isl3:{stroke:'#b48ead'},
+  tbl3:{stroke:'#b0c0cc'},lk3:{stroke:'#e8d174'},pop3:{stroke:'#6fb4e8'},tent3:{stroke:'#8fc4e8','fill-opacity':.35},
+  bunk3:{stroke:'#6fb4e8'},scr3:{stroke:'#e8d174'},pj3:{stroke:'#b48ead'},man3:{stroke:'#e8b0a0','fill-opacity':.6},
+  none3:{stroke:'none'}};
+function render3(B3){ FACES=buildFaces(B3); draw3(); }
 
 /* ============================ glTF (.glb) 导出 ============================
    与 3D 视图同源：直接吃 build3D() 的体块，mm→m，Y 向上，X=车宽、Z=车长。 */
@@ -923,6 +942,7 @@ const TOGGLES=[
   ['升顶上铺', ()=>M.pop='bunk',  ()=>M.pop==='bunk'],
   ['尺寸标注', ()=>M.showDim=!M.showDim, ()=>M.showDim],
   ['视图 2D/3D', ()=>M.view = (M.view==='3d'?'2d':'3d'), ()=>M.view==='3d'],
+  ['轮位包络', ()=>{M3.showSlice=!M3.showSlice;}, ()=>M3.showSlice],
 ];
 function buildUI(){
   const c=$('ctrl'); c.replaceChildren();
@@ -956,6 +976,18 @@ function buildUI(){
       const s=(e.key==='ArrowUp'?1:-1)*D.st; let v=Math.min(D.max,Math.max(D.min,P[k]+s));
       P[k]=v; rng.value=v; redraw(); syncOne(k); bandsSoon();}});
   }
+  c.appendChild(mk('sec','3D 视图（拖 SVG 旋转 / 滚轮缩放）'));
+  const m3=mk('modes');
+  const vbtn=(t,fn)=>{const b=mk('mbtn',t); b.onclick=()=>{fn(); if(M.view==='3d') draw3(); syncUI();}; m3.appendChild(b);};
+  vbtn('侧视', ()=>{CAM.az=270;CAM.el=0;});
+  vbtn('俯视', ()=>{CAM.az=270;CAM.el=78;});
+  vbtn('3/4', ()=>{CAM.az=300;CAM.el=14;});
+  vbtn('正视', ()=>{CAM.az=180;CAM.el=0;});
+  vbtn('外壳 +', ()=>{CAM.shell=Math.min(.45,+(CAM.shell+.06).toFixed(2));});
+  vbtn('外壳 −', ()=>{CAM.shell=Math.max(0,+(CAM.shell-.06).toFixed(2));});
+  vbtn('包络开/关', ()=>{M3.showSlice=!M3.showSlice; redraw();});
+  vbtn('复位', ()=>{CAM.az=300;CAM.el=14;CAM.zoom=1;CAM.shell=0.14;});
+  c.appendChild(m3);
   const chk=mk('div'); chk.id='check'; c.appendChild(chk);
   const tw=mk('div'); tw.id='tblwrap'; c.appendChild(tw);
   c.appendChild(mk('sec','参数'));
@@ -981,7 +1013,7 @@ function syncUI(){
 }
 function redraw(){
   const B=build(P,M);
-  if (M.view==='3d') render3(build3D(P,M,B), project3(P,M,B,build3D(P,M,B)));
+  if (M.view==='3d') render3(build3D(P,M,B));
   else renderSVG(B, project(P,M,B));
   const cs=checks(P,M,B);
   const hard=cs.filter(c=>c.lv==='hard'), bad=hard.filter(c=>!c.ok).length;
@@ -1031,11 +1063,26 @@ function computeBands(){
   }
 }
 buildUI();
+/* 3D 交互：拖动旋转、滚轮缩放（只重绘面，不重建几何） */
+(function(){
+  const svg=$('sv'); let drag=null;
+  svg.style.cursor='grab';
+  svg.addEventListener('pointerdown',e=>{ if(M.view!=='3d')return; drag={x:e.clientX,y:e.clientY};
+    svg.setPointerCapture(e.pointerId); svg.style.cursor='grabbing'; });
+  svg.addEventListener('pointermove',e=>{ if(!drag)return;
+    CAM.az=(CAM.az+(e.clientX-drag.x)*0.45+360)%360;
+    CAM.el=Math.max(-85,Math.min(85, CAM.el-(e.clientY-drag.y)*0.35));
+    drag={x:e.clientX,y:e.clientY}; draw3(); });
+  const end=e=>{ if(drag){ drag=null; svg.style.cursor='grab'; } };
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+  svg.addEventListener('wheel',e=>{ if(M.view!=='3d')return; e.preventDefault();
+    CAM.zoom=Math.max(0.3,Math.min(4, CAM.zoom*Math.exp(-e.deltaY*0.0012))); draw3(); },{passive:false});
+})();
 try{ const s=localStorage.getItem('mycar-v12'); if(s) importJSON(s); }catch(e){}
 syncUI(); computeBands();
 
 /* 供无头校验脚本使用（docs/design/蓝图工具.md §10） */
-window.MY={P,M,DEF,AN,build,checks,project,hardOK,redraw,build3D,project3,render3,glbFromScene,set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
+window.MY={P,M,DEF,AN,build,checks,project,hardOK,redraw,build3D,render3,glbFromScene,set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
 </script>
 </body>
 </html>

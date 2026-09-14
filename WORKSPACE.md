@@ -69,7 +69,12 @@ blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 9
 3. **共面就会"漏色"**：内装件别和车身任何外皮共面 —— 吊柜外侧面与 `z=±W/2` 共面 → 侧面漏黄带；吊柜顶面与 `y=H` 共面 → 车顶漏黄带。凡"贴着车壳内表面"的件都内缩一个壁厚（现取 40mm / 顶面 30mm）。
 4. **分析标注不能进模型**：轮位机能包络（`arch3`）是红框分析用，导进 Blender 会把轮子整个盖住 —— 导出时按 `cls` 跳过。凡是"给眼睛看的"图元，导出前都要过一遍这个筛子。
 
-## 在 Blender 里人工检查（推荐）
+## Blender：仅代理使用（用户不碰）
+
+> 用户不会用 Blender，也明确表示不需要。**给人看的检查入口是蓝图页内的可旋转 3D**。
+> Blender 只用来出图/出动画，由代理无头驱动（`-b`），不要让人去操作 GUI。
+
+### （历史）打开 GUI 的方式
 
 ```bash
 ~/blender/blender --python scripts/blender-open.py -- /tmp/mycar-glb/04-驻车大床.glb
