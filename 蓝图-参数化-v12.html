@@ -404,7 +404,14 @@ function build(p, m){
   /* 尾门：从投影仪那一带的车顶后缘起，覆盖整个车尾；两段折叠
      极限形态由几何算出：上段转到"水平"、下段转到"竖直向下"（-\ 形的最大展开），不再往里折 */
   const tHinge=[Math.min(p.pjX+40, d.roofX1-20), p.H-40];
-  const tMid=[d.roofX1 + 0.45*((p.L-140)-d.roofX1), p.H - 0.45*(p.H-(p.gr+700))];   // 折点提到尾斜面中上段
+  // 折点：在尾斜面上取一个位置，使"开平后"折点落在车尾之外 → 下段垂下去不挡开口
+  const wantLen=Math.max(360, p.L+70-tHinge[0]);
+  let tMid=null;
+  for (let t=0.06;t<=1.0001;t+=0.02){
+    const M=[d.roofX1+t*((p.L-140)-d.roofX1), p.H+t*((p.gr+700)-p.H)];
+    if (Math.hypot(M[0]-tHinge[0], M[1]-tHinge[1])>=wantLen){ tMid=M; break; }
+  }
+  if (!tMid) tMid=[p.L-140, p.gr+700];
   const tBot=[p.L-20, p.gr+110];
   const rot2=(v,a)=>[v[0]*Math.cos(a)-v[1]*Math.sin(a), v[0]*Math.sin(a)+v[1]*Math.cos(a)];
   const ang=v=>Math.atan2(v[1],v[0]);
