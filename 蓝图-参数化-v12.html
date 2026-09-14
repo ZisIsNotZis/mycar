@@ -679,8 +679,8 @@ function build3D(p,m,B){
   /* 跨行桌板 */
   if (d.table) box(d.table.x0,d.table.x1,d.table.top-60,d.table.top,-560,560,'tbl3');
   /* 吊柜（左右各一，横向占用是关键） */
-  for (const sz of [1,-1]){
-    box(d.roofX0+130,d.roofX1-130,p.H-p.lkH,p.H, sz>0?hw-p.lkD:hw* -1, sz>0?hw:-hw+p.lkD,'lk3');
+  for (const sz of [1,-1]){          // 吊柜内缩 40（车身壁厚）：否则外侧面和车外皮共面，导出后人看侧面多一条黄带
+    box(d.roofX0+130,d.roofX1-130,p.H-p.lkH,p.H, sz>0?hw-p.lkD:-hw+40, sz>0?hw-40:-hw+p.lkD,'lk3');
   }
   /* 升顶：顶盖 + 帐篷围幕 */
   if (m.pop!=='closed'){
