@@ -405,7 +405,7 @@ function build(p, m){
      极限形态由几何算出：上段转到"水平"、下段转到"竖直向下"（-\ 形的最大展开），不再往里折 */
   const tHinge=[Math.min(p.pjX+40, d.roofX1-20), p.H-40];
   // 折点：在尾斜面上取一个位置，使"开平后"折点落在车尾之外 → 下段垂下去不挡开口
-  const wantLen=Math.max(360, p.L+70-tHinge[0]);
+  const wantLen=Math.max(360, (p.L+70-tHinge[0])*1.5);   // 折点再外移 50%：门开到位时整体退到车尾之外更多
   let tMid=null;
   for (let t=0.06;t<=1.0001;t+=0.02){
     const M=[d.roofX1+t*((p.L-140)-d.roofX1), p.H+t*((p.gr+700)-p.H)];
