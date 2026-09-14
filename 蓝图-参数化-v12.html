@@ -827,6 +827,7 @@ function glbFromScene(opts){
       idx.push(ca,ra[j],ra[i]); idx.push(cb,rb[i],rb[j]); }
   };
   for (const b of B3){
+    if (b.cls==='arch3') continue;        // 轮位机能包络是"分析标注"，不进模型（否则把轮子整个盖住）
     if (b.k==='box') box(b.x0,b.x1,b.y0,b.y1,b.z0,b.z1,b.cls);
     else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls,CUT);
     else if (b.k==='cyl') cyl(b.cx,b.cy,b.r,b.z0,b.z1,b.cls);
