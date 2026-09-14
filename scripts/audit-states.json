@@ -1,0 +1,12 @@
+[
+ {"name": "① 通勤（默认）", "patch": {}},
+ {"name": "② 行车观影 fold=0.45", "patch": {"P": {"fold": 0.45, "pAng": 90}}},
+ {"name": "③ 会客办公 rot=180 fold=0", "patch": {"P": {"rot": 180, "fold": 0, "pAng": 90}}},
+ {"name": "④ 三人沙发 rot=180 + 层1 翻开", "patch": {"P": {"rot": 180, "fold": 0, "pAng": 90, "islLid": 95}}},
+ {"name": "⑤ 驻车大床 rot=180 fold=1 台面下沉", "patch": {"P": {"rot": 180, "fold": 1, "pAng": 0, "islSink": 1, "rLift": -60, "fLift": -10, "trunk": 1}}},
+ {"name": "⑥ 露营·站立", "patch": {"P": {"rot": 180, "fold": 1, "pAng": 0, "islSink": 1, "rLift": -60, "fLift": -10, "pr": 740}, "M": {"pop": "stand"}}},
+ {"name": "⑦ 露营·上铺", "patch": {"P": {"rot": 180, "fold": 1, "pAng": 0, "islSink": 1, "rLift": -60, "fLift": -10, "pr": 740}, "M": {"pop": "bunk"}}},
+ {"name": "⑧ 扶手箱取物（层2 开）", "patch": {"P": {"islBox": 95, "islLid": 95}}},
+ {"name": "⑨ 二排放平但前排未旋转（应判红）", "patch": {"P": {"rot": 0, "fold": 1, "pAng": 0, "rLift": -60}}},
+ {"name": "⑩ 极限小车身 L=3300", "patch": {"P": {"L": 3300, "xR": 2880, "axR": 2350, "b1": 1950}}}
+]
