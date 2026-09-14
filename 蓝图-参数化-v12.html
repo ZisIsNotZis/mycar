@@ -76,6 +76,7 @@ const DEF = {
   L:   {v:4100,min:3300,max:5400,st:25, g:'车身', n:'全长 L'},
   W:   {v:1800,min:1500,max:2050,st:10, g:'车身', n:'外宽 W'},
   H:   {v:1900,min:1400,max:2000,st:10, g:'车身', n:'车高 H（不升顶）'},
+  cowl:{v:1180,min:700, max:1750,st:10, g:'车身', n:'风挡基位置（前推→座舱更长）'},
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
   axF: {v:900, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
@@ -202,7 +203,7 @@ function build(p, m){
                   sh:[[mx(HX),topY],[mx(cfx),cfy],[mx(cfx),cfy-CT],[mx(HX),topY-CT]]};
     const bx = face===1 ? Math.sin(BA) : -Math.sin(BA);
     const by = Math.cos(BA);
-    const b0=[HX,topY], b1=[HX+BL*bx, topY+BL*by];
+    const b0=[mx(HX),topY], b1=[mx(HX)+BL*bx, topY+BL*by];   // 铰点也要镜像，否则靠背翻到错的一端
     const nx = face===1 ? Math.cos(BA) : -Math.cos(BA);
     const ny = -Math.sin(BA);
     const BTh = Math.max(60, CT*0.7);
@@ -223,7 +224,7 @@ function build(p, m){
     }
     const base0=Math.min(mx(HX),mx(cfx))+40, base1=Math.max(mx(HX),mx(cfx))-40;
     const baseQ=[[base0,d.floor],[base1,d.floor],[base1,topY-CT],[base0,topY-CT]];
-    return {row,F,HX,CL,CA,BL,BA,CT,topY,face,axisX,hinge:[HX,topY],baseQ,base0,base1,
+    return {row,F,HX,CL,CA,BL,BA,CT,topY,face,axisX,hinge:[mx(HX),topY],baseQ,base0,base1,
             footY: F ? ((FB && bedM) ? d.bedTopEarly : d.floor) : d.floor,
             cush, back, head:hd, leg, mx};
   }
@@ -306,7 +307,7 @@ function build(p, m){
   d.scrIn    = Math.round(Math.hypot(d.scrW, d.scrH)/25.4);
 
   /* ---------- 升顶 ---------- */
-  d.cowlX = Math.max(p.axF+220, d.frontCushFrontX-120);   // 用座垫最前端：旋转/升降都不变
+  d.cowlX = Math.min(p.cowl, (p.L-90)-1400);            // 风挡基位置：可直接前推（座舱更长）
   d.cowlY = d.floor + p.base + p.fCt + 320;               // 用常量堆叠高，避开 fLift
   d.roofX0 = Math.min(d.cowlX + (p.H-d.cowlY)*0.36, p.L-900);
   d.roofX1 = p.L - 430;
@@ -331,7 +332,8 @@ function build(p, m){
     return {pts:out, dx};
   };
   const afF=archCut(p.axF,p.tdf,p.gf,true), afR=archCut(p.axR,p.tdr,p.gr,true);
-  const bPts=[[0,p.gf],[0,p.gf+560],[p.axF-140,p.gf+700],[d.cowlX,d.cowlY],[d.roofX0,p.H],[d.roofX1,p.H],
+  const hoodKnee=Math.min(p.axF-140, d.cowlX-260);
+  const bPts=[[0,p.gf],[0,p.gf+560],[hoodKnee,p.gf+700],[d.cowlX,d.cowlY],[d.roofX0,p.H],[d.roofX1,p.H],
               [p.L-140,p.gr+700],[p.L,p.gr+430],[p.L,p.gr],
               [p.axR+afR.dx,d.rocker], ...afR.pts, [p.axF+afF.dx,d.rocker], ...afF.pts, [0,d.rocker]];
   d.bodyPts=bPts;
@@ -358,22 +360,25 @@ function build(p, m){
   g.push(ln([60,d.floor],[p.L-90,d.floor],26,'floor'));
 
   /* 前备箱（说明书第二章）：超大整体空腔，只有两根溃缩大梁横贯 */
-  const frx1=d.cowlX-60, fry0=d.archFtop+20;
-  const hoodAt=(x)=>{ const a=[0,p.gf+560], b=[p.axF-140,p.gf+700], c=[d.cowlX,d.cowlY];
-    if (x<=(p.axF-140)) return a[1]+(b[1]-a[1])*(x-a[0])/((p.axF-140)-a[0]);
-    return b[1]+(c[1]-b[1])*(x-(p.axF-140))/(d.cowlX-(p.axF-140)); };
+  const frx1=d.cowlX-60, fry0=d.floor+20;         // 空腔下沿到地板：大空腔（轮包在车外侧，不冲突）
+  const hoodAt=(x)=>{ const k=Math.min(p.axF-140, d.cowlX-260), a=[0,p.gf+560], b=[k,p.gf+700], c=[d.cowlX,d.cowlY];
+    if (x<=k) return a[1]+(b[1]-a[1])*(x-a[0])/Math.max(1,k-a[0]);
+    return b[1]+(c[1]-b[1])*(x-k)/Math.max(1,d.cowlX-k); };
   g.push(poly([[70,fry0],[frx1,fry0],[frx1,hoodAt(frx1)-60],[70,hoodAt(70)-60]],'store2','none'));
-  for (const ry of [fry0+120, fry0+250]) g.push(ln([70,ry],[frx1,ry],16,'rail'));
-  g.push(txt((70+frx1)/2, fry0+40, `前备箱（一级脏区）${Math.round(frx1-70)}×${Math.round(hoodAt(70)-60-fry0)}`,'store-t',10));
-  /* 前备箱盖（铰在前端）开启 */
-  const fa=p.frunk*55*D2R, fH=[0,p.gf+560], fL=Math.hypot(d.cowlX-0, d.cowlY-(p.gf+560));
-  const fA0=Math.atan2(d.cowlY-(p.gf+560), d.cowlX), fE=[fH[0]+Math.cos(fA0+fa)*fL, fH[1]+Math.sin(fA0+fa)*fL];
-  g.push(ln(fH,fE,26,'door'));
-  /* 尾门（铰在尾窗上沿）开启 */
-  const ta=p.trunk*100*D2R, tH=[p.L-160, d.bodyTopAt(p.L-160)], tL=430;
-  const tE=[tH[0]+Math.cos(-Math.PI/2+ta*0+ta)*0+tL*Math.cos(Math.PI/2*1.0+ta-Math.PI/2), tH[1]-tL*Math.cos(ta)];
-  g.push(ln(tH,[tH[0]+tL*Math.sin(ta), tH[1]-tL*Math.cos(ta)],26,'door'));
-  if (p.trunk>0.02) g.push(txt(tH[0]+120, tH[1]+90, `尾门开 ${Math.round(p.trunk*100)}%`,'door-t',10,'start'));
+  const fTop=hoodAt(70)-60, fHgt=Math.max(1,fTop-fry0);
+  for (const f2 of [0.34,0.68]) g.push(ln([70,fry0+fHgt*f2],[frx1,fry0+fHgt*f2],16,'rail'));
+  g.push(txt((70+frx1)/2, fry0+fHgt*0.5+6, `前备箱（一级脏区）${Math.round(frx1-70)}×${Math.round(fHgt)}·两根大梁横贯`,'store-t',11));
+  /* 前备箱盖：铰在风挡侧（后铰），前缘上掀 —— 和真车一样 */
+  const fa=p.frunk*48*D2R, fH=[d.cowlX,d.cowlY], fL=Math.hypot(d.cowlX, d.cowlY-(p.gf+560));
+  const fA0=Math.atan2((p.gf+560)-d.cowlY, -d.cowlX);
+  g.push(ln(fH,[fH[0]+Math.cos(fA0-fa)*fL, fH[1]+Math.sin(fA0-fa)*fL],26,'door'));
+  if (p.frunk>0.02) g.push(txt(300, d.cowlY+90, `前盖开 ${Math.round(p.frunk*100)}%`,'door-t',10));
+  /* 尾门 = 整个车尾面（从尾窗上沿到尾保险杠），铰在上沿向上掀 → 人能从这里进出 */
+  const tH=[p.L-150, Math.min(p.H-40, d.bodyTopAt(p.L-150))], tPt=[p.L-10, p.gr+140];
+  const tL=Math.hypot(tPt[0]-tH[0], tPt[1]-tH[1]), tA0=Math.atan2(tPt[1]-tH[1], tPt[0]-tH[0]);
+  const ta=p.trunk*88*D2R;
+  g.push(ln(tH,[tH[0]+Math.cos(tA0-ta)*tL, tH[1]+Math.sin(tA0-ta)*tL],30,'door'));
+  g.push(txt(tH[0]+150, tH[1]+40, `尾门 ${Math.round(tL)}（整个尾面）`,'door-t',9.5,'start'));
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
   for (const [ax,arc,tag,note] of [[p.axF,d.archF,'前轮位','转向/48V/AC·溃缩件'],[p.axR,d.archR,'后轮位','同轴三电（电机+减速+逆变）']]){
@@ -446,11 +451,18 @@ function build(p, m){
   const HIDE_MAN = (typeof ANIM!=='undefined' && ANIM.active);   // 过渡动画中人体淡出（用户：消失再出现）
   if (!HIDE_MAN){
     if (d.bedMode && m.pop!=='stand'){
-      man(bodyJoints({kind:'lie', anchor:[p.L-90-160, d.bedTop], dir:1, tilt:p.pAng}), 'man-r');
-      const hj=bodyJoints({kind:'lie', anchor:[p.L-90-160, d.bedTop], dir:1, tilt:p.pAng});
-      g.push(txt(hj.hip[0]-200, d.bedTop+330, `👤1750 脚朝幕布 · 头靠可翻隔板`,'bed-t',10));
-      g.push(txt(hj.ankle[0]-120, d.bedTop+180, `脚端余量 ${Math.round(hj.foot[0]-d.bedFrontX)}`, 'bed-t',9.5,'end'));
+      const upright = p.pAng >= 70;                 // 隔板立起 → 当椅背用，人坐着靠它
+      const hj = upright
+        ? bodyJoints({kind:'sit', seat:{F:false, face:1, hinge:[d.deckX1-150, d.bedTop], topY:d.bedTop, CA:0,
+            back:{dir:[Math.sin(12*D2R), Math.cos(12*D2R)]}, footY:d.floor}})
+        : bodyJoints({kind:'lie', anchor:[p.L-90-160, d.bedTop], dir:1, tilt:p.pAng});
+      man(hj,'man-r');
       d.headTop=hj.headC[0]+AN.headR;
+      if (upright) g.push(txt(hj.hip[0]-420, d.bedTop+330,'👤 隔板立起 = 椅背（脚下是地板）','bed-t',10));
+      else {
+        g.push(txt(hj.hip[0]-200, d.bedTop+330, `👤1750 脚朝幕布 · 头靠可翻隔板`,'bed-t',10));
+        g.push(txt(hj.foot[0]-120, d.bedTop+180, `脚端余量 ${Math.round(hj.foot[0]-d.bedFrontX)}`, 'bed-t',9.5,'end'));
+      }
     } else {
       if (m.pop!=='stand') man(d.humanR,'man-r');           // 站姿模式：床面留空
       man(d.humanF,'man-f');
@@ -1172,7 +1184,6 @@ function redraw(animFrame){
     tr.append(a1,b1); tab.appendChild(tr); }
   tw.appendChild(tab);
   $('sub').textContent='世界坐标 mm：x 0=前保险杠 → 车尾 · y=离地高。本图=中心线剖面（地板/电池/座椅/人体），车轮与轮包在车外两侧，按真实位置半透明表示。';
-  try{ localStorage.setItem('mycar-v12', exportJSON()); }catch(e){}
 }
 /* 有效区间色带：固定其余参数，扫该滑块，标出硬约束全过的区间 */
 let bandTimer=null;
@@ -1209,7 +1220,6 @@ buildUI();
   svg.addEventListener('wheel',e=>{ if(M.view!=='3d')return; e.preventDefault();
     CAM.zoom=Math.max(0.3,Math.min(4, CAM.zoom*Math.exp(-e.deltaY*0.0012))); draw3(); },{passive:false});
 })();
-try{ const s=localStorage.getItem('mycar-v12'); if(s) importJSON(s); }catch(e){}
 syncUI(); computeBands();
 
 /* 供无头校验脚本使用（docs/design/蓝图工具.md §10） */
