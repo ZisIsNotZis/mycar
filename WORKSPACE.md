@@ -13,16 +13,17 @@
 ## 怎么跑
 
 ```bash
-node scripts/render.mjs 蓝图-参数化-v11.html /tmp/mycar-render
-```
+node scripts/render.mjs 蓝图-参数化-v13.html /tmp/mycar-render
+node scripts/audit.mjs 蓝图-参数化-v13.html      # 逐状态几何体检（probe）
+```text
 
 - 对固定的 4 个模式（默认 / 躺床 / 升顶 / 前排旋转）各出一张 `.panel` 截图；
 - 并把 `#root` 下每个 SVG 图元的包围盒用页面自身的 `chain()` 比例反算成**世界毫米**，写进 `measurements.json`；
 - 同时收集 `pageerror` / `console.error`（有错会打印）。
 
 ```bash
-node scripts/check.mjs 蓝图-参数化-v12.html    # 11 条验收判据（自动判定），退出码 0 = 全过
-```
+node scripts/check.mjs 蓝图-参数化-v13.html    # 11 条验收判据（自动判定），退出码 0 = 全过
+```text
 
 **读图顺序**：先看 PNG 判断"看起来对不对"，再查 `measurements.json`/`check.mjs` 判断"数字对不对"——v11 的教训是两者会互相打架，只信一个必然误判。
 
@@ -31,7 +32,12 @@ node scripts/check.mjs 蓝图-参数化-v12.html    # 11 条验收判据（自�
 - 单文件、无依赖；`DEF`（参数表：值/范围/步长/单位）+ `P`（当前值）+ `M`（状态）→ `build(P,M)` 返回**世界毫米**图元数组与派生量 `d` → `checks(P,M,B)` 每条判据引用 `d` 里的同一份几何 → `project()` 一次性投影。
 - 新增几何量时：先加进 `build()` 的 `d`，再让绘制与判据都读它；**禁止**在绘制或判据里重算第二份。
 - 碰撞判定用 `segSeg/inQuad/segQuad/quadQuad`（同文件），不要用包围盒近似（会误报）。
-- 页面暴露 `window.MY = {P,M,DEF,AN,build,checks,project,hardOK,set}`，无头脚本据此取数；改动这个接口会同时影响 `scripts/check.mjs`。
+- 页面暴露 `window.MY = {P,M,DEF,AN,build,checks,probe,project,hardOK,set,reset,applyPreset,anim,presets,ge}`，
+  无头脚本据此取数；改动这个接口会同时影响 `scripts/check.mjs` / `audit.mjs` / `export-glb.mjs`。
+- **checks vs probe**：`checks()` = 设计规则（会随设计意图变）；`probe()` = 几何自洽性（永远该成立，`scripts/audit.mjs`）。
+  写新几何时两边都要过：checks 管"能不能用"，probe 管"画得对不对"。
+- **时序陷阱**：`build()` 里车身外形基准（cowl/roof/风挡线）与 `d.isl` 必须在座椅/储物之前算完，
+  否则靠背角反解和储物体积会引用未定义的量（v13 踩过一次）。
 
 ## 蓝图 HTML 的结构约定（v11 及以前，仅考古）
 
@@ -53,17 +59,19 @@ node scripts/check.mjs 蓝图-参数化-v12.html    # 11 条验收判据（自�
 ```bash
 node scripts/export-glb.mjs /tmp/mycar-glb              # 7 个预设 → .glb
 blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 900
-```
+```text
 
 - `scripts/export-glb.mjs`：无头跑页面里的 7 个预设，各导一份 .glb（已验证：31–34KB / 1100–1190 面）。
 - `scripts/blender-render.py`：Blender 4.x + Cycles（自动试 OPTIX/CUDA，回退 CPU），每个模型两个 3/4 视角，自动取包围盒摆机位。
 - 渲染前先 `blender --version` 确认；GPU 不可用时会自动降级，不是错误。
 
 ### Blender（本机已装）
+
 - 位置 `~/blender`（官方 4.5.13 LTS tarball，免 root），已软链到 `~/.local/bin/blender`。
 - 本机**没有 snap**；apt 只有 4.0.2。升级：重下 tarball 覆盖 `~/blender`。
 
 ### 四个已踩过的坑
+
 1. **glTF 导入 Blender 后自动转 Z-up**：车长变成 Y、车高变成 Z。按 Y-up 写机位方向会让相机钻到地板下面，渲出一片空。方向要写 `(右, 前/后, 上)`。
 2. **导出用的是另一套配色**（`GLB_PAL`）：蓝图界面是深色，直接导出去渲染是个黑块；导出时把车身提亮成浅蓝灰、内饰保留分类色。车身有两种导出：剖切（默认，近侧面去掉，看内饰）与 `-solid`（封闭实体，看外形）。
 3. **共面就会"漏色"**：内装件别和车身任何外皮共面 —— 吊柜外侧面与 `z=±W/2` 共面 → 侧面漏黄带；吊柜顶面与 `y=H` 共面 → 车顶漏黄带。凡"贴着车壳内表面"的件都内缩一个壁厚（现取 40mm / 顶面 30mm）。
@@ -78,7 +86,7 @@ blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 9
 
 ```bash
 ~/blender/blender --python scripts/blender-open.py -- /tmp/mycar-glb/04-驻车大床.glb
-```
+```text
 
 载入 + 补灯光 + 视口设 MATERIAL + 摆到接近侧视的 3/4 视角。模型里**车身是半透明外壳、内饰实心**，
 所以能直接转着看内部。导出文件两份：`NN-形态.glb`（半透明壳）与 `NN-形态-solid.glb`（封闭实体）。
@@ -87,7 +95,7 @@ blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 9
 
 ```bash
 blender -b -P scripts/blender-turntable.py -- /tmp/mycar-glb/04-驻车大床-solid.glb /tmp/turntable.mp4 72 1000
-```
+```text
 
 绕车一周（Blender 自带 H264 编码，不需要外部 ffmpeg）；大床模式建议用 `-solid` 版（外形完整）。
 
@@ -100,4 +108,5 @@ blender -b -P scripts/blender-turntable.py -- /tmp/mycar-glb/04-驻车大床-sol
 ## 仓库性质
 
 - 目前**没有远程仓库、没有 CI**；`mycar/` 是 `~/vibe` 工作区下的独立子仓库（非 submodule）。
-- `蓝图-*.html` 是历史迭代，不修改、不删除。
+- 视频工具链已实测：`blender 4.5.13` + RTX 4090（Cycles/OptiX 可用）、`edge-tts`（`~/.local/bin`，中文音色可用）、`ffmpeg`。
+- `蓝图-*.html` 是历史迭代，不修改、不删除（当前工作文件 = `蓝图-参数化-v13.html`）。
