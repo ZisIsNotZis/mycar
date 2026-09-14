@@ -784,6 +784,13 @@ function render3(B3,S){
 
 /* ============================ glTF (.glb) 导出 ============================
    与 3D 视图同源：直接吃 build3D() 的体块，mm→m，Y 向上，X=车宽、Z=车长。 */
+/* 导出用配色（比界面配色亮，便于在 Blender/查看器里看结构） */
+const GLB_PAL={
+  body3:'#8fa3b8', glass3:'#2e5474', tyre3:'#1b1b1e', rim3:'#8a97a3', arch3:'#b5565e',
+  floor3:'#6b7d8c', batt3:'#3f8fa3', wet3:'#2f6274', seat3:'#5a6b7d', seatO3:'#8a6ea0',
+  bed3:'#57a06a', isl3:'#7a6690', tbl3:'#9aa8b4', lk3:'#c8ad5e', pop3:'#4a8fd0',
+  tent3:'#3f6f9f', bunk3:'#4a8fd0', scr3:'#d8c888', pj3:'#6a5a80', man3:'#d69a86',
+};
 function hex2lin(h){ const n=parseInt((h||'#556677').replace('#',''),16);
   const f=c=>{ c/=255; return c<=0.04045? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
   return [f(n>>16&255), f(n>>8&255), f(n&255)]; }
@@ -791,17 +798,18 @@ function glbFromScene(){
   const B=build(P,M), B3=build3D(P,M,B);
   const pos=[], col=[], idx=[];
   const V=(x,y,z,c)=>{ pos.push(z/1000, y/1000, x/1000); col.push(c[0],c[1],c[2],1); return pos.length/3-1; };
-  const C=cls=>hex2lin((S3[cls]||S3.floor3).fill);
+  const C=cls=>hex2lin(GLB_PAL[cls]||(S3[cls]||S3.floor3).fill);
   const quads=(v,faces)=>{ for (const f of faces){ const q=f.map(i=>v[i]); idx.push(q[0],q[1],q[2], q[0],q[2],q[3]); } };
   const box=(x0,x1,y0,y1,z0,z1,cls)=>{
     const c=C(cls), v=[];
     for (const z of [z0,z1]) for (const y of [y0,y1]) for (const x of [x0,x1]) v.push(V(x,y,z,c));
     quads(v,[[0,1,3,2],[4,5,7,6],[0,1,5,4],[2,3,7,6],[0,2,6,4],[1,3,7,5]]);
   };
-  const prism=(pts,z0,z1,cls)=>{
+  const prism=(pts,z0,z1,cls,cut)=>{
     const c=C(cls);
     const a=pts.map(q=>V(q[0],q[1],z0,c)), b=pts.map(q=>V(q[0],q[1],z1,c));
-    for (let i=1;i<pts.length-1;i++){ idx.push(a[0],a[i],a[i+1]); idx.push(b[0],b[i],b[i+1]); }
+    for (let i=1;i<pts.length-1;i++) idx.push(a[0],a[i],a[i+1]);          // 远侧面
+    if (!cut) for (let i=1;i<pts.length-1;i++) idx.push(b[0],b[i],b[i+1]); // 近侧面（剖切时去掉）
     for (let i=0;i<pts.length;i++){ const j=(i+1)%pts.length;
       idx.push(a[i],a[j],b[j], a[i],b[j],b[i]); }
   };
@@ -816,7 +824,7 @@ function glbFromScene(){
   };
   for (const b of B3){
     if (b.k==='box') box(b.x0,b.x1,b.y0,b.y1,b.z0,b.z1,b.cls);
-    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls);
+    else if (b.k==='prism') prism(b.pts,b.z0,b.z1,b.cls,true);   // 车身剖切：近侧面去掉，内饰可见
     else if (b.k==='cyl') cyl(b.cx,b.cy,b.r,b.z0,b.z1,b.cls);
   }
   /* buffer：POSITION(f32×3) | COLOR_0(f32×4) | indices(u32)，各段 4 字节对齐 */

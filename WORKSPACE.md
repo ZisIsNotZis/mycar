@@ -59,6 +59,14 @@ blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 9
 - `scripts/blender-render.py`：Blender 4.x + Cycles（自动试 OPTIX/CUDA，回退 CPU），每个模型两个 3/4 视角，自动取包围盒摆机位。
 - 渲染前先 `blender --version` 确认；GPU 不可用时会自动降级，不是错误。
 
+### Blender（本机已装）
+- 位置 `~/blender`（官方 4.5.13 LTS tarball，免 root），已软链到 `~/.local/bin/blender`。
+- 本机**没有 snap**；apt 只有 4.0.2。升级：重下 tarball 覆盖 `~/blender`。
+
+### 两个已踩过的坑
+1. **glTF 导入 Blender 后自动转 Z-up**：车长变成 Y、车高变成 Z。按 Y-up 写机位方向会让相机钻到地板下面，渲出一片空。方向要写 `(右, 前/后, 上)`。
+2. **导出用的是另一套配色**（`GLB_PAL`）：蓝图界面是深色，直接导出去渲染是个黑块；导出时把车身提亮成浅蓝灰，内饰保留分类色。车身按**剖切**导出（近侧面去掉），否则外部只能看到一个封闭外壳。
+
 ## 已知坑（别再踩）
 
 1. v7→v11 由 GLM 迭代，**没有事后校验**：画出来的图与它自己的红字校验都不可信。任何继承自 v11 的结论都要重新量一遍。

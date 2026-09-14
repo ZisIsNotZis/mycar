@@ -9,8 +9,9 @@ NVIEW = int(argv[2]) if len(argv) > 2 else 2
 RES = int(argv[3]) if len(argv) > 3 else 900
 os.makedirs(outdir, exist_ok=True)
 
-# 3/4 视角方向（glTF: Y 上, X 宽, Z 车长）：前右、后左
-DIRS = [mathutils.Vector((1.0, 0.62, -1.0)), mathutils.Vector((-0.95, 0.55, 1.0))]
+# 注意：glTF 导入 Blender 后自动转成 Z-up —— X=车宽, Y=车长, Z=车高。
+# 所以机位方向是 (右, 前/后, 上)：前右侧 3/4、后左侧 3/4。
+DIRS = [mathutils.Vector((1.0, -1.15, 0.62)), mathutils.Vector((-1.0, 1.05, 0.55))]
 
 
 def scene_setup():
@@ -48,12 +49,12 @@ def scene_setup():
     bsdf.inputs['Roughness'].default_value = 0.9
     gp.data.materials.append(m)
     # 主光 + 补光
-    bpy.ops.object.light_add(type='SUN', location=(6, 10, -6))
-    sun = bpy.context.object; sun.data.energy = 3.2; sun.data.angle = math.radians(8)
-    sun.rotation_euler = mathutils.Vector((-1, -2, 1.2)).to_track_quat('-Z', 'Y').to_euler()
-    bpy.ops.object.light_add(type='AREA', location=(-5, 5, 7))
-    fill = bpy.context.object; fill.data.energy = 700; fill.data.size = 8
-    fill.rotation_euler = mathutils.Vector((1, -1.4, -1)).to_track_quat('-Z', 'Y').to_euler()
+    bpy.ops.object.light_add(type='SUN', location=(6, -6, 12))
+    sun = bpy.context.object; sun.data.energy = 3.4; sun.data.angle = math.radians(8)
+    sun.rotation_euler = mathutils.Vector((0.5, 0.7, -1.0)).to_track_quat('-Z', 'Y').to_euler()
+    bpy.ops.object.light_add(type='AREA', location=(-6, 4, 7))
+    fill = bpy.context.object; fill.data.energy = 900; fill.data.size = 9
+    fill.rotation_euler = mathutils.Vector((1.0, -0.7, -1.2)).to_track_quat('-Z', 'Y').to_euler()
 
 
 def bbox_of(objs):
@@ -84,7 +85,7 @@ def render_one(glb, tag):
     for i in range(NVIEW):
         d = DIRS[i % len(DIRS)]
         dist = radius / math.tan(cam_data.angle / 2) * 1.12
-        cam.location = center + d.normalized() * dist + mathutils.Vector((0, radius * 0.16, 0))
+        cam.location = center + d.normalized() * dist + mathutils.Vector((0, 0, radius * 0.14))
         cam.rotation_euler = (center - cam.location).to_track_quat('-Z', 'Y').to_euler()
         out = os.path.join(outdir, f'{tag}_{"A" if i == 0 else "B"}.png')
         bpy.context.scene.render.filepath = out
