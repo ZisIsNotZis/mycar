@@ -133,6 +133,113 @@ function chainFrom(defs){
   for (const [id,len] of defs){ at[id]={x0:x, x1:x+len, len}; x+=len; }
   at.total=x; return at;
 }
+/* =========================================================================
+   物理：世界里只有实心体；人是一串带厚度的胶囊。人的姿势由碰撞求解得出，
+   构造上不可能穿模；解不出来就报无解（不画一张穿模的图）。
+   —— 绘制与判据都只读同一份求解结果。
+   ========================================================================= */
+function inflate(poly, r){                // 凸多边形向外扩 r（逐边外推、角点求交）
+  const n=poly.length, out=[];
+  const off=(A,B)=>{ const ex=B[0]-A[0], ey=B[1]-A[1], L=Math.hypot(ex,ey);
+    const nx=-ey/L, ny=ex/L;                        // CCW 的左法向 = 指向内部
+    return {nx,ny,c:(A[0]-r*nx)*nx+(A[1]-r*ny)*ny}; };
+  for (let i=0;i<n;i++){
+    const A=poly[(i-1+n)%n], B=poly[i], C=poly[(i+1)%n];
+    const e1=off(A,B), e2=off(B,C), det=e1.nx*e2.ny-e1.ny*e2.nx;
+    out.push(Math.abs(det)<1e-9 ? [B[0]-r*e1.nx, B[1]-r*e1.ny]
+      : [(e1.c*e2.ny-e1.ny*e2.c)/det, (e1.nx*e2.c-e1.c*e2.nx)/det]);
+  }
+  return out;
+}
+function segPoly(p1,p2,poly){             // 线段 × 凸多边形（逐边半平面裁剪）
+  let t0=0,t1=1; const n=poly.length;
+  for (let i=0;i<n;i++){
+    const A=poly[i], B=poly[(i+1)%n];
+    const nx=-(B[1]-A[1]), ny=B[0]-A[0];
+    const f0=(p1[0]-A[0])*nx+(p1[1]-A[1])*ny, f1=(p2[0]-A[0])*nx+(p2[1]-A[1])*ny;
+    if (Math.abs(f1-f0)<1e-9){ if (f0<0) return false; continue; }
+    const t=-f0/(f1-f0);
+    if (f1>f0) t0=Math.max(t0,t); else t1=Math.min(t1,t);
+    if (t0>t1) return false;
+  }
+  return true;
+}
+const CAPS = [                            // 人 = 带厚度的胶囊（段 + 半径）
+  ['大腿', j=>[j.hip,j.knee],  AN.legW/2],
+  ['小腿', j=>[j.knee,j.ankle],AN.shinW/2],
+  ['足',   j=>[j.ankle,j.toe], AN.footW/2],
+  ['躯干', j=>[j.hip,j.shd],   AN.torsoW/2],
+  ['头',   j=>[j.headC,j.headC],AN.headR],
+];
+function hitsAny(j,S,skip){                // 返回第一个穿模的地方（null = 干净）
+  if (!j || !j.knee) return null;
+  for (const [nm,g,r] of CAPS){
+    const [a,b]=g(j);
+    for (const s of S){ if (skip && skip.includes(s.nm)) continue;
+      if (segPoly(a,b,inflate(s.poly, Math.max(0,r-2)))) return nm+'×'+s.nm; }
+  }
+  return null;
+}
+function bodySolids(d){                   // 所有实心体（全宽件）
+  const S=[];
+  const bx=(nm,x0,x1,y0,y1)=>S.push({nm, poly:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]});
+  bx('前备箱', d.A.frunk.x0, d.A.frunk.x1, P.y0, P.y1c);
+  bx('前机能体', d.A.machF.x0, d.A.machF.x1, P.y0, P.y1a);
+  bx('电池', d.A.batt.x0, d.A.batt.x1, P.y0, P.y1);
+  bx('后机能体', d.A.machR.x0, d.A.machR.x1, P.y0, P.y1b);
+  bx('尾仓', d.A.trunk.x0, d.A.trunk.x1, P.y0, P.y2);
+  bx('前座垫', d.B.seatF.x0, d.B.seatF.x1, P.y2-SEAT.cushT, P.y2);
+  bx('二排座垫', d.B.seatR.x0, d.B.seatR.x1, P.y2-SEAT.cushT, P.y2);
+  const quad=(nm,hx,dir,len,th,side)=>{
+    const nx=dir[1]*th*side, ny=-dir[0]*th*side;
+    S.push({nm, poly:[[hx,P.y2],[hx+dir[0]*len,P.y2+dir[1]*len],
+      [hx+dir[0]*len+nx,P.y2+dir[1]*len+ny],[hx+nx,P.y2+ny]]});
+  };
+  const F=d.seat.front, Rp=d.seat.rear;
+  quad('前排靠背', F.hinge, F.dir, F.len, P.bckT, F.face<0?1:-1);
+  quad('二排靠背', Rp.hinge, Rp.dir, Rp.len, P.bckT, Rp.dir[0]>=0?1:-1);
+  if (d.legRest) bx('腿托', d.legRest.x0, d.legRest.x1, P.y2-SEAT.legT, P.y2);
+  const a=P.pAng*Math.PI/180, o=[d.deck.x0,P.y2], rotPt=(p)=>[o[0]+(p[0]-o[0])*Math.cos(a)-(p[1]-o[1])*Math.sin(a),
+                                                               o[1]+(p[0]-o[0])*Math.sin(a)+(p[1]-o[1])*Math.cos(a)];
+  S.push({nm:'可翻件', poly:[[o[0],o[1]],[o[0]+d.deck.len,o[1]],[o[0]+d.deck.len,o[1]-SEAT.deckT],[o[0],o[1]-SEAT.deckT]].map(rotPt)});
+  return S;
+}
+function surfaceAt(x,d){                  // 可踩的面：地板 + 机能体顶 + 尾仓顶（=床面）
+  let s=P.y1;
+  if (x>=d.A.machF.x0 && x<=d.A.machF.x1) s=Math.max(s,P.y1a);
+  if (x>=d.A.machR.x0 && x<=d.A.machR.x1) s=Math.max(s,P.y1b);
+  if (x>=d.A.trunk.x0 && x<=d.A.trunk.x1) s=Math.max(s,P.y2);
+  return s;
+}
+/* 坐姿求解：髋由座位接触面定，上半身定了；腿从膝角 0° 起扫，
+   第一个全身不穿模的膝角就是解（脚被挡住 → 膝盖自然抬高）。 */
+function solveSit(who, S, d, skip){
+  const face=S.face, dir=S.dir, side=(face<0?1:-1);
+  const n=[dir[1]*side, -dir[0]*side];
+  const hipx = Math.abs(n[0])<1e-6 ? S.hinge
+             : S.hinge + (-AN.torsoW/2 - AN.hipAboveSeat*n[1])/n[0];
+  const hip=[hipx, P.y2+AN.hipAboveSeat];
+  const shd=[hip[0]+dir[0]*AN.torso, hip[1]+dir[1]*AN.torso];
+  const headC=[shd[0]+dir[0]*215, shd[1]+dir[1]*215];
+  const base={who,hip,shd,headC,face,footY:P.y1,theta:0,ok:true,skip};
+  const upper=hitsAny({...base, knee:hip, ankle:hip, toe:hip}, d.solids, skip);
+  if (upper) return Object.assign(base,{ok:false, why:'上半身撞到 '+upper});
+  for (let th=0; th<=80; th+=2){
+    const a=th*Math.PI/180;
+    const knee=[hip[0]+face*AN.thigh*Math.cos(a), hip[1]+AN.thigh*Math.sin(a)];
+    let sup=surfaceAt(knee[0],d), dy=knee[1]-(sup+AN.ankle);
+    if (Math.abs(dy)>AN.shin) continue;
+    let ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
+    sup=surfaceAt(ankle[0],d); dy=knee[1]-(sup+AN.ankle);
+    if (Math.abs(dy)>AN.shin) continue;
+    ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
+    const j={...base, knee, ankle, toe:[ankle[0]+face*AN.footL, ankle[1]+8], footY:sup, theta:th, ok:true};
+    if (!hitsAny(j, d.solids, skip)) return j;
+  }
+  return Object.assign(base,{ok:false, knee:null, ankle:null, toe:null, theta:null,
+    why:'腿在这个座位位置下没有不撞实体的姿态'});
+}
+
 function derive(){
   const d={};
   /* 层A：全宽底盘件链；车长 L 派生 */
@@ -200,25 +307,24 @@ function derive(){
     const j=joints(hip,backDir,FOOT,FACE), y=d.underY(j.ankle[0]);
     return y!==FOOT ? joints(hip,backDir,y,FACE) : j;
   };
+  d.solids = bodySolids(d);
   d.dolls=[];
-  const F=d.seat.front;
-  /* 前排没反转 → 车里永远有个坐着的人（床模式也是） */
-  if (!bedM() || P.rot<=90){
-    const fhx=F.hinge + (F.face<0 ? -8 : 8);
-    d.dolls.push(Object.assign({who:'前排'}, place([fhx, P.y2+AN.hipAboveSeat], F.dir, P.y1, F.face)));
-  }
-  if (!bedM()){
-    d.dolls.push(Object.assign({who:'二排'}, place([d.seat.rear.hinge-8, P.y2+AN.hipAboveSeat], d.seat.rear.dir, P.y1, -1)));
-  } else if (P.popUp<=0.5){
+  const F=d.seat.front, Rp0=d.seat.rear;
+  /* 前排没反转 → 车里永远有个坐着的人（床模式也是），姿势由物理求解。
+     座垫是软垫（人坐在/靠在上面），不算障碍；硬的东西（前备箱/机能体/电池/尾仓/靠背/升顶壳）一个都不放过。 */
+  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背'];
+  if (!bedM() || P.rot<=90) d.dolls.push(solveSit('前排', F, d, SOFT));
+  if (!bedM()) d.dolls.push(solveSit('二排', Rp0, d, SOFT));
+  else if (P.popUp<=0.5){
     /* 躺姿：躺在床面上；可翻件立起来时上半身顺着它的平面躺（背贴其上，不横穿） */
     const a=P.pAng*Math.PI/180;
     const dir=[Math.cos(a), Math.sin(a)], nrm=[-Math.sin(a), Math.cos(a)];
     const hip=[d.deck.x0+nrm[0]*AN.torsoW/2, P.y2+nrm[1]*AN.torsoW/2];
-    d.dolls.push(Object.assign({who:'床面'}, joints(hip, dir, P.y2, -1)));
+    d.dolls.push(Object.assign({who:'床面', face:-1, footY:P.y2, theta:0, ok:true, skip:SOFT}, joints(hip, dir, P.y2, -1)));
   } else {
     /* 升顶 + 床 = 站在床面上（升顶站立） */
     const sx=(d.C.opening.x0+d.C.opening.x1)/2, b=P.y2;
-    d.dolls.push({who:'站立', face:-1,
+    d.dolls.push({who:'站立', face:-1, footY:b, theta:null, ok:true, skip:SOFT,
       ankle:[sx, b+AN.ankle], knee:[sx, b+AN.knee], hip:[sx, b+AN.hip], shd:[sx, b+AN.shd],
       headC:[sx, b+AN.top-AN.headR], toe:[sx-AN.footL, b+AN.ankle]});
   }
@@ -226,8 +332,11 @@ function derive(){
   if (P.popUp>0.5 && !bedM()){
     const headC=[d.C.opening.x1-80-AN.headR, P.y3+AN.torsoW/2];
     const shd=[headC[0]-215, headC[1]], hip=[shd[0]-AN.torso, headC[1]];
-    d.dolls.push(Object.assign({who:'上铺', bunk:true}, joints(hip,[1,0],P.y3,-1)));
+    d.dolls.push(Object.assign({who:'上铺', bunk:true, face:-1, footY:P.y3, theta:0, ok:true},
+      joints(hip,[1,0],P.y3,-1)));
   }
+  /* 全身过一遍碰撞（与求解用同一函数）：任何一处交叠就标出来 */
+  for (const j of d.dolls) j.hit = j.knee ? hitsAny(j, d.solids, j.skip) : null;
   d.standClear = P.y4 - P.y2;
   return d;
 }
@@ -255,14 +364,12 @@ function checks(){
     `链内无负段；车长 L = ${R(d.L)} = x00 ${P.x00}+x01 ${P.x01}+x02 ${P.x02}+x03 ${P.x03}+x04 ${P.x04}`);
   H('C2', P.y0<P.y1 && P.y1<=Math.min(P.y1a,P.y1b) && Math.max(P.y1a,P.y1b)<P.y2 && P.y1c>P.y2 && P.y2<P.y3 && P.y4>P.y3,
     `高度栈：y0 ${R(P.y0)} < y1 ${R(P.y1)} ≤ 机能体顶 ${R(Math.max(P.y1a,P.y1b))} < y2 座/床面 ${R(P.y2)} < 前备箱顶 ${R(P.y1c)} < y3 ${R(P.y3)} < y4 ${R(P.y4)}`);
-  const boxes=[['前备箱',d.A.frunk,P.y1c],['前机能体',d.A.machF,P.y1a],['后机能体',d.A.machR,P.y1b]]
-    .map(([nm,z,top])=>[nm,{x0:z.x0+1,x1:z.x1-1,y0:P.y0+1,y1:top-1}]);
+  /* 身体是实心体：全身胶囊 × 所有实心体，一处都不许交叠（与求解同一函数） */
   for (const j of d.dolls){
-    for (const [nm,b] of boxes){
-      if (b.x1<=b.x0||b.y1<=b.y0) continue;
-      const hit=segBox(j.ankle,j.toe,b)||segBox(j.knee,j.ankle,b);
-      H('C3·'+j.who+nm, !hit, `${j.who} 不陷进${nm}（可踩顶面）${hit?' ← 小腿/足穿入':''}`);
-    }
+    if (!j.ok) H('C3·'+j.who, false, `${j.who} 姿态无解：${j.why}`);
+    else H('C3·'+j.who, !j.hit,
+      `${j.who} 全身不穿模${j.hit?' ← '+j.hit
+        :(j.theta?`（脚被挡 → 膝盖抬高 ${j.theta}° 让开，脚踩 ${R(j.footY)}）`:`（脚踩 ${R(j.footY)}）`)}`);
   }
   if (bedM()){
     const gaps=[]; for (let i=1;i<d.bedSeg.length;i++) gaps.push(d.bedSeg[i][1]-d.bedSeg[i-1][2]);
@@ -296,6 +403,15 @@ function checks(){
     I('I6', `上铺面 = 顶棚 ${R(P.y3)} → 升顶 ${R(P.y4)}，净空 ${R(P.y4-P.y3)}`);
   }
   H('C10', P.y2-SEAT.cushT >= Math.max(P.y1a,P.y1b), `座垫底 ${R(P.y2-SEAT.cushT)} ≥ 机能体顶 ${R(Math.max(P.y1a,P.y1b))}（座椅在机能体上方）`);
+  /* 坐着的人不许压在靠背厚度里：躯干中轴到靠背接触面的垂距 ≤ −半身厚 */
+  for (const j of d.dolls.filter(x=>!x.bunk && x.who!=='床面' && x.who!=='站立')){
+    const S = j.who==='前排' ? d.seat.front : d.seat.rear;
+    const side = (S.face<0 ? 1 : -1), n=[S.dir[1]*side, -S.dir[0]*side];
+    const dist = p => (p[0]-S.hinge)*n[0] + (p[1]-P.y2)*n[1];
+    const dmax = Math.max(dist(j.hip), dist(j.shd));
+    H('C15·'+j.who, dmax <= -AN.torsoW/2+2,
+      `${j.who} 躯干不压在靠背厚度里（中轴到靠背面 ${R(dmax)} ≤ −${AN.torsoW/2}）`);
+  }
   H('C13', d.backZone.x1 <= d.A.trunk.x0+0.5,
     `二排靠背放平后尾端 ${R(d.backZone.x1)} ≤ 尾仓前沿 ${R(d.A.trunk.x0)}（不压尾仓）`);
   I('I3', `层B：前备箱上段 ${R(d.B.frunkUp.len)}（= 前机能体）· 前脚 ${P.x11} · 前座 ${P.x12} · 后脚 ${P.x13} · 后座 ${P.x14} · 靠背放平预留 ${R(d.backZone.len)} · 可翻件 ${R(d.deck.len)}`);
@@ -402,8 +518,12 @@ function draw(){
     line(d.C.opening.x0,P.y3,d.C.opening.x1,P.y3,'#4aa3ff','2 4');
     txt((d.C.opening.x0+d.C.opening.x1)/2, P.y3+22, `升顶：降（常规）· 开口 ${R(d.C.opening.len)}（升起来才画）`, '#4a6a86', 10);
   }
-  /* 假人（最后画） */
-  for (const j of d.dolls){
+  /* 假人（最后画）。过渡动画中不画（中间姿态没有物理意义，v13 的规矩）；无解的不画。 */
+  for (const j of (ANIM.active ? [] : d.dolls)){
+    if (j.ok===false || !j.knee || !j.ankle || !j.toe){
+      txt(j.hip?j.hip[0]:d.L-300, P.y2+46, `${j.who}：姿态无解（${j.why||'身材与实体冲突'}）—— 不画穿模的人`, '#e57373', 11);
+      continue;
+    }
     const seg=(p1,p2,w)=>el('line',{x1:SX(p1[0]),y1:SY(p1[1]),x2:SX(p2[0]),y2:SY(p2[1]),
       stroke:'#d69a86','stroke-width':Math.max(2,w*k),'stroke-linecap':'round'});
     seg(j.hip,j.knee,AN.legW); seg(j.knee,j.ankle,AN.shinW); seg(j.ankle,j.toe,AN.footW);
