@@ -78,23 +78,28 @@ const DEF = {
   H:   {v:1900,min:1400,max:2000,st:10, g:'闭合(派生)', n:'车高（= 座面+坐姿净空推出的闭合值）',hide:1},
   machLF:{v:520,min:200,max:900,st:10,g:'底盘', n:'★前机能体：转向/48V/AC+溃缩件 纵向尺寸（全宽）'},
   machHF:{v:340,min:120,max:600,st:10,g:'底盘', n:'★前机能体高度（全宽）'},
+  lenBatt:{v:1000,min:400,max:2000,st:10,g:'纵向链', n:'★电池长度（宽度/厚度自动吃满）'},
+  lenTrunk:{v:900,min:300,max:2000,st:10,g:'纵向链', n:'★尾仓长度'},
+  fOff:{v:500,min:200,max:900,st:10,g:'纵向链', n:'前排铰点 = 前机能体尾 + 此值（决定脚部空间）'},
+  rOff:{v:370,min:0,max:700,st:10,g:'纵向链', n:'二排铰点 = 后机能体头 + 此值'},
   machLR:{v:560,min:200,max:900,st:10,g:'底盘', n:'★后机能体：同轴三电（电机+减速+逆变）纵向尺寸（全宽）'},
   machHR:{v:360,min:120,max:600,st:10,g:'底盘', n:'★后机能体高度（全宽）'},
   clear:{v:140, min:100, max:260, st:5,  g:'底盘', n:'离地间隙（底盘属性）'},
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
-  axF: {v:850, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
-  axR: {v:2430,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（前移→轮包/三电让出尾仓）'},
+  lenFrunk:{v:590,min:200,max:1400,st:10,g:'纵向链', n:'★前备箱长度'},
+  axF: {v:850, min:600, max:1500,st:10, g:'底盘', n:'前轴位（= 链派生：前机能体中心）',hide:1},
+  axR: {v:2430,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（= 链派生：后机能体中心）',hide:1},
   bt:  {v:320, min:120, max:360, st:5,  g:'底盘', n:'电池厚（=地板高）'},
   rot: {v:0,   min:0,   max:180, st:5,  g:'前排座椅', n:'前座椅旋转（0朝前 / 180朝后）',deg:1},
   base:{v:150, min:0,   max:300, st:10, g:'座椅', n:'座垫骨架离地板高（坐垫厚=planeH−base，派生）'},
   planeH:{v:350,min:200, max:520, st:5,  g:'座椅', n:'★统一标高：座面=床面（离地板）——一个数管所有'},
-  xF:  {v:1610,min:900, max:2600,st:10, g:'前排座椅', n:'H 点 x（用户定值）'},
+  xF:  {v:1610,min:900, max:2600,st:10, g:'前排座椅', n:'H 点（链派生）',hide:1},
   fCl: {v:460, min:350, max:650, st:5,  g:'前排座椅', n:'座垫长（床链第 1 段·必需）'},
   fCa: {v:20,  min:-10, max:30,  st:1,  g:'前排座椅', n:'座垫角（前缘上翘；旋转后自动归零）',deg:1},
   fBl: {v:600, min:400, max:800, st:5,  g:'前排座椅', n:'靠背长'},
   fBa: {v:10,  min:-10, max:60,  st:1,  g:'前排座椅', n:'靠背角（后仰为正；旋转后自动立直为 0）',deg:1},
-  xR:  {v:2520,min:1500,max:3600,st:10, g:'二排座椅', n:'H 点 x（前移→尾仓更长）'},
+  xR:  {v:2520,min:1500,max:3600,st:10, g:'二排座椅', n:'H 点（链派生）',hide:1},
   rCl: {v:460, min:350, max:700, st:5,  g:'二排座椅', n:'座垫长'},
   rCa: {v:5,   min:-10, max:30,  st:1,  g:'二排座椅', n:'座垫角（前缘上翘）',deg:1},
   rBl: {v:300, min:200, max:800, st:5,  g:'二排座椅', n:'靠背长（放平后占尾仓长度；床链的第 4 段）'},
@@ -115,12 +120,12 @@ const DEF = {
   ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（储物）'},
   flapLen:{v:950,min:200, max:1400,st:10, g:'尾箱/隔板',n:'可翻隔板长（默认吃掉整个尾仓：固定隔板=0）'},
   px0: {v:1150,min:900, max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘（自动限在车顶内）'},
-  px1: {v:3450,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
+  px1: {v:3380,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
   pr:  {v:740, min:250, max:900, st:10, g:'升顶/吊柜',n:'升顶抬高'},
   lkD: {v:330, min:200, max:500, st:10, g:'升顶/吊柜',n:'吊柜深（横向）'},
   lkH: {v:300, min:150, max:400, st:10, g:'升顶/吊柜',n:'吊柜高'},
   scrX:{v:1150,min:900, max:3900,st:10, g:'投影',    n:'幕布 x（必须落在某一根顶横梁上）'},
-  pjX: {v:3220,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
+  pjX: {v:3150,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
   tr:  {v:1.2, min:0.8, max:2.2, st:0.05,g:'投影',    n:'投射比（宽:距，<1.3 为短焦）'},
 };
 const P = {}; for (const k in DEF) P[k] = DEF[k].v;
@@ -164,15 +169,31 @@ function build(p, m){
   const FB = (p.rot||0) > 90;                 // 是否已转成朝后（旋转是连续量，便于动画）
 
   d.clear = p.clear;
+  /* ================= 纵向链（用户第 15 轮）=================
+     长度方向只有三件事可调：**前备箱 / 电池 / 尾仓**；两个红色机能体是**固定长度**的真实件。
+     它们首尾相接自动闭合 —— 没有缝、没有重叠；两个红件的间距自然决定后排座椅位置。
+     于是 axF / axR / L 全是派生量（不再有滑块）。 */
+  d.chain = (()=>{
+    const parts=[['frunk',p.lenFrunk],['machF',p.machLF],['batt',p.lenBatt],['machR',p.machLR],['trunk',p.lenTrunk]];
+    const at={}; let x=0;
+    for (const [id,len] of parts){ at[id]={x0:x, x1:x+len}; x+=len; }
+    at.total=x; return at;
+  })();
+  p.axF = (d.chain.machF.x0 + d.chain.machF.x1)/2;      // 前轴 = 前机能体中心
+  p.axR = (d.chain.machR.x0 + d.chain.machR.x1)/2;      // 后轴 = 后机能体中心
+  p.L   = d.chain.total;                                // 全长 = 链长（自动闭合）
+  d.L   = p.L;
+  p.xF  = d.chain.machF.x1 + p.fOff;                    // 前排铰点：跟着前机能体
+  p.xR  = d.chain.machR.x0 + p.rOff;                    // 二排铰点：跟着后机能体
   d.floor = d.clear + p.bt;                       // 地板上表面 = 电池顶面
   /* 机能体（全宽、中线上的实心件，D15）：前=转向/48V/AC+溃缩件，后=同轴三电
      —— 电池**派生**：自动吃满两者之间能到的全部空间（不再有 b0/b1/bw 三个滑块） */
   d.plate = 26;                                 // 地板板厚（地板面之下）
   /* 全宽机能体 = 真实件（用户第 12 轮）：前=转向/48V/AC+溃缩件，后=同轴三电。
      尺寸是参数（真实硬件），位置跟着轴走，**横向铺满内宽** —— 轮子不是全宽，它才是。 */
-  d.machF = {x0: p.axF - p.machLF/2, x1: p.axF + p.machLF/2, top: d.floor-d.plate, h: p.machHF, w: p.W-380};
-  d.machR = {x0: p.axR - p.machLR/2, x1: p.axR + p.machLR/2, top: d.floor-d.plate, h: p.machHR, w: p.W-380};
-  d.batt = {x0: d.machF.x1 + 20, x1: d.machR.x0 - 20, w: p.W - 380, h: p.bt - d.plate};
+  d.machF = {x0: d.chain.machF.x0, x1: d.chain.machF.x1, top: d.floor-d.plate, h: p.machHF, w: p.W-380};
+  d.machR = {x0: d.chain.machR.x0, x1: d.chain.machR.x1, top: d.floor-d.plate, h: p.machHR, w: p.W-380};
+  d.batt = {x0: d.chain.batt.x0, x1: d.chain.batt.x1, w: p.W - 380, h: p.bt - d.plate};   // 电池 = 链上的槽，自动相接
   d.legSpanBed = (p.xR - p.rCl) - p.xF;         // 做床时腿托必须跨过的洞（脚部空洞）
   d.cushT = p.planeH - p.base;
   d.bedTopEarly = d.floor + p.base + d.cushT;            // 床面高（座椅 builder 需要先用）
@@ -593,9 +614,6 @@ function build(p, m){
     segs.forEach(([s0,a,b],si)=>{ if (Math.abs(b-a)>40)                      // 交错两行，短段不再互相压字
       g.push(txt((a+b)/2, d.bedTop-28-(si%2?26:0), `${s0}${Math.round(Math.abs(b-a))}`,'bed-t',9.5)); });
     g.push(txt(p.L/2, d.bedTop+200, `可睡长度 ${Math.round(d.bedRun)}（👤1750）`,'bed-t',11));
-    /* 分段接缝：让“靠背→隔板→可翻隔板 → 尾仓”看成一件事，而不是叠在一起 */
-    for (const jx of [p.xR, p.xR-p.rCl, d.bedFlatTip, d.deckX0, d.deckX1])
-      if (jx>d.bedFrontX-1 && jx<p.L-89) g.push(ln([jx,d.bedTop-70],[jx,d.bedTop+70],4,'joint'));
   }
 
   /* 会客模式：跨行桌板（搭在墙面榫卯上，不用时从下层仓取） */
