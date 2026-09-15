@@ -219,7 +219,7 @@ function build(p, m){
   /* 造型全部**派生**（用户第 11 轮：car shape 是事后闭合，不该有参数）
      风挡基 = 前排座垫前缘再往前一个仪表台深度 */
   d.dash = 330;      // 风挡基到前排座垫前缘的距离（造型量，由座舱反推）
-  d.cowlX = Math.max(560, p.xF - p.fCl - d.dash);
+  d.cowlX = Math.max(240, p.xF - p.fCl - d.dash);   // 风挡基由前排座垫前缘反推（层B 决定造型）
   d.cowlY = d.floor + p.base + d.cushT + 320;             // 用常量堆叠高（与座椅姿态无关）
   d.hoodY0 = Math.max(d.clear+340, d.cowlY - d.cowlX*Math.tan(10*D2R));   // 机盖 10°：更扁→前备箱更高
   d.hoodAt = (x)=>d.hoodY0+(d.cowlY-d.hoodY0)*Math.min(1,Math.max(0,x/Math.max(1,d.cowlX)));
