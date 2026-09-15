@@ -322,7 +322,7 @@ function derive(){
     const j=joints(hip,backDir,FOOT,FACE), y=d.underY(j.ankle[0]);
     return y!==FOOT ? joints(hip,backDir,y,FACE) : j;
   };
-  d.solids = bodySolids(d);
+  d.solids = bodySolids(d).map(s=>({ ...s, poly: ccw(s.poly) }));   // 一律归一成逆时针，inflate/segPoly 才成立
   d.dolls=[];
   const F=d.seat.front, Rp0=d.seat.rear;
   /* 前排没反转 → 车里永远有个坐着的人（床模式也是），姿势由物理求解。
@@ -331,13 +331,34 @@ function derive(){
   if (!bedM() || P.rot<=90) d.dolls.push(solveSit('前排', F, d, SOFT));
   if (!bedM()) d.dolls.push(solveSit('二排', Rp0, d, SOFT));
   else if (P.popUp<=0.5){
-    /* 躺姿：躺在床面上；可翻件立起来时上半身顺着它的平面躺（背贴其上，不横穿） */
-    const a=P.pAng*Math.PI/180;
-    const dir=[Math.cos(a), Math.sin(a)], nrm=[-Math.sin(a), Math.cos(a)];
-    let hip=[d.deck.x0+nrm[0]*AN.torsoW/2, P.y2+nrm[1]*AN.torsoW/2];
-    const minY=P.y2+AN.torsoW/2;                       // 臀部不能沉到床面以下（沿平面往前滑）
-    if (hip[1]<minY) hip=[hip[0]+(minY-hip[1])*dir[0]/dir[1], minY];
-    d.dolls.push(Object.assign({who:'床面', face:-1, footY:P.y2, theta:0, ok:true, skip:SOFT}, joints(hip, dir, P.y2, -1)));
+    /* 躺姿也是解出来的：上半身顺着可翻件平面、臀部不沉入床面，
+       再加“沿平面往前滑 + 膝角扫”，取第一个全身不穿模的姿态 */
+    const a=P.pAng*Math.PI/180, dir=[Math.cos(a), Math.sin(a)], nrm=[-Math.sin(a), Math.cos(a)];
+    const minY=P.y2+AN.torsoW/2;
+    let best=null;
+    for (let s=0; s<=24 && !best; s++){
+      let hip=[d.deck.x0+nrm[0]*AN.torsoW/2 - dir[0]*s*30, P.y2+nrm[1]*AN.torsoW/2 - dir[1]*s*30];
+      if (hip[1]<minY) hip=[hip[0]+(minY-hip[1])*dir[0]/Math.max(1e-6,dir[1]), minY];
+      const shd=[hip[0]+dir[0]*AN.torso, hip[1]+dir[1]*AN.torso];
+      const headC=[shd[0]+dir[0]*215, shd[1]+dir[1]*215];
+      for (const th of [0,4,8,12,18,26,36,50,70]){
+        const ar=th*Math.PI/180;
+        const knee=[hip[0]-AN.thigh*Math.cos(ar), hip[1]+AN.thigh*Math.sin(ar)];
+        let sup=P.y2, ankle=null;
+        for (let it=0;it<3;it++){ const dy=knee[1]-(sup+AN.ankle);
+          if (Math.abs(dy)>AN.shin){ ankle=null; break; }
+          ankle=[knee[0]-Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
+          const s2=surfaceAt(ankle[0],d); if (s2===sup) break; sup=s2; }
+        if (!ankle) continue;
+        const j={who:'床面',face:-1,footY:sup,theta:th,ok:true,skip:SOFT,
+                 hip,shd,headC,knee,ankle,toe:[ankle[0]-AN.footL, ankle[1]+8]};
+        if (!hitsAny(j, d.solids, SOFT)) { best=j; break; }
+      }
+    }
+    if (best) d.dolls.push(best);
+    else d.dolls.push(Object.assign({who:'床面', face:-1, footY:P.y2, theta:null, ok:false,
+      why:'可翻件这个角度下，躺姿无法同时贴住可翻件又不穿模'},
+      joints([d.deck.x0+nrm[0]*AN.torsoW/2, Math.max(minY, P.y2+nrm[1]*AN.torsoW/2)], dir, P.y2, -1)));
   } else {
     /* 升顶 + 床 = 站在床面上（升顶站立） */
     const sx=(d.C.opening.x0+d.C.opening.x1)/2, b=P.y2;
