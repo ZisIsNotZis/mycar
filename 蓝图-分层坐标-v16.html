@@ -67,7 +67,7 @@ const DEF = {
   x03:{v:600, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x03 电机（同轴三电）长（全宽）'},
   x04:{v:710,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x04 尾仓长'},
   /* --- X 层B（y1..y3）：座舱空间，首尾相接 --- */
-  x10:{v:120, min:80, max:700, st:10,g:'X 层B 座舱', n:'x10 前部上段长'},
+  x10:{v:120, min:0,  max:700, st:10,g:'X 层B 座舱', n:'x10 前部上段长'},   /* min 可以到 0（第 17 轮） */
   x11:{v:420, min:250,max:900, st:10,g:'X 层B 座舱', n:'x11 前脚空间'},
   x12:{v:440, min:300,max:700, st:10,g:'X 层B 座舱', n:'x12 前座空间（座垫长）'},
   x13:{v:430, min:250,max:900, st:10,g:'X 层B 座舱', n:'x13 后脚空间'},
@@ -163,6 +163,19 @@ function derive(){
   return d;
 }
 
+/* 线段 × 轴对齐矩形（世界毫米）：Liang–Barsky，用于"肢体不得陷进机能体实体" */
+function segBox(p1,p2,b){
+  const dx=p2[0]-p1[0], dy=p2[1]-p1[1];
+  let t0=0, t1=1;
+  for (const [d,o,q0,q1] of [[dx,p1[0],b.x0,b.x1],[dy,p1[1],b.y0,b.y1]]){
+    if (Math.abs(d)<1e-9){ if (o<q0||o>q1) return false; continue; }
+    let a=(q0-o)/d, c=(q1-o)/d; if (a>c){ const t=a; a=c; c=t; }
+    t0=Math.max(t0,a); t1=Math.min(t1,c);
+    if (t0>t1) return false;
+  }
+  return true;
+}
+
 /* =========================================================================
    校验：① 层内相邻件严丝合缝 ② 层与层 y 区间不重叠 ③ 关键尺寸
    ========================================================================= */
@@ -181,13 +194,18 @@ function checks(p=P, d=derive()){
   H('T4', d.bedLen>=1750, `床面长 ${R(d.bedLen)} ≥ 1750（人 1750）`);
   H('T5', d.seatF+960<=P.y3, `坐姿净空（前座面 ${R(d.seatF)} + 960 ≤ 顶棚 ${P.y3}）`);
   H('T6', P.y4-P.y2 >= 1750+60, `站立：升顶顶棚 ${P.y4} − 床面 ${P.y2} = ${P.y4-P.y2} ≥ 1810（人 1750 + 60）`);
-  /* 脚空间不能压在"比地板高"的机能体上（真车里三电/转向上面放不了脚） */
-  const foots=[['前脚 x11',d.B.footF],['后脚 x13',d.B.footR]];
-  for (const [nm,sp] of foots){
-    const hit = [['前机能体',d.machF],['后机能体',d.machR]]
-      .filter(([,m])=> m.x1>m.x0 && Math.min(sp.x1,m.x1)-Math.max(sp.x0,m.x0) > 0);
-    H('T7'+(nm[0]==='前'?'F':'R'), hit.length===0,
-      `${nm} ${R(sp.x0)}–${R(sp.x1)} 不被机能体占用${hit.length?'（被 '+hit.map(h=>h[0]).join('/')+' 占）':''}`);
+  /* 脚**可以**踩在机能体顶面上，但不能陷进机能体实体里（第 17 轮：机能体从 x=0 起、上面可以放脚） */
+  const boxes=[['前机能体',d.machF],['后机能体',d.machR]]
+    .map(([nm,m])=>[nm,{x0:m.x0+1, x1:m.x1-1, y0:P.y1+1, y1:m.top-1}]);   // 内缩 1mm：正好踩在顶面上算通过
+  for (const j of d.dolls){
+    const segs=[['小腿',j.knee,j.ankle],['足',j.ankle,j.toe]];
+    for (const [nm,b] of boxes){
+      if (b.x1<=b.x0 || b.y1<=b.y0) continue;
+      const hit = segs.filter(([,p1,p2])=>segBox(p1,p2,b));
+      H('T7·'+j.who+'·'+nm, hit.length===0,
+        `${j.who} 不陷进${nm}实体（${R(b.x0)}–${R(b.x1)} × 高 ${R(b.y0)}–${R(b.y1)}，顶面可踩）`+
+        (hit.length ? `　← ${hit.map(h=>`${h[0]} ${R(h[1][0])},${R(h[1][1])} → ${R(h[2][0])},${R(h[2][1])}`).join('；')}` : ''));
+    }
   }
   I('I4', `机能体顶面：前 y1a=${P.y1a}（伸出地板 ${R(P.y1a-P.y1)}）· 后 y1b=${P.y1b}（伸出 ${R(P.y1b-P.y1)}）`);
   I('I1', `全长 ${R(d.L)} = 层A 链：` + LAYERS.A.map(([id,k])=>`${k} ${P[k]}`).join(' + '));
@@ -221,7 +239,8 @@ function draw(){
   /* --- 高度栈：y0..y4 四条水平参考线 + 标注 --- */
   const ys = [['y0 底盘底',P.y0,'#5c7386'],['y1 地面',P.y1,'#7fd0a0'],['y2 床面',P.y2,'#5fd08a'],
               ['y2a/2b 座面',P.y2a,'#8fb3cc'],['y3 顶棚',P.y3,'#4aa3ff'],['y4 升顶',P.y4,'#4aa3ff']];
-  for (const [t,y,c] of ys){ line(0,y,xMax,y,c,y===P.y1?null:'4 4'); txt(0,y+18,t,c,10,'start'); }
+  /* 参考线只画到全长（画到 xMax 会从车尾伸出一截，第 17 轮） */
+  for (const [t,y,c] of ys){ line(0,y,d.L,y,c,y===P.y1?null:'4 4'); txt(0,y+18,t,c,10,'start'); }
 
   /* --- 层A：五个全宽件，y0..y1，首尾相接 --- */
   const ACOL = {frunk:'#101c26',machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
@@ -235,6 +254,11 @@ function draw(){
     txt((s.x0+s.x1)/2, P.y0+(P.y1-P.y0)*0.62, `${ALAB[id][0]} ${Math.round(s.len)}`, ALAB[id][2], 11);
     if (top > P.y1) txt((s.x0+s.x1)/2, top+18, `顶 ${top}`, '#e57373', 10);
   }
+  /* 前备箱第 2 段：机能体之上（第 17 轮：frunk 更高、有第二段，就在前机能体上方） */
+  const fr2 = {x0:d.A.frunk.x0, x1:d.A.machF.x1, y0:P.y1a, y1:P.y2};
+  rect(fr2.x0, fr2.x1, fr2.y0, fr2.y1, '#101c26', '#e8d174','5 4');
+  txt((fr2.x0+fr2.x1)/2, fr2.y1-14, '前备箱 第2段 · 机能体之上', '#e8d174', 11);
+  txt((fr2.x0+fr2.x1)/2, fr2.y0+18, `${Math.round(fr2.x1-fr2.x0)} × ${Math.round(fr2.y1-fr2.y0)}`, '#6b7a8c', 10);
   txt(d.A.total/2, P.y0-14, `层A 底盘链 总长 ${Math.round(d.A.total)} · 每处接缝 0`, '#8fb3cc', 11);
   line(d.firewall, P.y1-40, d.firewall, P.y3+40, '#e8d174', '3 3');
   txt(d.firewall, P.y3+56, `防火墙 ${Math.round(d.firewall)}（座舱层起点）`,'#e8d174',10);
