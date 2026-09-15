@@ -164,15 +164,17 @@ function derive(){
             len: bed ? SEAT.backR+SEAT.headR : SEAT.backR,
             dir: bed ? [1,0] : [Math.sin(rBa), Math.cos(rBa)] },
   };
-  /* 床模式：前排靠背一律立直当床头板（v13 规矩）；床面前界 = 前排座椅的后面
-     —— 反转时靠背在座垫前缘（铰点平面）；未反转时在座垫后缘（靠背上还有人坐着） */
-  d.bedFrom = bed ? (fFace<0 ? B.seatF.x1 : B.seatF.x0) : NaN;
+  /* 床模式：前排靠背一律立直当床头板（v13 规矩）。
+     床面前界 = 靠背的**背面（厚度的另一侧）**：人只能躺在靠背之后，不能穿过那块厚度 */
+  d.bedFrom = bed ? (fFace<0 ? fHinge + P.bckT : fHinge) : NaN;
   /* 派生①：靠背放平预留 = 二排靠背 + 头枕 */
   d.backZone = { x0:B.seatR.x1, x1:B.seatR.x1+SEAT.backR+SEAT.headR, len:SEAT.backR+SEAT.headR };
   /* 派生②：可翻件 = 靠背放平尾端 → 车尾 */
   d.deck = { x0:d.backZone.x1, x1:L, len:L-d.backZone.x1, ang:P.pAng };
-  /* 派生③：腿托 = 永远跨过整个脚坑（前座垫后缘 → 二排座垫前缘）= x13，与模式无关 */
-  d.legRest = bed ? {x0:B.seatF.x1, x1:B.seatR.x0, len:B.seatR.x0-B.seatF.x1} : null;
+  /* 派生③：腿托 = 同一块伸缩板，永远把「前排座椅后面 → 二排座垫前缘」这段空缺填满
+     （未反转时前排靠背厚 100 占掉一段，行程就是那 100）*/
+  d.legRest = bed ? (()=>{ const x0=Math.max(d.bedFrom, B.seatF.x1);
+                           return {x0, x1:B.seatR.x0, len:B.seatR.x0-x0}; })() : null;
   d.bed = bed ? { x0:d.bedFrom, x1:L, len:L-d.bedFrom } : null;
   /* 床面段：5 段；腿托永远跨过整个脚坑（与模式无关），固定隔板已删 */
   d.bedSeg = bed ? [
