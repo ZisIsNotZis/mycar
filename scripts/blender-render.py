@@ -19,13 +19,22 @@ os.makedirs(outdir, exist_ok=True)
 DIRS = [mathutils.Vector((1.0, -1.15, 0.62)), mathutils.Vector((1.0, -1.15, 0.62))]
 
 
+# 清空 Blender 启动场景（默认的 Cube/Camera/Light 不清掉会渲进画面里 —— 之前那只白色方块就是它）
+for _o in list(bpy.data.objects):
+    bpy.data.objects.remove(_o, do_unlink=True)
+
+
 def scene_setup():
     sc = bpy.context.scene
     sc.render.engine = 'CYCLES'
     sc.cycles.samples = 64
     sc.cycles.use_denoising = True
+    try:
+        resy = int(RES * 0.72)
+    except (TypeError, ValueError) as e:        # RES 上面已经校验过，这里只是别让异常往上冒
+        raise SystemExit(f'像素宽不对：{RES!r}（{e}）')
     sc.render.resolution_x = RES
-    sc.render.resolution_y = int(RES * 0.72)
+    sc.render.resolution_y = resy
     sc.render.film_transparent = False
     sc.view_settings.view_transform = 'Standard'
     try:                                   # 有 N 卡就走 GPU，否则回退 CPU
