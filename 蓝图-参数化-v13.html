@@ -73,7 +73,7 @@
    ===================================================================== */
 
 const DEF = {
-  L:   {v:3350,min:3000,max:5400,st:10, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
+  L:   {v:3700,min:3000,max:5400,st:10, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
   W:   {v:1800,min:1500,max:2050,st:10, g:'车身', n:'外宽 W'},
   H:   {v:1900,min:1400,max:2000,st:10, g:'车身', n:'车高 H（不升顶）'},
   cowl:{v:820, min:560, max:1750,st:10, g:'车身', n:'风挡基位置（前推→座舱/车顶更长）'},
@@ -81,7 +81,7 @@ const DEF = {
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
   axF: {v:850, min:600, max:1500,st:10, g:'底盘', n:'前轴位（=前悬）'},
-  axR: {v:2350,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（前移→后溃缩变长）'},
+  axR: {v:2600,min:1700,max:4600,st:10, g:'底盘', n:'后轴位（后移→后排脚跨出同轴三电切片）'},
   gf:  {v:140, min:100, max:260, st:5,  g:'底盘', n:'前离地'},
   gr:  {v:150, min:100, max:260, st:5,  g:'底盘', n:'后离地'},
   bt:  {v:320, min:120, max:360, st:5,  g:'底盘', n:'电池厚（=地板高）'},
@@ -116,14 +116,14 @@ const DEF = {
   islSink:{v:0,min:0,  max:1,   st:0.05,g:'中岛',    n:'台面段下沉进度（1 = 沉到座面 = 全宽床）'},
   pAng:{v:0,   min:0,   max:90,  st:1,  g:'尾箱/隔板',n:'可翻隔板角（0平铺补床尾 90立起作尾柱隔断）',deg:1},
   ud:  {v:260, min:150, max:450, st:10, g:'尾箱/隔板',n:'尾仓下层深（储物）'},
-  flapLen:{v:420,min:200, max:800, st:10, g:'尾箱/隔板',n:'可翻隔板长（抬起即贵妃榻靠背）'},
+  flapLen:{v:950,min:200, max:1400,st:10, g:'尾箱/隔板',n:'可翻隔板长（默认吃掉整个尾仓：固定隔板=0）'},
   px0: {v:1150,min:900, max:3900,st:10, g:'升顶/吊柜',n:'升顶开口 前缘（自动限在车顶内）'},
-  px1: {v:3080,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
+  px1: {v:3450,min:1600,max:4100,st:10, g:'升顶/吊柜',n:'升顶开口 后缘'},
   pr:  {v:740, min:250, max:900, st:10, g:'升顶/吊柜',n:'升顶抬高'},
   lkD: {v:330, min:200, max:500, st:10, g:'升顶/吊柜',n:'吊柜深（横向）'},
   lkH: {v:300, min:150, max:400, st:10, g:'升顶/吊柜',n:'吊柜高'},
   scrX:{v:1330,min:900, max:3900,st:10, g:'投影',    n:'幕布 x（挂在顶横梁）'},
-  pjX: {v:2870,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
+  pjX: {v:3220,min:1500,max:4100,st:10, g:'投影',    n:'投影仪 x（必须在车内）'},
   tr:  {v:1.2, min:0.8, max:2.2, st:0.05,g:'投影',    n:'投射比（宽:距，<1.3 为短焦）'},
 };
 const P = {}; for (const k in DEF) P[k] = DEF[k].v;
@@ -132,7 +132,7 @@ const M = { fbwd:false, pop:'closed', showDim:true, view:'2d' };
 /* 人体关节表（175cm，说明：结构决策.md D6） */
 const AN = { ankleY:80, kneeY:480, hipY:900, shdY:1420, topY:1750,
              shin:400, thigh:420, torso:520, headSeg:330, headR:115, hipAboveSeat:90,
-             shW:460, legW:130, shinW:100, torsoW:230, armW:78, footW:80, footL:80, neckW:92 };
+             shW:460, legW:130, shinW:100, torsoW:230, armW:78, footW:80, footL:80, neckW:92, headL:140 };
 
 const D2R = Math.PI/180;
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -271,8 +271,9 @@ function build(p, m){
     const BTh = Math.max(60, CT*0.7);
     const back={p0:b0,p1:b1,ang:BA,dir:[bx,by],
                 sh:[b0,b1,[b1[0]+nx*BTh,b1[1]+ny*BTh],[b0[0]+nx*BTh,b0[1]+ny*BTh]]};
-    const hd ={p0:b1,p1:[b1[0]+180*bx,b1[1]+180*by],
-               sh:[b1,[b1[0]+180*bx,b1[1]+180*by],[b1[0]+180*bx+nx*BTh*1.1,b1[1]+180*by+ny*BTh*1.1],[b1[0]+nx*BTh*1.1,b1[1]+ny*BTh*1.1]]};
+    const HL=AN.headL;                       // 头枕深度：放平后它**也算进"折好的座椅"**（v13 曾漏算，导致压到可翻隔板）
+    const hd ={p0:b1,p1:[b1[0]+HL*bx,b1[1]+HL*by],
+               sh:[b1,[b1[0]+HL*bx,b1[1]+HL*by],[b1[0]+HL*bx+nx*BTh*1.1,b1[1]+HL*by+ny*BTh*1.1],[b1[0]+nx*BTh*1.1,b1[1]+ny*BTh*1.1]]};
     let leg=null;
     if (!F){
       const LA = (p.rLa*(1-FOLDx))*D2R;
@@ -350,13 +351,14 @@ function build(p, m){
   d.bedTop = d.bedTopEarly;
   d.bedFlatTip = d.rearFlat.leg.tip[0];      // 放平后腿托前端（跨过脚部空洞）
   d.bedBackTip = d.rearFlat.back.p1[0];      // 放平后靠背尾端
-  d.deckX0 = d.bedBackTip;                    // 靠背放平后的尾端
-  d.deckX1 = Math.max(d.bedBackTip, (p.L-90) - p.flapLen);   // 可翻隔板铰点（固定隔板可为 0）
+  d.seatPack = (d.rearFlat.head.p1[0]-p.xR);   // 折好的座椅 = 靠背 + 头枕（用户第 6 轮：漏算头枕会压到隔板）
+  d.deckX0 = d.rearFlat.head.p1[0];            // 可翻隔板从头枕末端开始（首尾相接，不重叠）
+  d.deckX1 = Math.max(d.deckX0, (p.L-90) - p.flapLen);   // 可翻隔板铰点（固定隔板可为 0）
   d.deckLen = d.deckX1 - d.deckX0;             // 固定隔板长（0 = 由可翻隔板直接接管，无缝）
   d.flapActual = (p.L-90) - d.deckX1;          // 可翻隔板实际长（受尾门位置封顶）
   /* 用户第 4 条：二排靠背铰点是固定点 → 靠背 + 固定隔板 + 可翻隔板 = 下尾仓长度 */
   d.trunkLen = (p.L-90) - p.xR;                // 尾仓长度（从靠背铰点算到尾门）
-  d.bedRearRun = (d.bedBackTip-p.xR) + d.deckLen + d.flapActual;
+  d.bedRearRun = d.seatPack + d.deckLen + d.flapActual;
   d.lowFloor = d.bedTop - p.ud;
   d.FB = FB;
   d.frontCushRearX  = Math.max(d.front.cush.p0[0], d.front.cush.p1[0]);
@@ -373,6 +375,7 @@ function build(p, m){
     {name:'腿托',   len:(p.xR-p.rCl)-d.bedFlatTip},
     {name:'二排座垫', len:p.rCl*Math.cos(p.rCa*D2R)},
     {name:'二排靠背', len:d.bedBackTip-p.xR},
+    {name:'头枕',   len:AN.headL},          // 放平后头枕也算床面的一段（用户第 6 轮）
     {name:'固定隔板', len:d.deckLen},
     {name:'可翻隔板', len:p.L-90-d.deckX1},
   ].filter(x=>x.len>1);
@@ -584,7 +587,9 @@ function build(p, m){
   const pa=p.pAng*D2R;
   const fTip=[d.deckX1 + d.flapActual*Math.cos(pa), d.bedTop + d.flapActual*Math.sin(pa)];
   const fN=[Math.sin(pa), Math.cos(pa)], fTh=40;
-  g.push(poly([[d.deckX1,d.bedTop],fTip,[fTip[0]+fN[0]*fTh,fTip[1]+fN[1]*fTh],[d.deckX1+fN[0]*fTh,d.bedTop+fN[1]*fTh]],'part','#3a3320'));
+  const fUp = pa>0.15;                          // 0° 平铺：整块贴在床面之下（顶面 = 床面）；抬起：贴在铰点上方
+  const fSgn = fUp?1:-1;
+  g.push(poly([[d.deckX1,d.bedTop],fTip,[fTip[0]+fN[0]*fTh*fSgn,fTip[1]+fN[1]*fTh*fSgn],[d.deckX1+fN[0]*fTh*fSgn,d.bedTop+fN[1]*fTh*fSgn]],'part','#3a3320'));
   g.push(cir([d.deckX1,d.bedTop],14,'pin'));
   g.push(txt(fTip[0], fTip[1]-40, `可翻隔板 ${p.pAng}°`,'part-t',10,fTip[0]>p.L-600?'end':'middle'));
   if (p.pAng>45) g.push(txt((d.deckX1+p.L)/2, p.H-60, `尾柱净高 ${Math.round(d.colH)}·竖放可两层`,'part-t',10));
@@ -883,12 +888,15 @@ function checks(p,m,B){
   /* —— 前/后溃缩（用户第 4 条：缩小车身但撞梁长度得有）—— */
   H('C45', p.axF-d.archRF>=300, `前溃缩+前备箱 ${R(p.axF-d.archRF)} ≥ 300`,
     `车头到前轮包只剩 ${R(p.axF-d.archRF)} < 300（前撞梁/前备箱不够）`, 'axF/tdf/L');
-  H('C46', p.L-(p.axR+d.archRR)>=500, `后溃缩（后轮包→车尾）${R(p.L-(p.axR+d.archRR))} ≥ 500`,
-    `后轮包到车尾只剩 ${R(p.L-(p.axR+d.archRR))} < 500：后撞梁太短，加长车尾或把后轴前移`, 'axR/tdr/L');
+  H('C46', p.L-(p.axR+d.archRR)>=700, `后溃缩（后轮包→车尾）${R(p.L-(p.axR+d.archRR))} ≥ 700`,
+    `后轮包到车尾只剩 ${R(p.L-(p.axR+d.archRR))} < 700：后撞梁太短（加长车尾或把后轴前移）`, 'axR/tdr/L');
+  /* 用户第 6 轮：尾仓必须装得下"折好的座椅包 + 一个真能用的可翻隔板" */
+  H('C51', d.trunkLen>=800, `尾仓长 ${R(d.trunkLen)} ≥ 800（= 座椅包 ${R(d.seatPack)} + 可翻隔板 ${R(d.flapActual)} + 余量）`,
+    `尾仓只有 ${R(d.trunkLen)} < 800：座椅包 ${R(d.seatPack)} + 可翻隔板 ${R(d.flapActual)} 装不下`, 'L/xR/rBl');
   /* —— 用户第 4 条：靠背铰点固定 → 靠背 + 固定隔板 + 可翻隔板 = 尾仓长度 —— */
-  H('C48', d.bedBackTip<=p.L-90+1,
-    `二排靠背放平后落在尾门之内（靠背 ${R(d.bedBackTip-p.xR)} + 固定 ${R(d.deckLen)} + 可翻 ${R(d.flapActual)} = ${R(d.bedRearRun)} = 尾仓长 ${R(d.trunkLen)}）`,
-    `靠背放平后伸出尾门 ${R(d.bedBackTip-(p.L-90))}mm：靠背 ${R(p.rBl)} 太长或车尾太短（改 rBl / xR / L）`, 'rBl/xR/L');
+  H('C48', d.deckX0<=p.L-90+1 && d.deckX1>=d.deckX0-1,
+    `折好的座椅包落在尾门之内（靠背 ${R(p.rBl)} + 头枕 ${AN.headL} + 固定 ${R(d.deckLen)} + 可翻 ${R(d.flapActual)} = ${R(d.bedRearRun)} = 尾仓长 ${R(d.trunkLen)}）`,
+    `座椅包伸出尾门/与可翻隔板重叠：包 ${R(d.seatPack)}（靠背 ${R(p.rBl)}+头枕 ${AN.headL}）+ 可翻 ${R(d.flapActual)} > 尾仓 ${R(d.trunkLen)}（改 rBl / xR / L）`, 'rBl/xR/L');
   if (d.bedMode && d.bedMan) H('C50', d.bedMan.foot[0]>=d.bedFrontX-1,
     `床面躺姿完整落在床面上（脚端余量 ${R(d.bedMan.foot[0]-d.bedFrontX)}）`,
     `人躺不下：脚端超出床面前缘 ${R(d.bedFrontX-d.bedMan.foot[0])}mm（床比人短）`, 'L/xF/fCl/rBl/fSlide');
@@ -935,6 +943,11 @@ function checks(p,m,B){
     H('C34', freeLen>=250, `脚部地板净空间 ${R(freeLen)} ≥ 250（腿托不占脚位）`,
       `脚部地板只剩 ${R(freeLen)} < 250：腿托收起后仍占掉脚位（缩短 rLl 或加大 rLa）`, 'rLl/rLa/xR');
   }
+  const rFootIn = (d.humanR.foot[0]>p.axR-d.archR.r && d.humanR.foot[0]<p.axR+d.archR.r);
+  S('C52', !rFootIn,
+    `二排脚在后轮位切片之外（脚 ${R(d.humanR.foot[0])}，切片 ${R(p.axR-d.archR.r)}–${R(p.axR+d.archR.r)}）`,
+    `二排脚落在后轮位切片内（脚 ${R(d.humanR.foot[0])} vs 切片 ${R(p.axR-d.archR.r)}–${R(p.axR+d.archR.r)}）：`+
+    `那里是同轴三电，脚放不下——后轴后移或二排前移`, 'axR/xR/rCl/xF');
   S('C30', !inSlice(d.humanF.ankle[0]) && !inSlice(d.humanF.foot[0]),
     `前排脚在前轮位切片之外（脚尖 ${R(d.humanF.foot[0])}，切片后缘 ${R(p.axF+d.archF.r)}）`,
     `前排脚落在前轮位切片内（脚尖 ${R(d.humanF.foot[0])} < 切片后缘 ${R(p.axF+d.archF.r)}）— 升高 fLift 把脚往后拉，或后移 xF`, 'fLift/xF');
