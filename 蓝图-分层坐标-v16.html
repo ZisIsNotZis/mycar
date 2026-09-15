@@ -30,6 +30,11 @@
   th{color:var(--dim);background:#10161d;width:42%;text-align:left}
   td.n{font-family:ui-monospace,monospace;color:var(--blue);text-align:right}
   .ok{color:var(--green)} .bad{color:var(--red)} .dim2{color:var(--dim)}
+  .modes{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+  .modes button{background:#1b2531;border:1px solid var(--line);color:var(--ink);border-radius:6px;
+    padding:4px 11px;font:12px "Noto Sans SC","PingFang SC",system-ui,sans-serif;cursor:pointer}
+  .modes button:hover{border-color:var(--blue)}
+  .modes button.on{background:#1e3a55;border-color:var(--blue);color:#dbe8f5}
 </style>
 </head>
 <body>
@@ -41,6 +46,7 @@
 </div>
 <div class="wrap">
   <div class="left"><div class="panel">
+    <div class="modes" id="modes"></div>
     <svg id="sv" viewBox="0 0 1420 780" xmlns="http://www.w3.org/2000/svg"></svg>
   </div></div>
   <div class="right"><div class="ctrl" id="ctrl"></div></div>
@@ -334,6 +340,47 @@ function draw(){
 }
 
 /* =========================================================================
+   场景按钮 + 动画：按钮把参数插值过去（760ms 缓动）；拖滑块是即时的不插值。
+   ========================================================================= */
+const D0 = {}; for (const k in DEF) D0[k] = DEF[k].v;
+const SCENES = [
+  ['坐姿',     {fold:0, pAng:0, legExt:300}],
+  ['大床',     {fold:1, pAng:0, legExt:430}],
+  ['隔板立起', {pAng:90}],
+  ['隔板放平', {pAng:0}],
+  ['复位',     D0],
+];
+const ANIM = { active:false, from:{}, to:{}, t0:0, dur:760 };
+const easeIO = t => t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+function animateTo(to, dur){
+  ANIM.from = {...P}; ANIM.to = {...P, ...to}; ANIM.dur = dur || 760; ANIM.t0 = performance.now();
+  if (ANIM.active) return;
+  ANIM.active = true; requestAnimationFrame(step);
+}
+function step(now){
+  const t = Math.min(1, (now-ANIM.t0)/ANIM.dur), e = easeIO(t);
+  for (const k in ANIM.to) P[k] = ANIM.from[k] + (ANIM.to[k]-ANIM.from[k])*e;
+  syncUI(); draw(); table();
+  if (t < 1){ requestAnimationFrame(step); return; }
+  ANIM.active = false;
+  for (const k in ANIM.to) P[k] = ANIM.to[k];
+  render();
+}
+function syncUI(){ for (const k in DEF) syncOne(k); }
+function buildModes(){
+  const bar = document.getElementById('modes'); bar.replaceChildren();
+  for (const [name, patch] of SCENES){
+    const bn = document.createElement('button'); bn.textContent = name;
+    bn.addEventListener('click', ()=>{
+      animateTo(patch);
+      for (const b of bar.children) b.classList.remove('on');
+      bn.classList.add('on');
+    });
+    bar.appendChild(bn);
+  }
+}
+
+/* =========================================================================
    UI
    ========================================================================= */
 function buildUI(){
@@ -363,9 +410,10 @@ function buildUI(){
   const tb = document.createElement('div'); tb.id='tbl'; c.appendChild(tb);
 }
 function syncOne(key){
-  const D = DEF[key], v = document.getElementById('v_'+key), n = document.getElementById('n_'+key);
+  const D = DEF[key], v = document.getElementById('v_'+key), n = document.getElementById('n_'+key), r = document.getElementById(key);
   if (v) v.textContent = D.deg ? Math.round(P[key])+'°' : Math.round(P[key]);
-  if (n && document.activeElement !== n) n.value = P[key];
+  if (n && document.activeElement !== n) n.value = Math.round(P[key]*100)/100;
+  if (r && document.activeElement !== r) r.value = P[key];
 }
 function table(){
   const d = derive(), R = Math.round;
@@ -396,8 +444,8 @@ function report(){
 }
 function render(){ draw(); report(); table(); }
 
-buildUI(); render();
-window.MY = { P, DEF, derive, checks, draw, render, chain };
+buildUI(); buildModes(); render();
+window.MY = { P, DEF, derive, checks, draw, render, chain, animateTo };
 </script>
 </body>
 </html>
