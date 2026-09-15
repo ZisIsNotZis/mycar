@@ -11,13 +11,10 @@
 
    用法:
      node scripts/shrink.mjs [蓝图-v17.html] [--matrix|--one] [选项]
-       --beamF=1240 --beamR=1150 前/后溃缩梁长下限
-       --leg=long|short          梁算在 L 型腔的哪条腿：long（默认）= 前 x10 / 后 x15（高段，D63）；
-                                 short = 前 x00 / 后 x04（矮段，D61 的旧读法）
-       --bedBig=1800             大床床面下限
+       --set=bmF:1000,knG:80     改引擎里的规则参数（梁长 / 膝净空 / 电池口径…）
+       --bedBig=1800             大床床面下限（引擎 C6 是 1750，这里可以更严）
        --bedSmall=1750           小床床面下限；0 = C6 只管大床
        --lie=tail|head           躺在床面上的人朝哪头（tail = 引擎原样）
-       --cltc=500 --eff=11.7 --whl=600 --battW=1390 --battH=300   电池口径（决定 x02 下限）
        --relax=c8               实验里**明确标注地**放掉某条判据（例：1150 尾仓与 C8 冲突时）
        --layouts                额外打印一段可贴进 蓝图-v17.html 的布局快照代码
        --floors=x11:500,x12:440  人工下限（引擎里没有"人体空间"判据）
@@ -42,14 +39,8 @@ const parseFloors = (s) => {
   return o;
 };
 /* 电池口径（D62 #3）：500km CLTC × 11.7kWh/100km ÷ 600Wh/L → 需要的极板长度 */
-const PACK = { cltc: num("cltc", 500), eff: num("eff", 11.7), whl: num("whl", 600),
-  w: num("battW", 1390), h: num("battH", 300) };
-PACK.L = (PACK.cltc / 100) * PACK.eff * 1000 / PACK.whl;              // 需要的体积（L）
-PACK.need = Math.ceil(PACK.L * 1e6 / (PACK.w * PACK.h) / 10) * 10;    // 需要的长度（mm，向 10mm 取整）
-
 const BASE = {
-  beamF: num("beamF", 1240),
-  beamR: num("beamR", 1150),
+
   bedBig: num("bedBig", 1800),
   bedSmall: num("bedSmall", 1750),
   floors: parseFloors(opt("floors", "")),
@@ -57,12 +48,12 @@ const BASE = {
   patience: num("patience", 700),
   y3Max: num("y3Max", 2000),
   lie: opt("lie", "tail"),
-  leg: opt("leg", "long"),
   relax: opt("relax", ""),
-  battMin: PACK.need,
+  /* --set=bmF:1000,knG:80：直接改引擎里的**规则参数**（缩小实验不许动它们，只是拿来试口径） */
+  set: (() => { const o = {}; for (const kv of String(opt("set", "")).split(","))
+      if (kv.trim()) { const [k, v] = kv.split(":"); o[k.trim()] = +v; } return o; })(),
 };
 const SHOT = opt("shot", "");
-if (BASE.battMin > 0) BASE.floors.x02 = Math.max(BASE.floors.x02 || 0, BASE.battMin);
 const TWO_PRESET = opt("presets", "");   // 只查这几个预设（调试用）
 
 /* 场景表：人工下限（引擎没有"人体空间"判据，必须显式给） */
@@ -96,13 +87,6 @@ const search = (cfg) =>
     const PRES = cfg.only ? MY.PRESETS.filter(([nm]) => cfg.only.includes(nm)) : MY.PRESETS;
     const SEQ = ORDER.map((nm) => PRES.find(([n2]) => n2 === nm)).filter(Boolean);
 
-    /* 梁长（D63）：**从头量/到尾量**。
-       前梁 = x10：前备箱 L 的长腿（从车头一直到高段尾端）。
-       后梁 = x04 + x15：尾仓 L 的长腿（从尾仓高段前缘一直**到车尾**）。
-       cfg.leg==='short' = D61 的旧读法（前 x00 / 后 x04），只作对照。 */
-    const beamKeyF = () => (cfg.leg === "short" ? "x00" : "x10");
-    const beamLenF = (q) => (cfg.leg === "short" ? q.x00 : q.x10);
-    const beamLenR = (q) => (cfg.leg === "short" ? q.x04 : q.x04 + q.x15);
     const RELAX = String(cfg.relax || "").split(",").filter(Boolean);
     const reds = (cs, preset) =>
       cs.filter((c) => c.lv !== "info" && !c.ok &&
@@ -128,8 +112,6 @@ const search = (cfg) =>
 
     function feas(q) {
       const why = [];
-      if (beamLenF(q) < cfg.beamF - 1e-9) why.push(`前梁${Math.round(beamLenF(q))}<${cfg.beamF}`);
-      if (beamLenR(q) < cfg.beamR - 1e-9) why.push(`后梁${Math.round(beamLenR(q))}<${cfg.beamR}`);
       if (q.x10 < q.x00 - 1e-9) why.push("x10<x00");
       for (const k of KEYS) if (q[k] < floorOf(k) - 1e-9) why.push(`${k}<下限${floorOf(k)}`);
       if (why.length) return { ok: false, why: why.join("|") };
@@ -164,8 +146,6 @@ const search = (cfg) =>
        这里对"红判据条数"做贪心下降，只为找一个可行起点；搜索本身照旧。 */
     function failScore(q) {
       let n = 0;
-      if (beamLenF(q) < cfg.beamF - 1e-9) n++;
-      if (beamLenR(q) < cfg.beamR - 1e-9) n++;
       if (q.x10 < q.x00 - 1e-9) n++;
       for (const k of KEYS) if (q[k] < floorOf(k) - 1e-9) n++;
       if (MY.P.y3 > cfg.y3Max + 1e-9) n++;
@@ -210,8 +190,6 @@ const search = (cfg) =>
        每步落点都必须真的过一遍 feas()（不能拿二分出来的边界当结果）。 */
     const loOf = (k, q) => {
       let v = floorOf(k);
-      if (k === beamKeyF()) v = Math.max(v, cfg.beamF);   // 前梁挂在 x10 上
-      /* 后梁是 x04+x15 的**和** → 不给单个键设下限（由 feas 的和约束管） */
       if (k === "x10") v = Math.max(v, q.x00);       // L 型不能倒过来（高段盖过低段）
       return v;
     };
@@ -223,7 +201,6 @@ const search = (cfg) =>
          而前段的和是被 C13 锁死的 → 电池 x02 是填充量，直接补上。 */
       cur.x02 = Math.min(DEFR.x02.max,
         Math.max(cur.x02, (cur.x10 + cur.x11 + cur.x12 + cur.x13 + cur.x14 + 740) - cur.x00 - cur.x01 - cur.x03));
-      cur.x04 = Math.max(cur.x04, Math.max(0, cfg.beamR - cur.x15));
       const fixed = repairStart(cur);
       if (!fixed) throw new Error("起点不可行且修不回来：" + JSON.stringify(feas(cur).why));
       Object.assign(cur, fixed);
@@ -304,6 +281,7 @@ const search = (cfg) =>
       return out;
     }
 
+    Object.assign(MY.P, cfg.set || {});          // 规则参数（引擎判据读它）
     const start = {}; for (const k of KEYS) start[k] = MY.P[k];
     const t0 = performance.now();
     const res = hybrid(start);
@@ -350,13 +328,11 @@ function dump(title, cfg, r) {
   console.log(`   层A  x00 ${P.x00} x01 ${P.x01} x02 ${P.x02} x03 ${P.x03} x04 ${P.x04}`);
   console.log(`   层B  x10 ${P.x10} 前脚 ${P.x11} 前座 ${P.x12} 后脚 ${P.x13} 后座 ${P.x14}` +
     ` · x15 ${P.x15} x30 ${P.x30} xBeam ${P.xBeam}`);
-  console.log(`   溃缩梁：前 = x10 ${P.x10}（从车头量，要求 ≥${cfg.beamF}）· ` +
-    `后 = x04+x15 = ${P.x04}+${P.x15} = ${P.x04 + P.x15}（**到车尾**量，要求 ≥${cfg.beamR}）`);
+  console.log(`   溃缩结构：前 上排 x10 ${P.x10} / 下排 x00 ${P.x00}（下排/上排）· ` +
+    `后 上排 x04+x15 ${P.x04 + P.x15} / 下排 x04 ${P.x04}`);
   console.log(`   恒等式：L = (车头→前排 ${s.nose}) + 床 ${s.bed}`);
   console.log(`   床 ${s.bed} = 后排座舱 ${s.S} + 靠背预留 740 + C13 余量 ${s.margin} + 尾仓 ${s.x04}` +
     `   (头到车尾余量 ${s.headRoom})`);
-  if (PACK.need > 0) console.log(`   电池 x02 ${P.x02}（500km CLTC 需 ≥ ${PACK.need}mm = ${PACK.L.toFixed(1)}L @ ${PACK.whl}Wh/L，` +
-    `断面 ${PACK.w}×${PACK.h}；余量 ${P.x02 - PACK.need}mm）`);
   const bd = Object.entries(r.binding).map(([k, v]) => `${k}→${v}`);
   console.log("   再缩 10mm 死在哪： " + bd.join("\n" + " ".repeat(19)));
   if (r.detail["常规"] && r.detail["常规"].c8 && r.detail["常规"].c8ok === false)
@@ -369,7 +345,6 @@ const runs = [];
 if (MATRIX) {
   for (const sc of SCEN) {
     const cfg = { ...BASE, ...sc.o, floors: { ...sc.o.floors } };
-    if (BASE.battMin > 0) cfg.floors.x02 = Math.max(cfg.floors.x02 || 0, BASE.battMin);
     const r = await search(cfg);
     runs.push({ name: sc.n, cfg, r });
     dump(sc.n, cfg, r);
