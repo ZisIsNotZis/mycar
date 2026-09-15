@@ -15,6 +15,9 @@
        --bedBig=1800             大床床面下限
        --bedSmall=1750           小床床面下限；0 = C6 只管大床
        --lie=tail|head           躺在床面上的人朝哪头（tail = 引擎原样）
+       --cltc=500 --eff=11.7 --whl=600 --battW=1390 --battH=300   电池口径（决定 x02 下限）
+       --relax=c8               实验里**明确标注地**放掉某条判据（例：1150 尾仓与 C8 冲突时）
+       --layouts                额外打印一段可贴进 蓝图-v17.html 的布局快照代码
        --floors=x11:500,x12:440  人工下限（引擎里没有"人体空间"判据）
        --rounds=6                二分轮数（默认 6）
        --shot=outdir             把每个场景的最优解画出来存图（必须自己看图）
@@ -36,6 +39,12 @@ const parseFloors = (s) => {
     if (kv.trim()) { const [k, v] = kv.split(":"); o[k.trim()] = +v; }
   return o;
 };
+/* 电池口径（D62 #3）：500km CLTC × 11.7kWh/100km ÷ 600Wh/L → 需要的极板长度 */
+const PACK = { cltc: num("cltc", 500), eff: num("eff", 11.7), whl: num("whl", 600),
+  w: num("battW", 1390), h: num("battH", 300) };
+PACK.L = (PACK.cltc / 100) * PACK.eff * 1000 / PACK.whl;              // 需要的体积（L）
+PACK.need = Math.ceil(PACK.L * 1e6 / (PACK.w * PACK.h) / 10) * 10;    // 需要的长度（mm，向 10mm 取整）
+
 const BASE = {
   beamF: num("beamF", 300),
   beamR: num("beamR", 300),
@@ -46,8 +55,11 @@ const BASE = {
   patience: num("patience", 700),
   y3Max: num("y3Max", 2000),
   lie: opt("lie", "tail"),
+  relax: opt("relax", ""),
+  battMin: PACK.need,
 };
 const SHOT = opt("shot", "");
+if (BASE.battMin > 0) BASE.floors.x02 = Math.max(BASE.floors.x02 || 0, BASE.battMin);
 const TWO_PRESET = opt("presets", "");   // 只查这几个预设（调试用）
 
 /* 场景表：人工下限（引擎没有"人体空间"判据，必须显式给） */
@@ -81,9 +93,11 @@ const search = (cfg) =>
     const PRES = cfg.only ? MY.PRESETS.filter(([nm]) => cfg.only.includes(nm)) : MY.PRESETS;
     const SEQ = ORDER.map((nm) => PRES.find(([n2]) => n2 === nm)).filter(Boolean);
 
+    const RELAX = String(cfg.relax || "").split(",").filter(Boolean);
     const reds = (cs, preset) =>
       cs.filter((c) => c.lv !== "info" && !c.ok &&
-        !(cfg.bedSmall <= 0 && c.id === "C6" && SMALL.includes(preset))).map((c) => c.id);
+        !(cfg.bedSmall <= 0 && c.id === "C6" && SMALL.includes(preset)) &&
+        !RELAX.includes(String(c.id).toLowerCase())).map((c) => c.id);
 
     /* 躺姿方向：默认 = 引擎原样（D56：髋落在可翻件铰点 → 头朝车尾）；
        cfg.lie==='head' = 实验变量：把躺在床面上的人改成「头朝车头（床头板）、脚朝车尾」，
@@ -136,6 +150,54 @@ const search = (cfg) =>
       return { ok: true, why: "", L: Lof(q), bedBig, bedSmall };
     }
 
+    /* 起点修复：把用户要求（梁长等）抬到下限后，默认参数可能不再可行
+       （例：车头变长 → 可翻件竖起来捅穿顶棚的 C8）。
+       这里对"红判据条数"做贪心下降，只为找一个可行起点；搜索本身照旧。 */
+    function failScore(q) {
+      let n = 0;
+      if (q.x00 < cfg.beamF - 1e-9) n++;
+      if (q.x04 < cfg.beamR - 1e-9) n++;
+      if (q.x10 < q.x00 - 1e-9) n++;
+      if (q.x15 > q.x03 + 1e-9) n++;
+      for (const k of KEYS) if (q[k] < floorOf(k) - 1e-9) n++;
+      if (MY.P.y3 > cfg.y3Max + 1e-9) n++;
+      const saved = { ...MY.P };
+      let bedBig = null, bedSmall = null;
+      for (const [nm, st] of MY.PRESETS) {
+        Object.assign(MY.P, q, st);
+        try {
+          const d = MY.derive(); const cs = MY.checks();
+          if (nm === "大床") bedBig = d.bed ? d.bed.len : null;
+          if (nm === "小床") bedSmall = d.bed ? d.bed.len : null;
+          n += reds(cs, nm).length;
+        } catch (e) { n += 5; }
+      }
+      Object.assign(MY.P, saved);
+      if (bedBig == null || bedBig < cfg.bedBig - 0.5) n++;
+      if (cfg.bedSmall > 0 && (bedSmall == null || bedSmall < cfg.bedSmall - 0.5)) n++;
+      return n;
+    }
+    function repairStart(q0) {
+      let cur = { ...q0 };
+      let sc = failScore(cur);
+      if (sc === 0) return cur;
+      const ORDER = ["x14", "x13", "x12", "x11", "x15", "xBeam", "x30", "x01", "x03", "x02", "x10", "x00", "x04"];
+      for (let rd = 0; rd < 40 && sc > 0; rd++) {
+        let moved = false;
+        for (const k of ORDER) {
+          for (let i = 0; i < 120; i++) {
+            const v = Math.max(loOf(k, cur), cur[k] - 10);
+            if (v >= cur[k] - 1e-9) break;
+            const cand = { ...cur, [k]: v };
+            const s2 = failScore(cand);
+            if (s2 < sc) { cur = cand; sc = s2; moved = true; if (sc === 0) return cur; break; }
+          }
+        }
+        if (!moved) break;
+      }
+      return sc === 0 ? cur : null;
+    }
+
     /* 坐标逐个二分：固定其它参数，把每个参数压到「还能行」的最小值；多轮直到不动。
        每步落点都必须真的过一遍 feas()（不能拿二分出来的边界当结果）。 */
     const loOf = (k, q) => (k === "x00" ? Math.max(floorOf(k), cfg.beamF)
@@ -145,6 +207,9 @@ const search = (cfg) =>
       const cur = { ...start };
       for (const k of KEYS) cur[k] = Math.max(cur[k], floorOf(k), k === "x00" ? cfg.beamF : k === "x04" ? cfg.beamR : -Infinity);
       cur.x10 = Math.max(cur.x10, cur.x00);
+      const fixed = repairStart(cur);
+      if (!fixed) throw new Error("起点不可行且修不回来：" + JSON.stringify(feas(cur).why));
+      Object.assign(cur, fixed);
       const r0 = feas(cur);
       if (!r0.ok) throw new Error("起点不可行：" + r0.why);
       let evals = 0;
@@ -236,7 +301,9 @@ const search = (cfg) =>
       const cs = MY.checks();
       const red = reds(cs, nm);
       if (red.length) allGreen = false;
+      const c8 = cs.find((c) => c.id === "C8");
       detail[nm] = { red, L: Math.round(d.L), bed: d.bed ? Math.round(d.bed.len) : null,
+        c8: c8 ? c8.t : "", c8ok: c8 ? c8.ok : null,
         dolls: d.dolls.map((j) => j.who + (j.hit ? "(穿" + j.hit + ")" : "")),
         hardY: d.dolls.filter((j) => j.hit).map((j) => j.hit) };
     }
@@ -268,8 +335,12 @@ function dump(title, cfg, r) {
   console.log(`   恒等式：L = (车头→前排 ${s.nose}) + 床 ${s.bed}`);
   console.log(`   床 ${s.bed} = 后排座舱 ${s.S} + 靠背预留 740 + C13 余量 ${s.margin} + 尾仓 ${s.x04}` +
     `   (头到车尾余量 ${s.headRoom})`);
+  if (PACK.need > 0) console.log(`   电池 x02 ${P.x02}（500km CLTC 需 ≥ ${PACK.need}mm = ${PACK.L.toFixed(1)}L @ ${PACK.whl}Wh/L，` +
+    `断面 ${PACK.w}×${PACK.h}；余量 ${P.x02 - PACK.need}mm）`);
   const bd = Object.entries(r.binding).map(([k, v]) => `${k}→${v}`);
   console.log("   再缩 10mm 死在哪： " + bd.join("\n" + " ".repeat(19)));
+  if (r.detail["常规"] && r.detail["常规"].c8 && r.detail["常规"].c8ok === false)
+    console.log("   ⚠ 常规 C8：" + r.detail["常规"].c8);
   console.log("   预设复核：" + Object.entries(r.detail).map(([k, v]) =>
     `${k}${v.red.length ? "✗(" + v.red.join(",") + ")" : "✓"}`).join(" "));
 }
@@ -277,7 +348,8 @@ function dump(title, cfg, r) {
 const runs = [];
 if (MATRIX) {
   for (const sc of SCEN) {
-    const cfg = { ...BASE, ...sc.o, floors: sc.o.floors || {} };
+    const cfg = { ...BASE, ...sc.o, floors: { ...sc.o.floors } };
+    if (BASE.battMin > 0) cfg.floors.x02 = Math.max(cfg.floors.x02 || 0, BASE.battMin);
     const r = await search(cfg);
     runs.push({ name: sc.n, cfg, r });
     dump(sc.n, cfg, r);

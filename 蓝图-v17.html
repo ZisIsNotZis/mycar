@@ -53,6 +53,7 @@
 <div class="wrap">
   <div class="left"><div class="panel">
     <div class="modes" id="modes"></div>
+    <div class="modes" id="lays"></div>
     <svg id="sv" viewBox="0 0 1500 880" xmlns="http://www.w3.org/2000/svg"></svg>
   </div></div>
   <div class="right"><div class="ctrl" id="ctrl"></div></div>
@@ -81,7 +82,7 @@ const DEF = {
   y3:{v:1900,min:0,max:3200,st:10,g:'Y 高度', n:'y3 顶棚'},
   y4:{v:2640,min:0,max:3800,st:10,g:'Y 高度', n:'y4 升顶顶棚'},
   /* 层A：全宽底盘件（零坐标链，车长派生） */
-  x00:{v:420, min:200,max:1200,st:10,g:'层A 底盘', n:'x00 前备箱 低段长（在车头，内有溃缩梁）'},
+  x00:{v:420, min:200,max:2000,st:10,g:'层A 底盘', n:'x00 前备箱 低段长 = 前溃缩梁长（在车头，内有梁；D62：真车最低 1240）'},
   x01:{v:430, min:200,max:1200,st:10,g:'层A 底盘', n:'x01 前机能体 + 前备箱高段（高段在机能体之上）'},
   /* 座背加长到 740 后，靠背放平预留要多 120，电池加长 120 把尾仓前沿往后让出这 120；
      L 由 4140 变为 4260（另一种做法是二排前移 120、保 L=4140，会挤后脚空间）。 */
@@ -129,6 +130,21 @@ const PRESETS = [
   ['小床观影',   {rot:0,   fold:1, pAng:45, popUp:0}],
   ['升顶',       {rot:0,   fold:0, pAng:90, popUp:1}],
   ['升顶站立',   {rot:0,   fold:1, pAng:0,  popUp:1}],
+];
+
+/* 布局快照：scripts/shrink.mjs 缩小实验的结果（一键套用整套**参数**，不动机构状态）。
+   口径：前/后溃缩梁长 = x00 / x04（D62：用户要求 1240 / 1150）。
+   梁 1240/1150 的那几个在「常规 / 对坐」下 C8 会红（可翻件 1150 竖起来比顶棚高 60）—— 见图。 */
+const LAYOUTS = [
+  ['现状 4260', null],
+  ['梁420/900·内舱=今天 4060', {x00:420, x01:230, x02:1910, x03:600, x04:900,
+    x10:420, x11:680, x12:440, x13:500, x14:380, x15:400, x30:1050, xBeam:2530}],
+  ['梁1240/1150·内舱=今天 5130', {x00:1240, x01:230, x02:1910, x03:600, x04:1150,
+    x10:1240, x11:680, x12:440, x13:500, x14:380, x15:400, x30:1050, xBeam:3060}],
+  ['梁1240/1150·紧凑 4720', {x00:1240, x01:350, x02:1380, x03:600, x04:1150,
+    x10:1240, x11:450, x12:420, x13:350, x14:370, x15:400, x30:1050, xBeam:2860}],
+  ['梁1240/1150·更紧 4580', {x00:1240, x01:300, x02:1290, x03:600, x04:1150,
+    x10:1240, x11:400, x12:400, x13:300, x14:350, x15:400, x30:1050, xBeam:2790}],
 ];
 
 /* =========================================================================
@@ -406,12 +422,23 @@ function seedLie(d){
   const hip=[d.deck.x0+nrm[0]*AN.torsoW/2+dir[0]*off, P.y2+nrm[1]*AN.torsoW/2+dir[1]*off];
   return kinJoints(hip, dir, P.y2, -1);
 }
+function standAt(sx,b){ return {hip:[sx,b+AN.hip],knee:[sx,b+AN.knee],ankle:[sx,b+AN.ankle],toe:[sx-AN.footL,b+AN.ankle],
+    shd:[sx,b+AN.shd],headC:[sx,b+AN.top-AN.headR],face:-1,footY:b}; }
 function seedStand(d){
   /* 顶中间横梁在开口中部、梁身恰好占满站立躯干的高度带，所以吊绳锚点放到开口偏前、
      避开这根梁（梁本身不挪）——否则悬挂姿势只能斜靠在梁上，既不直也会穿。 */
-  const sx=d.C.opening.x0+0.34*d.C.opening.len, b=P.y2;
-  return {hip:[sx,b+AN.hip],knee:[sx,b+AN.knee],ankle:[sx,b+AN.ankle],toe:[sx-AN.footL,b+AN.ankle],
-    shd:[sx,b+AN.shd],headC:[sx,b+AN.top-AN.headR],face:-1,footY:b};
+  const b=P.y2, op=d.C.opening, sx0=op.x0+0.34*op.len;
+  const old=standAt(sx0,b);
+  if (!hitsAny(old, d.solids, null)) return old;      // 默认帧：位置完全不变
+  /* 车头变长（溃缩梁加长）后，这个比例位置会落在「立直的前排靠背」上；
+     站立区本就是一个区间，于是沿开口扫一遍，用**同一个碰撞内核**取第一个干净位置。
+     扫不到就交回老位置 —— 让 C3 如实报红，不掩盖。 */
+  const lo=Math.max(op.x0+80, d.bed.x0+60);
+  for (let sx=lo; sx<=op.x1-80; sx+=40){
+    const j=standAt(sx,b);
+    if (!hitsAny(j, d.solids, null)) return j;
+  }
+  return old;
 }
 function seedBunk(d){
   const headC=[d.C.opening.x1-80-AN.headR, P.y3+AN.torsoW/2+80];
@@ -547,7 +574,9 @@ function checks(){
     H('C4', gaps.every(g=>Math.abs(g)<1), `床面 ${d.bedSeg.length} 段首尾相接（接缝 ${gaps.map(R).join('/')}）`);
     H('C5', d.legRest.len>=0 && Math.abs(d.legRest.x1-d.B.seatR.x0)<1,
       `腿托 ${R(d.legRest.len)}（${R(d.legRest.x0)} → ${R(d.legRest.x1)}）伸出就顶住前排`);
-    H('C6', d.bed.len>=1750, `床面 ${R(d.bed.x0)}–${R(d.bed.x1)} = ${R(d.bed.len)} ≥ 1750（人 1750）`);
+    H('C6', P.rot>90 ? d.bed.len>=1750 : true,
+      P.rot>90 ? `大床床面 ${R(d.bed.x0)}–${R(d.bed.x1)} = ${R(d.bed.len)} ≥ 1750（人 1750；D62：只卡大床）`
+               : `小床床面 ${R(d.bed.len)}（D62：小床不设下限 —— 屈腿/小孩/对角睡）`);
     const bj=d.dolls.find(x=>x.who==='床面');
     if (bj){
       H('C11', bj.toe[0]>=d.bed.x0-1, `躺在床面上的人脚端 ${R(bj.toe[0])} ≥ 床面前界 ${R(d.bed.x0)}`);
@@ -803,6 +832,21 @@ function step(now){
 /* =========================================================================
    UI：预设（上）· 参数（右栏）· 机构状态（右栏，独立一段）
    ========================================================================= */
+/* 布局快照按钮条（缩小实验的结果；套用整套参数，机构状态不动） */
+function buildLayouts(){
+  const bar=document.getElementById('lays'); bar.replaceChildren();
+  const cap=document.createElement('span'); cap.className='cap'; cap.textContent='布局'; bar.appendChild(cap);
+  for (const [name,patch] of LAYOUTS){
+    const bn=document.createElement('button'); bn.textContent=name;
+    bn.title=patch ? Object.keys(patch).map(k=>k+'='+patch[k]).join(' · ') : '回到 DEF 默认值（车长 4260）';
+    bn.addEventListener('click',()=>{
+      animateTo(patch||D0);
+      for (const b of bar.querySelectorAll('button')) b.classList.remove('on');
+      bn.classList.add('on');
+    });
+    bar.appendChild(bn);
+  }
+}
 function buildPresets(){
   const bar=document.getElementById('modes'); bar.replaceChildren();
   const cap=document.createElement('span'); cap.className='cap'; cap.textContent='预设'; bar.appendChild(cap);
@@ -956,7 +1000,7 @@ function bindDrag(){
   svg.addEventListener('pointercancel',up);
 }
 
-buildUI(); buildPresets(); bindDrag(); syncUI(); render();
+buildUI(); buildPresets(); buildLayouts(); bindDrag(); syncUI(); render();
 window.MY={P,DEF,STATES,PRESETS,derive,checks,draw,render,animateTo,settle,dropAll,SIM,VIEW};
 </script>
 </body>
