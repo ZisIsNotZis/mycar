@@ -51,29 +51,31 @@
    ========================================================================= */
 const DEF = {
   /* --- Y 高度（离地绝对值 mm）--- */
-  y0:{v:140, min:80, max:320, st:5, g:'Y 高度', n:'y0 底盘底（离地）'},
+  y0:{v:160, min:80, max:320, st:5, g:'Y 高度', n:'y0 底盘底（离地）'},
   y1:{v:460, min:250,max:800, st:5, g:'Y 高度', n:'y1 舱内地面'},
+  y1a:{v:520,min:200,max:900, st:5, g:'Y 高度', n:'y1a 前机能体顶面（高于地板）'},
+  y1b:{v:560,min:200,max:900, st:5, g:'Y 高度', n:'y1b 后机能体顶面（高于地板）'},
   y2:{v:810, min:400,max:1100,st:5, g:'Y 高度', n:'y2 床面'},
   y2a:{v:810,min:400,max:1100,st:5, g:'Y 高度', n:'y2a 前座面（非床模式）'},
   y2b:{v:810,min:400,max:1100,st:5, g:'Y 高度', n:'y2b 二排座面（非床模式）'},
   y3:{v:1900,min:1400,max:2200,st:10,g:'Y 高度', n:'y3 顶棚'},
   y4:{v:2640,min:1800,max:3300,st:10,g:'Y 高度', n:'y4 升顶顶棚'},
   /* --- X 层A（y0..y1）：全宽底盘件，首尾相接 --- */
-  x00:{v:590, min:0,  max:1400,st:10,g:'X 层A 底盘', n:'x00 前备箱长'},
-  x01:{v:520, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x01 转向+AC+48V+MCU 长（全宽）'},
-  x02:{v:1000,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x02 电池长'},
-  x03:{v:560, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x03 电机（同轴三电）长（全宽）'},
-  x04:{v:1170,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x04 尾仓长'},
+  x00:{v:500, min:0,  max:1400,st:10,g:'X 层A 底盘', n:'x00 前备箱长'},
+  x01:{v:550, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x01 转向+AC+48V+MCU 长（全宽）'},
+  x02:{v:1410,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x02 电池长'},
+  x03:{v:600, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x03 电机（同轴三电）长（全宽）'},
+  x04:{v:710,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x04 尾仓长'},
   /* --- X 层B（y1..y3）：座舱空间，首尾相接 --- */
-  x10:{v:330, min:80, max:700, st:10,g:'X 层B 座舱', n:'x10 前部上段长'},
-  x11:{v:520, min:250,max:900, st:10,g:'X 层B 座舱', n:'x11 前脚空间'},
-  x12:{v:460, min:300,max:700, st:10,g:'X 层B 座舱', n:'x12 前座空间（座垫长）'},
-  x13:{v:600, min:250,max:900, st:10,g:'X 层B 座舱', n:'x13 后脚空间'},
-  x14:{v:900, min:300,max:1100,st:10,g:'X 层B 座舱', n:'x14 后座空间（座垫+收起腿托）'},
-  x15:{v:440, min:250,max:800, st:10,g:'X 层B 座舱', n:'x15 后排靠背放平预留'},
-  x16:{v:500, min:0,  max:1200,st:10,g:'X 层B 座舱', n:'x16 可翻旋转件长'},
+  x10:{v:120, min:80, max:700, st:10,g:'X 层B 座舱', n:'x10 前部上段长'},
+  x11:{v:420, min:250,max:900, st:10,g:'X 层B 座舱', n:'x11 前脚空间'},
+  x12:{v:440, min:300,max:700, st:10,g:'X 层B 座舱', n:'x12 前座空间（座垫长）'},
+  x13:{v:430, min:250,max:900, st:10,g:'X 层B 座舱', n:'x13 后脚空间'},
+  x14:{v:640, min:300,max:1100,st:10,g:'X 层B 座舱', n:'x14 后座空间（座垫+收起腿托）'},
+  x15:{v:380, min:250,max:800, st:10,g:'X 层B 座舱', n:'x15 后排靠背放平预留'},
+  x16:{v:200, min:0,  max:1200,st:10,g:'X 层B 座舱', n:'x16 可翻旋转件长'},
   /* --- X 层C（y3..y4）--- */
-  x30:{v:2000,min:800, max:3600,st:10,g:'X 层C 升顶', n:'x30 升顶开口长'},
+  x30:{v:1900,min:800, max:3600,st:10,g:'X 层C 升顶', n:'x30 升顶开口长'},
   /* --- 我定：宽度 / 角度 / 状态 --- */
   W:  {v:1800,min:1500,max:2050,st:10,g:'我定', n:'内宽（全宽件靠它定尺寸）'},
   fBa:{v:10, min:-10,max:60, st:1,  g:'我定', n:'前排靠背角',deg:1},
@@ -99,21 +101,28 @@ function chain(defs){
   return at;
 }
 function derive(){
-  const A = chain(LAYERS.A), B = chain(LAYERS.B), C = chain(LAYERS.C);
+  const A0 = chain(LAYERS.A);
+  const firewall = A0.machF.x1;                 // 座舱层从防火墙起算（真车：前部结构之后才是座舱）
+  const B0 = chain(LAYERS.B);
+  const B = {}; for (const k in B0) B[k] = typeof B0[k]==='number' ? B0[k]+firewall : {x0:B0[k].x0+firewall, x1:B0[k].x1+firewall, len:B0[k].len};
+  const A = A0, C = chain(LAYERS.C);
   const floor = P.y1, bed = P.y2, ceil = P.y3;
   const d = {A,B,C, floor, bed, ceil, pop: P.y4};
   /* 底盘层：全宽件（y0..y1 吃满） */
   d.battH = Math.max(60, floor - P.y0);
-  d.kWh = Math.round(P.x02 * (P.W-380) * d.battH * 160 / 1e9);
+  d.machF = {x0:A.machF.x0, x1:A.machF.x1, top:P.y1a};   // 前机能体：顶到 y1a（比地板高）
+  d.machR = {x0:A.machR.x0, x1:A.machR.x1, top:P.y1b};   // 后机能体：顶到 y1b
+  d.kWh = Math.round(P.x02 * (P.W-380) * d.battH * 120 / 1e9);   // 120 Wh/L：含冷却/结构后的真车级
   /* 座舱层：座位面 / 床面 */
   d.seatF = (P.fold>0.5 ? bed : P.y2a);
   d.seatR = (P.fold>0.5 ? bed : P.y2b);
   d.bedFrom = B.seatF.x0;                        // 床面前缘 = 前座垫前缘
-  d.bedTo   = B.rotable.x1;                      // 床面后缘 = 可翻件尾
+  d.bedTo   = B.rotable.x1;                      // 床面后缘 = 可翻件尾（= 尾门）
   d.bedLen  = d.bedTo - d.bedFrom;
   d.stand   = d.bedLen >= 1750;                  // 人长 1750
   /* 尾部闭合：层A 与层B 应停在同一个尾门（差 90 = 尾门结构） */
-  d.closeGap = A.total - (B.total + 90);
+  d.firewall = firewall;
+  d.closeGap = (B.rotable.x1) - (A.total - 90);   // 座舱链尾 应正好落在尾门
   d.L = A.total;
   return d;
 }
@@ -132,10 +141,19 @@ function checks(p=P, d=derive()){
     `层内接缝全 0（层A ${gapsA.join('/')} · 层B ${gapsB.join('/')}）`);
   H('T2', P.y0 < P.y1 && P.y1 < P.y2 && P.y2 <= P.y2a && P.y2 <= P.y2b && P.y3 > P.y2 && P.y4 > P.y3,
     `高度栈有序：y0<y1<y2≤y2a/y2b<y3<y4（${P.y0}<${P.y1}<${P.y2}≤${Math.max(P.y2a,P.y2b)}<${P.y3}<${P.y4}）`);
-  H('T3', Math.abs(d.closeGap)<=30, `两层在尾门闭合：层A ${R(d.A.total)} − (层B ${R(d.B.total)} + 90) = ${R(d.closeGap)}`);
+  H('T3', Math.abs(d.closeGap)<=30, `座舱链尾 = 尾门：${R(d.B.rotable.x1)} vs ${R(d.A.total-90)}（差 ${R(d.closeGap)}）· 防火墙 x=${R(d.firewall)}`);
   H('T4', d.bedLen>=1750, `床面长 ${R(d.bedLen)} ≥ 1750（人 1750）`);
   H('T5', d.seatF+960<=P.y3, `坐姿净空（前座面 ${R(d.seatF)} + 960 ≤ 顶棚 ${P.y3}）`);
   H('T6', P.y4-P.y2 >= 1750+60, `站立：升顶顶棚 ${P.y4} − 床面 ${P.y2} = ${P.y4-P.y2} ≥ 1810（人 1750 + 60）`);
+  /* 脚空间不能压在"比地板高"的机能体上（真车里三电/转向上面放不了脚） */
+  const foots=[['前脚 x11',d.B.footF],['后脚 x13',d.B.footR]];
+  for (const [nm,sp] of foots){
+    const hit = [['前机能体',d.machF],['后机能体',d.machR]]
+      .filter(([,m])=> m.x1>m.x0 && Math.min(sp.x1,m.x1)-Math.max(sp.x0,m.x0) > 0);
+    H('T7'+(nm[0]==='前'?'F':'R'), hit.length===0,
+      `${nm} ${R(sp.x0)}–${R(sp.x1)} 不被机能体占用${hit.length?'（被 '+hit.map(h=>h[0]).join('/')+' 占）':''}`);
+  }
+  I('I4', `机能体顶面：前 y1a=${P.y1a}（伸出地板 ${R(P.y1a-P.y1)}）· 后 y1b=${P.y1b}（伸出 ${R(P.y1b-P.y1)}）`);
   I('I1', `全长 ${R(d.L)} = 层A 链：` + LAYERS.A.map(([id,k])=>`${k} ${P[k]}`).join(' + '));
   I('I2', `电池 ${R(P.x02)}×${P.W-380}×${R(d.battH)} ≈ ${d.kWh} kWh（自动吃满层A 高度）`);
   I('I3', `床面 ${R(d.bedFrom)}–${R(d.bedTo)}（前座垫前缘 → 可翻件尾），座面 ${R(d.seatF)}/${R(d.seatR)}`);
@@ -149,7 +167,7 @@ function checks(p=P, d=derive()){
 const W = 1420, H = 780, PADL = 70, PADR = 40, PADT = 60, PADB = 90;
 function draw(){
   const d = derive();
-  const xMax = Math.max(d.A.total, d.B.total, P.x30) + 200;
+  const xMax = Math.max(d.A.total, d.B.rotable.x1, P.x30) + 200;
   const yMax = Math.max(P.y4, P.y3) + 200;
   const k = Math.min((W-PADL-PADR)/xMax, (H-PADT-PADB)/yMax);
   const SX = x => PADL + x*k, SY = y => H-PADB - y*k;
@@ -175,10 +193,15 @@ function draw(){
                 batt:['电池',P.x02,'#56c8d8'],machR:['同轴三电',P.x03,'#e57373'],trunk:['尾仓',P.x04,'#e8d174']};
   for (const [id] of LAYERS.A){
     const s = d.A[id];
-    rect(s.x0,s.x1,P.y0,P.y1,ACOL[id],'#5a6a7a');
+    const top = id==='machF' ? P.y1a : (id==='machR' ? P.y1b : P.y1);   // 机能体比地板高
+    rect(s.x0,s.x1,P.y0,top,ACOL[id],'#5a6a7a');
+    if (top > P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');       // 伸出地板的那一截
     txt((s.x0+s.x1)/2, P.y0+(P.y1-P.y0)*0.62, `${ALAB[id][0]} ${Math.round(s.len)}`, ALAB[id][2], 11);
+    if (top > P.y1) txt((s.x0+s.x1)/2, top+18, `顶 ${top}`, '#e57373', 10);
   }
   txt(d.A.total/2, P.y0-14, `层A 底盘链 总长 ${Math.round(d.A.total)} · 每处接缝 0`, '#8fb3cc', 11);
+  line(d.firewall, P.y1-40, d.firewall, P.y3+40, '#e8d174', '3 3');
+  txt(d.firewall, P.y3+56, `防火墙 ${Math.round(d.firewall)}（座舱层起点）`,'#e8d174',10);
 
   /* --- 层B：七个空间，y1..y3（空间用浅色框＋名称；里面只放全宽件：床面 / 可翻件） --- */
   const BNAM = {upper:'x10 前部上段',footF:'x11 前脚空间',seatF:'x12 前座空间',footR:'x13 后脚空间',
@@ -207,8 +230,9 @@ function draw(){
   txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
 
   /* --- 层C：升顶开口（y3..y4），跨 x30 长 --- */
-  rect(d.B.upper.x0+20, d.B.upper.x0+20+P.x30, P.y3, P.y4, '#12324a', '#4aa3ff','6 4');
-  txt(d.B.upper.x0+20+P.x30/2, P.y4-18, `升顶开口 ${P.x30} · 顶棚 ${P.y4}`, '#4aa3ff', 11);
+  const cx0 = d.firewall + 40;
+  rect(cx0, cx0+P.x30, P.y3, P.y4, '#12324a', '#4aa3ff','6 4');
+  txt(cx0+P.x30/2, P.y4-18, `升顶开口 ${P.x30} · 顶棚 ${P.y4}`, '#4aa3ff', 11);
 
   /* --- 全长尺寸 --- */
   line(0,-40,d.A.total,-40,'#7d95a8');
