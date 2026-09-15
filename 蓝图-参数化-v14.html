@@ -183,15 +183,7 @@ function build(p, m){
   d.rocker = d.clear;                        // 侧裙下沿 = 离地间隙
 
   /* ---------- 车轮（车外两侧）---------- */
-  for (const [ax,td,gc,tag] of [[p.axF,p.tdf,d.clear,'前轮'],[p.axR,p.tdr,d.clear,'后轮']]){
-    const r=td/2, cy=r;                       // 轮心离地 = 轮半径 → 胎面着地
-    g.push(cir([ax,cy], r, 'tyre','#0a0f14'));
-    g.push(cir([ax,cy], r*0.55, 'rim'));
-    for(let a=0;a<6;a++){const t=a*Math.PI/3;
-      g.push(ln([ax+Math.cos(t)*r*0.55, cy+Math.sin(t)*r*0.55],[ax+Math.cos(t)*r*0.9, cy+Math.sin(t)*r*0.9],22,'rim'));}
-    g.push(txt(ax, -140, `${tag} Ø${td}`,'txt',10));
-    g.push(txt(ax, -270, `包顶 ${Math.round(td+60)}`,'txt',9));
-  }
+  /* 轮胎/轮圈不画：轮子不是全宽件，也不该占画面（用户第 12/13 轮） */
 
   /* ---------- 车壳外形基准 ----------
      必须在座椅之前算：贵妃榻靠背角要按"真风挡线"反解（v12 只比风挡基，头其实已经穿出去了）。 */
@@ -535,9 +527,8 @@ function build(p, m){
     }
     return top;
   };
-  g.push(poly(bPts,'body','#0f151d'));
+  /* 车身外轮廓不画（DRAW: 只画 item） */
   const belt=Math.max(d.cowlY+120, d.front.topY+150);
-  g.push(poly([[d.cowlX+70,belt],[d.roofX0+95,p.H-45],[d.roofX1-120,p.H-45],[p.L-320,p.H-300],[p.L-320,belt]],'glass','#0a2436'));
 
   /* 电池 + 地板 */
   if (d.batt.x1>d.batt.x0){
@@ -557,36 +548,6 @@ function build(p, m){
   g.push(ln([frx0+10,fry0+fHgt*0.8],[frxW-10,fry0+fHgt*0.8],14,'rail'));
   g.push(txt(frxW*0.5, fry0+fHgt*0.45+6, `前备箱 前段${Math.round(frxW-frx0)}×${Math.round(fHgt)}`,'store-t',10));
   g.push(txt((frxW+frx1)/2, d.archFtop+70, `轮包上 ${Math.round(frx1-frxW)}`,'store-t',9.5));
-  /* 前备箱盖：铰在风挡侧（后铰），前缘上掀 —— 和真车一样 */
-  const fa=p.frunk*48*D2R, fH=[d.cowlX,d.cowlY], fL=Math.hypot(d.cowlX, d.cowlY-hoodY0);
-  const fA0=Math.atan2(hoodY0-d.cowlY, -d.cowlX);
-  g.push(ln(fH,[fH[0]+Math.cos(fA0-fa)*fL, fH[1]+Math.sin(fA0-fa)*fL],26,'door'));
-  if (p.frunk>0.02) g.push(txt(300, d.cowlY+90, `前盖开 ${Math.round(p.frunk*100)}%`,'door-t',10));
-  /* 尾门：从投影仪那一带的车顶后缘起，覆盖整个车尾；两段折叠
-     极限形态由几何算出：上段转到"水平"、下段转到"竖直向下"（-\ 形的最大展开），不再往里折 */
-  const tHinge=[Math.min(p.pjX+40, d.roofX1-20), p.H-40];
-  // 折点：在尾斜面上取一个位置，使"开平后"折点落在车尾之外 → 下段垂下去不挡开口
-  const wantLen=Math.max(360, (p.L+70-tHinge[0])*1.5);   // 折点再外移 50%：门开到位时整体退到车尾之外更多
-  let tMid=null;
-  for (let t=0.06;t<=1.0001;t+=0.02){
-    const M=[d.roofX1+t*((p.L-140)-d.roofX1), p.H+t*((d.clear+700)-p.H)];
-    if (Math.hypot(M[0]-tHinge[0], M[1]-tHinge[1])>=wantLen){ tMid=M; break; }
-  }
-  if (!tMid) tMid=[p.L-140, d.clear+700];
-  const tBot=[p.L-20, d.clear+110];
-  const rot2=(v,a)=>[v[0]*Math.cos(a)-v[1]*Math.sin(a), v[0]*Math.sin(a)+v[1]*Math.cos(a)];
-  const ang=v=>Math.atan2(v[1],v[0]);
-  const v1=[tMid[0]-tHinge[0], tMid[1]-tHinge[1]], v2=[tBot[0]-tMid[0], tBot[1]-tMid[1]];
-  const a1F=-ang(v1);                              // 上段 → 水平
-  const a2F=(-Math.PI/2-ang(v2))-a1F;              // 下段 → 竖直向下（相对上段）
-  const a1=p.trunk*a1F, a2=p.trunk*a2F;
-  const r1=rot2(v1,a1), e1=[tHinge[0]+r1[0], tHinge[1]+r1[1]];
-  const r2=rot2(v2,a1+a2), e2=[e1[0]+r2[0], e1[1]+r2[1]];
-  const tLen=Math.round(Math.hypot(v1[0],v1[1])+Math.hypot(v2[0],v2[1]));
-  g.push(ln(tHinge,e1,30,'door')); g.push(ln(e1,e2,30,'door'));
-  g.push(cir(e1,26,'door-c'));
-  g.push(txt(tHinge[0]-40, tHinge[1]+70, `尾门 ${tLen}·折叠式（上段${Math.round(Math.hypot(v1[0],v1[1]))}/下段${Math.round(Math.hypot(v2[0],v2[1]))}）`,'door-t',9.5,'end'));
-  if (p.trunk>0.02) g.push(txt(e2[0]+40, e2[1]+40, `开 ${Math.round(p.trunk*100)}%（后伸 ${Math.round(Math.max(e1[0],e2[0])-p.L)}）`,'door-t',10,'start'));
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
   for (const [mc,tag,note] of [[d.machF,'前机能体','转向/48V/AC·溃缩件'],[d.machR,'后机能体','同轴三电（电机+减速+逆变）']]){
@@ -1158,9 +1119,6 @@ function build3D(p,m,B){
   const bboxQ=(q)=>[Math.min(...q.map(a=>a[0])),Math.max(...q.map(a=>a[0])),Math.min(...q.map(a=>a[1])),Math.max(...q.map(a=>a[1]))];
   const archIn=190;                       // 轮包内缩（横向）
   /* 车身：两侧轮廓 + 顶/底/前后连接面 */
-  o.push({k:'prism',pts:d.bodyPts,z0:-hw,z1:hw,cls:'body3'});
-  const gl=[[d.cowlX+70,Math.max(d.cowlY+120,d.front.topY+150)],[d.roofX0+95,p.H-45],[d.roofX1-120,p.H-45],[p.L-320,p.H-300],[p.L-320,Math.max(d.cowlY+120,d.front.topY+150)]];
-  o.push({k:'prism',pts:gl,z0:-hw+40,z1:hw-40,cls:'glass3'});
   /* 车轮 + 轮包内壁（横向占用） */
   for (const [ax,td,gc] of [[p.axF,p.tdf,d.clear],[p.axR,p.tdr,d.clear]]){
     for (const sz of [1,-1]){
