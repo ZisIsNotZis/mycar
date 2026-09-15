@@ -139,6 +139,27 @@ function derive(){
              legExt:P.legExt },
   };
   d.rotator = {x0:B.rotable.x0, x1:B.rotable.x1};
+  /* ---- 假人（几何在 derive 里算，draw 只画）---- */
+  const joints=(hip,backDir,footY)=>{
+    const A2=AN, FACE=-1;                       // x=0 车头 → 朝前 = −x
+    const knee=[hip[0]+FACE*A2.thigh, hip[1]];
+    const drop=knee[1]-(footY+A2.ankle);
+    const reach=Math.sqrt(Math.max(0,A2.shin*A2.shin-drop*drop));
+    const ankle=[knee[0]+FACE*reach, footY+A2.ankle];
+    const toe=[ankle[0]+FACE*A2.footL, ankle[1]+8];
+    const shd=[hip[0]+backDir[0]*A2.torso, hip[1]+backDir[1]*A2.torso];
+    const headC=[shd[0]+backDir[0]*215, shd[1]+backDir[1]*215];
+    return {hip,knee,ankle,toe,shd,headC,back:backDir};
+  };
+  d.dolls=[];
+  if (!bedM){
+    d.dolls.push(Object.assign({who:'前排'}, joints([d.seat.front.hinge-8, d.seat.front.y+AN.hipAboveSeat], d.seat.front.back, P.y1)));
+    d.dolls.push(Object.assign({who:'二排'}, joints([d.seat.rear.hinge-8,  d.seat.rear.y+AN.hipAboveSeat],  d.seat.rear.back,  P.y1)));
+  } else {
+    const headC=[d.bedTo-40-AN.headR, P.y2+65];
+    const shd=[headC[0]-215, headC[1]], hip=[shd[0]-AN.torso, shd[1]];
+    d.dolls.push(Object.assign({who:'床面'}, joints(hip,[1,0],P.y2)));
+  }
   return d;
 }
 
@@ -260,31 +281,14 @@ function draw(){
   txt(S.rear.hinge+70,  S.rear.y+ (P.fold>0.5?150:120), `二排靠背 ${P.fold>0.5?'放平':P.rBa+'°'}`,'#8fb3cc',10);
 
   /* ---- 假人（关节链；坐在/躺在实际空间里）---- */
-  const doll=(fwd,hip,seatY,backDir,footY,lying)=>{
-    const A2=AN, dir=fwd;                                   // dir=+1 朝车头（-x）
-    const kx = lying? hip[0]-dir*A2.thigh : hip[0]-dir*A2.thigh;
-    const ky = lying? hip[1] : hip[1];
-    const knee=[kx,ky];
-    const drop = knee[1]-(footY+A2.ankle), reach=Math.sqrt(Math.max(0,A2.shin*A2.shin-drop*drop));
-    const ankle = lying? [knee[0]-dir*A2.shin, knee[1]] : [knee[0]-dir*reach, footY+A2.ankle];
-    const toe   = [ankle[0]-dir*A2.footL, ankle[1]+(lying?0:8)];
-    const shd=[hip[0]+backDir[0]*A2.torso, hip[1]+backDir[1]*A2.torso];
-    const headC=[shd[0]+backDir[0]*215, shd[1]+backDir[1]*215];
-    const seg=(a,b,w,c)=>el('line',{x1:SX(a[0]),y1:SY(a[1]),x2:SX(b[0]),y2:SY(b[1]),
-      stroke:c||'#d69a86','stroke-width':Math.max(2,w*k),'stroke-linecap':'round'});
-    seg(hip,knee,A2.legW); seg(knee,ankle,A2.shinW); seg(ankle,toe,A2.footW);
-    seg(hip,shd,A2.torsoW); seg(shd,headC,A2.armW*1.2);
-    el('circle',{cx:SX(headC[0]),cy:SY(headC[1]),r:A2.headR*k,fill:'#d69a86','fill-opacity':.85,
+  /* 假人：直接画 derive() 算好的关节 */
+  for (const j of d.dolls){
+    const seg=(p1,p2,w)=>el('line',{x1:SX(p1[0]),y1:SY(p1[1]),x2:SX(p2[0]),y2:SY(p2[1]),
+      stroke:'#d69a86','stroke-width':Math.max(2,w*k),'stroke-linecap':'round'});
+    seg(j.hip,j.knee,AN.legW); seg(j.knee,j.ankle,AN.shinW); seg(j.ankle,j.toe,AN.footW);
+    seg(j.hip,j.shd,AN.torsoW); seg(j.shd,j.headC,AN.armW*1.2);
+    el('circle',{cx:SX(j.headC[0]),cy:SY(j.headC[1]),r:AN.headR*k,fill:'#d69a86','fill-opacity':.85,
       stroke:'#e8b0a0','stroke-width':1});
-  };
-  if (P.fold<=0.5){
-    const f=S.front, r=S.rear;
-    doll(-1,[f.hinge-8, f.y+A2H()],f.y,f.back,P.y1);
-    doll(-1,[r.hinge-8, r.y+A2H()],r.y,r.back,P.y1);
-  } else {
-    const rearEnd = S.rear.hinge + S.rear.backLen;            // 放平后的尾端
-    const headX = Math.min(rearEnd, d.bedTo) - A2H2()-150;
-    doll(-1,[headX-735, P.y2+65],P.y2,[1,0],P.y2,true);       // 躺着：头朝尾门，脚朝前
   }
 
   /* 可翻旋转件：铰在 x16 的前端，随 pAng 转（全宽件） */
