@@ -88,6 +88,7 @@ const DEF = {
   fBa:{v:10, min:-30,max:180, st:1,  g:'我定', n:'前排靠背角',deg:1},
   rBa:{v:14, min:-30,max:180, st:1,  g:'我定', n:'二排靠背角（坐姿）',deg:1},
   legExt:{v:300,min:0,max:1800,st:10,g:'我定', n:'腿托伸出量（做床时跨过脚部空洞）'},
+  bckT:{v:100,min:20,max:600,st:10,g:'我定', n:'靠背厚'},
   pAng:{v:0,  min:0,  max:270, st:1,  g:'状态', n:'可翻旋转件角（0 平铺 / 90 立起）',deg:1},
   fold:{v:0,  min:0,  max:3,   st:0.02,g:'状态', n:'变形进度（0 坐姿 / 1 大床）'},
 };
@@ -128,7 +129,7 @@ function derive(){
   d.seatF = (P.fold>0.5 ? bed : P.y2a);
   d.seatR = (P.fold>0.5 ? bed : P.y2b);
   d.bedFrom = B.seatF.x0;                        // 床面前缘 = 前座垫前缘
-  d.bedTo   = B.rotable.x1;                      // 床面后缘 = 可翻件尾（= 尾门）
+  d.bedTo   = A.total;                           // 床面后缘 = 车尾（可翻件一直铺到尾门端）
   d.bedLen  = d.bedTo - d.bedFrom;
   d.stand   = d.bedLen >= 1750;                  // 人长 1750
   d.L = A.total;
@@ -301,9 +302,9 @@ function draw(){
     el('polygon',{points:q,fill:fill||'#22303e',stroke:stroke||'#8fb3cc','stroke-width':1.4});
   };
   body(S.front.cush[0],S.front.cush[1],S.front.y,60);
-  slab(S.front.hinge,S.front.y,S.front.back,S.front.backLen,d.cushT||200);       // 前排靠背
+  slab(S.front.hinge,S.front.y,S.front.back,S.front.backLen,P.bckT);            // 前排靠背
   body(S.rear.cush[0],S.rear.cush[1],S.rear.y,60);
-  slab(S.rear.hinge,S.rear.y,S.rear.back,S.rear.backLen,d.cushT||200);          // 二排靠背（床模式放平）
+  slab(S.rear.hinge,S.rear.y,S.rear.back,S.rear.backLen,P.bckT);               // 二排靠背（床模式放平）
   if (P.fold<=0.5) slab(S.rear.cush[0],S.rear.y,[-Math.cos(70*Math.PI/180),-Math.sin(70*Math.PI/180)],P.legExt,40,'#2a3a4a','#8fb3cc',-1);
   /* 二排放平预留区 x15：靠背躺进来（半透明示意） */
   if (P.fold>0.5) rect(S.rear.hinge, S.rear.hinge+S.rear.backLen, P.y2, P.y2+40, '#2f4a5a','#8fb3cc','3 3');
@@ -321,12 +322,20 @@ function draw(){
       stroke:'#e8b0a0','stroke-width':1});
   }
 
-  /* 可翻旋转件：铰在 x16 的前端，随 pAng 转（全宽件） */
-  const rot = d.B.rotable, th = 40, a = P.pAng*Math.PI/180;
-  const tipX = rot.x0 + rot.len*Math.cos(a), tipY = P.y2 + rot.len*Math.sin(a);
-  el('polygon',{points:[[rot.x0,P.y2],[tipX,tipY],[tipX,tipY+th],[rot.x0,P.y2+th]]
-      .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),fill:'#3a3320',stroke:'#e8d174','stroke-width':1.6});
-  txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
+  /* 可翻件：做床时铰在**放平靠背的尾端**、一直铺到车尾（与靠背首尾相接，不压在它下面）；
+     坐姿时仍按 pAng 立在 x16 那块。 */
+  const rot = d.B.rotable, th = 40;
+  if (P.fold > 0.5){
+    const hx = S.rear.hinge + S.rear.backLen, tx = d.L;
+    rect(hx, tx, P.y2, P.y2+th, '#3a3320', '#e8d174');
+    txt((hx+tx)/2, P.y2+64, `可翻件 ${Math.round(tx-hx)}（靠背尾端 ${Math.round(hx)} → 车尾 ${Math.round(tx)}）`, '#e8d174', 11);
+  } else {
+    const a = P.pAng*Math.PI/180;
+    const tipX = rot.x0 + rot.len*Math.cos(a), tipY = P.y2 + rot.len*Math.sin(a);
+    el('polygon',{points:[[rot.x0,P.y2],[tipX,tipY],[tipX,tipY+th],[rot.x0,P.y2+th]]
+        .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),fill:'#3a3320',stroke:'#e8d174','stroke-width':1.6});
+    txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
+  }
 
   /* --- 层C：x30 开口前段（不开顶）+ x31 升顶开口（y3..y4），零坐标从 x=0 起 --- */
   const pre = d.C.preCeil, op = d.C.ceiling;
