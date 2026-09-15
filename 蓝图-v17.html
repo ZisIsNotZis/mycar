@@ -140,9 +140,10 @@ function chainFrom(defs){
   at.total=x; return at;
 }
 /* =========================================================================
-   物理：世界里只有实心体；人是一串带厚度的胶囊。人的姿势由碰撞求解得出，
-   构造上不可能穿模；解不出来就报无解（不画一张穿模的图）。
-   —— 绘制与判据都只读同一份求解结果。
+   物理：世界毫米 + 度。人 = 6 个带半径的粒子 + 5 条距离约束（绳子式布偶，
+   关节角自由）。姿势完全由重力 + PBD（位置投影）演化而来，不做任何解析求解：
+   先投影距离约束，再投影碰撞推离（硬实心体 + 软垫单向支撑）。
+   —— 绘制、物理推离、判据 C3 全部读同一份粒子状态，共用同一个碰撞内核。
    ========================================================================= */
 function inflate(poly, r){                // 凸多边形向外扩 r（逐边外推、角点求交）
   const n=poly.length, out=[];
@@ -177,12 +178,15 @@ const CAPS = [                            // 人 = 带厚度的胶囊（段 + �
   ['躯干', j=>[j.hip,j.shd],   AN.torsoW/2],
   ['头',   j=>[j.headC,j.headC],AN.headR],
 ];
-function hitsAny(j,S,skip){                // 返回第一个穿模的地方（null = 干净）
+function capsuleHits(a,b,r,poly){          // 胶囊（段+半径）× 凸多边形；留 2mm 容差
+  return segPoly(a,b,inflate(poly, Math.max(0,r-2)));
+}
+function hitsAny(j,S,skip){                // 返回第一个穿模的地方（null = 干净）；硬实心体才算
   if (!j || !j.knee) return null;
   for (const [nm,g,r] of CAPS){
     const [a,b]=g(j);
-    for (const s of S){ if (skip && skip.includes(s.nm)) continue;
-      if (segPoly(a,b,inflate(s.poly, Math.max(0,r-2)))) return nm+'×'+s.nm; }
+    for (const s of S){ if (s.soft) continue; if (skip && skip.includes(s.nm)) continue;
+      if (capsuleHits(a,b,r,s.poly)) return nm+'×'+s.nm; }
   }
   return null;
 }
@@ -206,25 +210,20 @@ function bodySolids(d){                   // 所有实心体（全宽件）
       [hx+dir[0]*len+nx,P.y2+dir[1]*len+ny],[hx+nx,P.y2+ny]]});
   };
   const F=d.seat.front, Rp=d.seat.rear;
-  quad('前排靠背', F.hinge, F.dir, F.len, P.bckT, F.face<0?1:-1);
-  quad('二排靠背', Rp.hinge, Rp.dir, Rp.len, P.bckT, Rp.dir[0]>=0?1:-1);
+  /* 坐姿：靠背的碰撞面向上多托一段（肩在靠背顶之上，不托就会向后倒）——只影响碰撞，不改绘图高度 */
+  const bExt = bedM() ? 0 : SEAT.headR;
+  quad('前排靠背', F.hinge, F.dir, F.len+bExt, P.bckT, F.face<0?1:-1);
+  quad('二排靠背', Rp.hinge, Rp.dir, Rp.len+bExt, P.bckT, Rp.dir[0]>=0?1:-1);
   if (d.legRest) bx('腿托', d.legRest.x0, d.legRest.x1, P.y2-SEAT.legT, P.y2);
   const a=P.pAng*Math.PI/180, o=[d.deck.x0,P.y2], rotPt=(p)=>[o[0]+(p[0]-o[0])*Math.cos(a)-(p[1]-o[1])*Math.sin(a),
                                                                o[1]+(p[0]-o[0])*Math.sin(a)+(p[1]-o[1])*Math.cos(a)];
   S.push({nm:'可翻件', poly:[[o[0],o[1]],[o[0]+d.deck.len,o[1]],[o[0]+d.deck.len,o[1]-SEAT.deckT],[o[0],o[1]-SEAT.deckT]].map(rotPt)});
-  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背'];   // 只有软垫/床垫：前备箱、尾仓是实心的
-  for (const s of S) s.soft = SOFT.includes(s.nm);
+  /* 上铺铺板：只有「升顶 + 未做床」才搭在开口上（做床时人要站着，铺板收起） */
+  if (P.popUp>0.5 && !bedM()) bx('上铺板', d.C.opening.x0, d.C.opening.x1, P.y3-40, P.y3);
+  /* 软垫 = 可压的面（只从上方单向支撑，不做侧推）：座垫/腿托/可翻件/放平后的二排靠背 */
+  const SOFT=['前座垫','二排座垫','腿托','可翻件'];
+  for (const s of S) s.soft = SOFT.includes(s.nm) || (s.nm==='二排靠背' && bedM());
   return S;
-}
-function topAt(x,poly){                   // 凸多边形在 x 处的上边界（无交集 → −∞）
-  let best=-Infinity; const n=poly.length;
-  for (let i=0;i<n;i++){
-    const A=poly[i], B=poly[(i+1)%n];
-    if (x<Math.min(A[0],B[0])-1e-9 || x>Math.max(A[0],B[0])+1e-9) continue;
-    const t=Math.abs(B[0]-A[0])<1e-9 ? 0.5 : (x-A[0])/(B[0]-A[0]);
-    best=Math.max(best, A[1]+(B[1]-A[1])*t);
-  }
-  return best;
 }
 function polyOverlap(A,B,tol){          // 凸多边形相交（SAT，tol = 允许的贴合量）
   const sep=(P,Q)=>{
@@ -240,59 +239,193 @@ function polyOverlap(A,B,tol){          // 凸多边形相交（SAT，tol = 允�
   };
   return !sep(A,B) && !sep(B,A);
 }
-function surfaceAt(x,d){                  // 可踩的面 = 该 x 处最高的实心体顶面（软垫除外）
-  let s=P.y1;
-  if (Array.isArray(d.solids)) for (const so of d.solids){
-    if (so.soft) continue;
-    const t=topAt(x, so.poly);
-    if (t>s) s=t;
+/* ---- 碰撞内核：点/胶囊 × 凸多边形。物理推离与 hitsAny 共用同一套几何。 ---- */
+function pointInPoly(pt,poly){            // CCW 凸多边形内部（含边界）
+  for (let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length];
+    if ((b[0]-a[0])*(pt[1]-a[1])-(b[1]-a[1])*(pt[0]-a[0]) < -1e-6) return false;
   }
-  return s;
+  return true;
 }
-/* 坐姿求解：髋由座位接触面定，上半身定了；腿从膝角 0° 起扫，
-   第一个全身不穿模的膝角就是解（脚被挡住 → 膝盖自然抬高）。 */
-function supportsIn(x0,x1,d){             // 该区间里出现的所有可踩面高度（地板 + 各实心体顶面，软垫除外）
-  const hs=new Set([Math.round(P.y1)]);
-  // 注意：软垫（座垫/腿托/可翻件/放平靠背）不作为踩踏面
-  if (Array.isArray(d.solids)) for (const so of d.solids){
-    if (so.soft) continue;
-    const t0=topAt(x0,so.poly), t1=topAt(x1,so.poly), tm=topAt((x0+x1)/2,so.poly);
-    for (const t of [t0,t1,tm]) if (isFinite(t) && t>=P.y1-1) hs.add(Math.round(t));
+function closestOnPoly(pt,poly){          // 多边形边界上离 pt 最近的点
+  let best=null,bd=Infinity;
+  for (let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length];
+    const ex=b[0]-a[0], ey=b[1]-a[1], L2=ex*ex+ey*ey || 1e-9;
+    let t=((pt[0]-a[0])*ex+(pt[1]-a[1])*ey)/L2; t=t<0?0:t>1?1:t;
+    const q=[a[0]+ex*t,a[1]+ey*t], d=(q[0]-pt[0])**2+(q[1]-pt[1])**2;
+    if (d<bd){ bd=d; best=q; }
   }
-  return [...hs].sort((a,b)=>a-b);        // 从低到高：先试地面，地面不行再往箱体顶上放
+  return best;
 }
-function solveSit(who, S, d, skip){
-  const face=S.face, dir=S.dir, side=(face<0?1:-1);
-  const n=[dir[1]*side, -dir[0]*side];
-  const hipx = Math.abs(n[0])<1e-6 ? S.hinge
-             : S.hinge + (-AN.torsoW/2 - AN.hipAboveSeat*n[1])/n[0];
-  const hip=[hipx, P.y2+AN.hipAboveSeat];
-  const shd=[hip[0]+dir[0]*AN.torso, hip[1]+dir[1]*AN.torso];
-  const headC=[shd[0]+dir[0]*215, shd[1]+dir[1]*215];
-  const base={who,hip,shd,headC,face,footY:P.y1,theta:0,ok:true,skip};
-  /* 背必须靠在座背上：髋完全由座位接触面决定，不往前滑（滑走 = 背悬空，不是合理姿势）。
-     自由度只有两个：膝角（把小腿抬起来）+ 脚落在哪个可踩面上。 */
-  const upper=(()=>{ const CAP=CAPS.filter(c=>c[0]==='躯干'||c[0]==='头');
-    for (const [nm,g,r] of CAP){ const [a,bb]=g({...base, knee:hip, ankle:hip, toe:hip});
-      for (const so of d.solids){ if (skip && skip.includes(so.nm)) continue;
-        if (segPoly(a,bb,inflate(so.poly, Math.max(0,r-2)))) return nm+'×'+so.nm; } }
-    return null; })();
-  if (upper) return {...base, ok:false, knee:null, ankle:null, toe:null, theta:null,
-    why:'背/头撞到 '+upper+'（座位贴得这么靠后时无处可坐）'};
-  let lastWhy='腿在这个座位位置下没有不撞实体的姿态';
-  for (let th=0; th<=80; th+=2){          // 膝角：0° = 腿自然伸；越大越把小/腿抬起来
-    const a=th*Math.PI/180;
-    const knee=[hip[0]+face*AN.thigh*Math.cos(a), hip[1]+AN.thigh*Math.sin(a)];
-    for (const h of supportsIn(knee[0]-480, knee[0], d)){
-      const ankleY=h+AN.ankle, dy=knee[1]-ankleY;
-      if (Math.abs(dy)>AN.shin){ lastWhy='小腿够不到 '+Math.round(h)+' 这个面'; continue; }
-      const ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), ankleY];
-      if (Math.abs(surfaceAt(ankle[0],d)-h)>6){ lastWhy='脚落不到 '+Math.round(h)+' 这个面上（那里是别的面）'; continue; }
-      const j={...base, knee, ankle, toe:[ankle[0]+face*AN.footL, ankle[1]+8], footY:h, theta:th, ok:true};
-      if (!hitsAny(j, d.solids, skip)) return j;
+function pushOutPoint(pt,poly){           // pt 在 poly 内 → 推到最近边；否则 null
+  if (!pointInPoly(pt,poly)) return null;
+  const q=closestOnPoly(pt,poly);
+  return [q[0]-pt[0], q[1]-pt[1]];
+}
+function deepestPush(a,b,ip){              // 线段在凸多边形 ip 内的最深穿透（采样）→ {d,t}
+  const N=6; let best=null,bt=0,bm=-1;
+  for (let i=0;i<=N;i++){
+    const t=i/N, px=a[0]+(b[0]-a[0])*t, py=a[1]+(b[1]-a[1])*t;
+    const d=pushOutPoint([px,py],ip);
+    if (d){ const m=Math.hypot(d[0],d[1]); if (m>bm){ bm=m; best=d; bt=t; } }
+  }
+  return best ? {d:best,t:bt} : null;
+}
+
+/* ---- ① 人 = 6 粒子 + 5 距离约束（粒子名 / 半径沿用 AN） ---- */
+const PART=[['踝',AN.footW/2],['膝',AN.shinW/2],['髋',AN.legW/2],
+            ['肩',AN.torsoW/2],['头',AN.headR],['趾',AN.footW/2]];
+const PIDX={}; PART.forEach(([nm],i)=>PIDX[nm]=i);
+const DIST=[['踝','膝',AN.shin],['膝','髋',AN.thigh],['髋','肩',AN.torso],['肩','头',215],['踝','趾',AN.footL]];
+/* 碰撞胶囊（与 CAPS 一一对应，但直接给粒子名；头=退化段） */
+const COLL=[['髋','膝',AN.legW/2],['膝','踝',AN.shinW/2],['踝','趾',AN.footW/2],
+            ['髋','肩',AN.torsoW/2],['头','头',AN.headR]];
+const RADII=[...new Set(COLL.map(c=>c[2]))].sort((a,b)=>a-b);
+const RIDX={}; RADII.forEach((r,i)=>RIDX[r]=i);
+const G=9800, DTD=1/120, DAMP=0.99, FRIC=0.3, VLOW=60, MAXV=3000, ITER=8;
+function makeRag(who, seed){              // seed = 解析出的关节，只当初始猜测
+  const at={踝:seed.ankle,膝:seed.knee,髋:seed.hip,肩:seed.shd,头:seed.headC,趾:seed.toe};
+  const p=PART.map(([nm,r])=>({nm,x:at[nm][0],y:at[nm][1],vx:0,vy:0,r,pin:false,
+    tx:0,ty:0,contact:false,cnx:0,cny:0}));
+  const C=DIST.map(([na,nb,L])=>({a:PIDX[na],b:PIDX[nb],L}));
+  const CO=COLL.map(([na,nb,r])=>({a:PIDX[na],b:PIDX[nb],r,nm:na+'×'+nb}));
+  return {who,p,C,CO,seed};
+}
+function poseOf(rag){                     // 粒子 → 绘制/判据用的关节
+  const at=nm=>[rag.p[PIDX[nm]].x, rag.p[PIDX[nm]].y];
+  return {who:rag.who, face:rag.seed.face,
+    hip:at('髋'),knee:at('膝'),ankle:at('踝'),toe:at('趾'),shd:at('肩'),headC:at('头')};
+}
+/* ---- 每一轮投影：距离约束 + 碰撞推离（硬体推、软垫单向撑） ---- */
+function project(rag,hard,soft){
+  for (const p of rag.p){ p.contact=false; p.cnx=0; p.cny=0; }
+  for (let it=0; it<ITER; it++){
+    for (const c of rag.C){                // 距离约束：沿轴平分给两端；pinned 不动
+      const a=rag.p[c.a], b=rag.p[c.b], wa=a.pin?0:1, wb=b.pin?0:1, ws=wa+wb;
+      if (!ws) continue;
+      const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1e-9, k=(len-c.L)/len;
+      if (wa){ a.x+=dx*k*(wa/ws); a.y+=dy*k*(wa/ws); }
+      if (wb){ b.x-=dx*k*(wb/ws); b.y-=dy*k*(wb/ws); }
+    }
+    for (const co of rag.CO){
+      const A=rag.p[co.a], B=rag.p[co.b];
+      for (const s of hard){
+        const a=[A.x,A.y], b=[B.x,B.y];
+        if (!segPoly(a,b,s.ip[RIDX[co.r]])) continue;
+        const r=deepestPush(a,b,s.ip[RIDX[co.r]]); if (!r) continue;
+        const wa=A.pin?0:1, wb=B.pin?0:1, m=Math.hypot(r.d[0],r.d[1])||1;
+        A.x+=r.d[0]*(1-r.t)*wa; A.y+=r.d[1]*(1-r.t)*wa;
+        B.x+=r.d[0]*r.t*wb;     B.y+=r.d[1]*r.t*wb;
+        if (wa){ A.contact=true; A.cnx=r.d[0]/m; A.cny=r.d[1]/m; }
+        if (wb){ B.contact=true; B.cnx=r.d[0]/m; B.cny=r.d[1]/m; }
+      }
+      for (const s of soft){               // 软垫：只在向上方向支撑，不侧推
+        const a=[A.x,A.y], b=[B.x,B.y];
+        if (!segPoly(a,b,s.ip[RIDX[co.r]])) continue;
+        const r=deepestPush(a,b,s.ip[RIDX[co.r]]); if (!r||r.d[1]<=0) continue;
+        const wa=A.pin?0:1, wb=B.pin?0:1;
+        A.x+=r.d[0]*(1-r.t)*wa; A.y+=r.d[1]*(1-r.t)*wa;
+        B.x+=r.d[0]*r.t*wb;     B.y+=r.d[1]*r.t*wb;
+        if (wa){ A.contact=true; A.cnx=0; A.cny=1; }
+        if (wb){ B.contact=true; B.cnx=0; B.cny=1; }
+      }
     }
   }
-  return {...base, ok:false, knee:null, ankle:null, toe:null, theta:null, why:lastWhy};
+}
+/* ---- ② physStep(dt)：重力 → 积分 → 投影 → 速度/摩擦 ---- */
+function physStep(rags,hard,soft,dt){
+  const h=dt||DTD;
+  for (const rag of rags){
+    for (const p of rag.p){
+      p.px=p.x; p.py=p.y;
+      if (p.pin){ p.x=p.tx; p.y=p.ty; p.vx=0; p.vy=0; continue; }
+      p.vy-=G*h;                            // y 轴向上 → 重力取负
+      p.x+=p.vx*h; p.y+=p.vy*h;
+    }
+    project(rag,hard,soft);
+    for (const p of rag.p){
+      if (p.pin){ p.vx=0; p.vy=0; continue; }
+      let vx=(p.x-p.px)/h, vy=(p.y-p.py)/h;
+      if (p.contact){                       // 法向速度清零（非弹性）+ 切向摩擦
+        const m=Math.hypot(p.cnx,p.cny)||1, nx=p.cnx/m, ny=p.cny/m;
+        const vn=vx*nx+vy*ny; vx-=vn*nx; vy-=vn*ny;
+        if (Math.hypot(vx,vy)<VLOW){        // 静摩擦：位置级撤回本步切向漂移（斜面不往下滑）
+          p.x-=vx*h; p.y-=vy*h; vx=0; vy=0;
+        } else { vx*=FRIC; vy*=FRIC; }
+      }
+      vx*=DAMP; vy*=DAMP;
+      const sp=Math.hypot(vx,vy); if (sp>MAXV){ vx*=MAXV/sp; vy*=MAXV/sp; }
+      p.vx=vx; p.vy=vy;
+    }
+  }
+}
+/* ---- ③ settle(sec)：状态变化后让重力自己找姿势 ---- */
+function settle(sec,rags,hard,soft){
+  const n=Math.max(1,Math.round((sec||2)*120));
+  for (let i=0;i<n;i++) physStep(rags,hard,soft,DTD);
+}
+
+/* ---- 初始猜测：沿用解析关节（hip/knee/ankle/toe/shd/headC），只做种子 ---- */
+function kinJoints(hip,backDir,footY,FACE){
+  const knee=[hip[0]+FACE*AN.thigh, hip[1]];
+  const drop=knee[1]-(footY+AN.ankle);
+  const reach=Math.sqrt(Math.max(0,AN.shin*AN.shin-drop*drop));
+  const ankle=[knee[0]+FACE*reach, footY+AN.ankle];
+  const toe=[ankle[0]+FACE*AN.footL, ankle[1]+8];
+  const shd=[hip[0]+backDir[0]*AN.torso, hip[1]+backDir[1]*AN.torso];
+  const headC=[shd[0]+backDir[0]*215, shd[1]+backDir[1]*215];
+  return {hip,knee,ankle,toe,shd,headC,face:FACE,footY};
+}
+function seedSeat(S,d){
+  const face=S.face, cx=(S.cush[0]+S.cush[1])/2;
+  const hip=[cx-face*70, P.y2+AN.hipAboveSeat+120];
+  return kinJoints(hip, S.dir, d.underY(hip[0]+face*AN.thigh), face);
+}
+function seedLie(d){
+  const a=P.pAng*Math.PI/180, dir=[Math.cos(a),Math.sin(a)], nrm=[-Math.sin(a),Math.cos(a)];
+  const off = a>0.01 ? 120 : 40;            // 斜靠背要往斜面上放深一点，否则从底边滑下去
+  const hip=[d.deck.x0+nrm[0]*AN.torsoW/2+dir[0]*off, P.y2+nrm[1]*AN.torsoW/2+dir[1]*off];
+  return kinJoints(hip, dir, P.y2, -1);
+}
+function seedStand(d){
+  const sx=(d.C.opening.x0+d.C.opening.x1)/2, b=P.y2;
+  return {hip:[sx,b+AN.hip],knee:[sx,b+AN.knee],ankle:[sx,b+AN.ankle],toe:[sx-AN.footL,b+AN.ankle],
+    shd:[sx,b+AN.shd],headC:[sx,b+AN.top-AN.headR],face:-1,footY:b};
+}
+function seedBunk(d){
+  const headC=[d.C.opening.x1-80-AN.headR, P.y3+AN.torsoW/2+80];
+  const shd=[headC[0]-215, headC[1]], hip=[shd[0]-AN.torso, headC[1]];
+  return {hip,knee:[hip[0]-AN.thigh,hip[1]],ankle:[hip[0]-AN.thigh-AN.shin,hip[1]],
+    toe:[hip[0]-AN.thigh-AN.shin-AN.footL,hip[1]],shd,headC,face:-1,footY:P.y3};
+}
+
+/* ---- 场景与布偶：只在参数/机构变化时重建，然后自动演进一段 ---- */
+const SIM={sig:null,rags:[],hard:[],soft:[]};
+function sceneSig(){ return Object.keys(P).sort().map(k=>k+'='+P[k]).join(','); }
+function buildSim(d){
+  const rags=[], bed=bedM();
+  if (!bed || P.rot<=90) rags.push(makeRag('前排', seedSeat(d.seat.front,d)));
+  if (!bed) rags.push(makeRag('二排', seedSeat(d.seat.rear,d)));
+  else if (P.popUp<=0.5) rags.push(makeRag('床面', seedLie(d)));
+  else rags.push(makeRag('站立', seedStand(d)));
+  if (P.popUp>0.5 && !bed) rags.push(makeRag('上铺', seedBunk(d)));
+  SIM.rags=rags;
+  const mk=s=>({nm:s.nm, poly:s.poly, ip:RADII.map(r=>inflate(s.poly,r))});
+  SIM.hard=d.solids.filter(s=>!s.soft).map(mk);
+  SIM.soft=d.solids.filter(s=>s.soft).map(mk);
+  SIM.sig=sceneSig();
+  settle(2.2, SIM.rags, SIM.hard, SIM.soft);   // 落定
+}
+function ensureSim(d){ if (SIM.sig!==sceneSig()) buildSim(d); }
+function dollsFromSim(d){
+  return SIM.rags.map(rag=>{
+    const j=poseOf(rag);
+    j.ok=true; j.theta=null; j.footY=j.ankle[1];
+    if (rag.who==='上铺') j.bunk=true;
+    j.hit=hitsAny(j, d.solids, null);         // 判据与物理同一个碰撞函数
+    return j;
+  });
 }
 
 function derive(){
@@ -346,75 +479,11 @@ function derive(){
     ['二排靠背+头枕', B.seatR.x1, d.backZone.x1],
     ['可翻件',   d.deck.x0, d.deck.x1],
   ] : [];
-  /* 假人：同一套 joints，坐姿/床姿都从座位与"脚下的面"推 */
-  const joints=(hip,backDir,footY,FACE)=>{
-    const A2=AN;
-    const knee=[hip[0]+FACE*A2.thigh, hip[1]];
-    const drop=knee[1]-(footY+A2.ankle);
-    const reach=Math.sqrt(Math.max(0,A2.shin*A2.shin-drop*drop));
-    const ankle=[knee[0]+FACE*reach, footY+A2.ankle];
-    const toe=[ankle[0]+FACE*A2.footL, ankle[1]+8];
-    const shd=[hip[0]+backDir[0]*A2.torso, hip[1]+backDir[1]*A2.torso];
-    const headC=[shd[0]+backDir[0]*215, shd[1]+backDir[1]*215];
-    return {hip,knee,ankle,toe,shd,headC,face:FACE,footY};
-  };
-  const place=(hip,backDir,FOOT,FACE)=>{
-    const j=joints(hip,backDir,FOOT,FACE), y=d.underY(j.ankle[0]);
-    return y!==FOOT ? joints(hip,backDir,y,FACE) : j;
-  };
+  /* 假人：初始猜测来自同一套关节，但姿势完全由布偶物理演化而来 */
   d.solids = bodySolids(d).map(s=>({ ...s, poly: ccw(s.poly) }));   // 一律归一成逆时针，inflate/segPoly 才成立
-  d.dolls=[];
-  const F=d.seat.front, Rp0=d.seat.rear;
-  /* 前排没反转 → 车里永远有个坐着的人（床模式也是），姿势由物理求解。
-     座垫是软垫（人坐在/靠在上面），不算障碍；硬的东西（前备箱/机能体/电池/尾仓/靠背/升顶壳）一个都不放过。 */
-  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背'];   // 只有软垫/床垫：前备箱、尾仓是实心的
-  if (!bedM() || P.rot<=90) d.dolls.push(solveSit('前排', F, d, SOFT));
-  if (!bedM()) d.dolls.push(solveSit('二排', Rp0, d, SOFT));
-  else if (P.popUp<=0.5){
-    /* 躺姿也是解出来的：上半身顺着可翻件平面、臀部不沉入床面，
-       再加“沿平面往前滑 + 膝角扫”，取第一个全身不穿模的姿态 */
-    const a=P.pAng*Math.PI/180, dir=[Math.cos(a), Math.sin(a)], nrm=[-Math.sin(a), Math.cos(a)];
-    const minY=P.y2+AN.torsoW/2;
-    let best=null;
-    for (let s=0; s<=24 && !best; s++){
-      let hip=[d.deck.x0+nrm[0]*AN.torsoW/2 - dir[0]*s*30, P.y2+nrm[1]*AN.torsoW/2 - dir[1]*s*30];
-      if (hip[1]<minY) hip=[hip[0]+(minY-hip[1])*dir[0]/Math.max(1e-6,dir[1]), minY];
-      const shd=[hip[0]+dir[0]*AN.torso, hip[1]+dir[1]*AN.torso];
-      const headC=[shd[0]+dir[0]*215, shd[1]+dir[1]*215];
-      for (const th of [0,4,8,12,18,26,36,50,70]){
-        const ar=th*Math.PI/180;
-        const knee=[hip[0]-AN.thigh*Math.cos(ar), hip[1]+AN.thigh*Math.sin(ar)];
-        let sup=P.y2, ankle=null;
-        for (let it=0;it<3;it++){ const dy=knee[1]-(sup+AN.ankle);
-          if (Math.abs(dy)>AN.shin){ ankle=null; break; }
-          ankle=[knee[0]-Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
-          const s2=surfaceAt(ankle[0],d); if (s2===sup) break; sup=s2; }
-        if (!ankle) continue;
-        const j={who:'床面',face:-1,footY:sup,theta:th,ok:true,skip:SOFT,
-                 hip,shd,headC,knee,ankle,toe:[ankle[0]-AN.footL, ankle[1]+8]};
-        if (!hitsAny(j, d.solids, SOFT)) { best=j; break; }
-      }
-    }
-    if (best) d.dolls.push(best);
-    else d.dolls.push(Object.assign({who:'床面', face:-1, footY:P.y2, theta:null, ok:false,
-      why:'可翻件这个角度下，躺姿无法同时贴住可翻件又不穿模'},
-      joints([d.deck.x0+nrm[0]*AN.torsoW/2, Math.max(minY, P.y2+nrm[1]*AN.torsoW/2)], dir, P.y2, -1)));
-  } else {
-    /* 升顶 + 床 = 站在床面上（升顶站立） */
-    const sx=(d.C.opening.x0+d.C.opening.x1)/2, b=P.y2;
-    d.dolls.push({who:'站立', face:-1, footY:b, theta:null, ok:true, skip:SOFT,
-      ankle:[sx, b+AN.ankle], knee:[sx, b+AN.knee], hip:[sx, b+AN.hip], shd:[sx, b+AN.shd],
-      headC:[sx, b+AN.top-AN.headR], toe:[sx-AN.footL, b+AN.ankle]});
-  }
-  /* 升顶但没做床 = 人在上铺睡（铺面 = 顶棚 y3，铺板搭在升顶开口上） */
-  if (P.popUp>0.5 && !bedM()){
-    const headC=[d.C.opening.x1-80-AN.headR, P.y3+AN.torsoW/2];
-    const shd=[headC[0]-215, headC[1]], hip=[shd[0]-AN.torso, headC[1]];
-    d.dolls.push(Object.assign({who:'上铺', bunk:true, face:-1, footY:P.y3, theta:0, ok:true},
-      joints(hip,[1,0],P.y3,-1)));
-  }
-  /* 全身过一遍碰撞（与求解用同一函数）：任何一处交叠就标出来 */
-  for (const j of d.dolls) j.hit = j.knee ? hitsAny(j, d.solids, j.skip) : null;
+  /* 解析求解已删除；现在只建布偶 + 物理落定。过渡动画期间不重建（也不画假人）。 */
+  if (!ANIM.active) ensureSim(d);
+  d.dolls = SIM.rags.length ? dollsFromSim(d) : [];
   d.standClear = P.y4 - P.y2;
   return d;
 }
@@ -442,12 +511,9 @@ function checks(){
     `链内无负段；车长 L = ${R(d.L)} = x00 ${P.x00}+x01 ${P.x01}+x02 ${P.x02}+x03 ${P.x03}+x04 ${P.x04}`);
   H('C2', P.y0<P.y1 && P.y1<=Math.min(P.y1a,P.y1b) && Math.max(P.y1a,P.y1b)<P.y2 && P.y1c>P.y2 && P.y2<P.y3 && P.y4>P.y3,
     `高度栈：y0 ${R(P.y0)} < y1 ${R(P.y1)} ≤ 机能体顶 ${R(Math.max(P.y1a,P.y1b))} < y2 座/床面 ${R(P.y2)} < 前备箱顶 ${R(P.y1c)} < y3 ${R(P.y3)} < y4 ${R(P.y4)}`);
-  /* 身体是实心体：全身胶囊 × 所有实心体，一处都不许交叠（与求解同一函数） */
+  /* C3：最终姿态不穿硬实心体（与物理推离同一个碰撞函数 hitsAny）；人 vs 人不查 */
   for (const j of d.dolls){
-    if (!j.ok) H('C3·'+j.who, false, `${j.who} 姿态无解：${j.why}`);
-    else H('C3·'+j.who, !j.hit,
-      `${j.who} 全身不穿模${j.hit?' ← '+j.hit
-        :(j.theta?`（脚被挡 → 膝盖抬高 ${j.theta}° 让开，脚踩 ${R(j.footY)}）`:`（脚踩 ${R(j.footY)}）`)}`);
+    H('C3·'+j.who, !j.hit, `${j.who}：${j.hit ? '穿模 '+j.hit : '最终姿态不穿硬实心体'}`);
   }
   if (bedM()){
     const gaps=[]; for (let i=1;i<d.bedSeg.length;i++) gaps.push(d.bedSeg[i][1]-d.bedSeg[i-1][2]);
@@ -521,12 +587,15 @@ function checks(){
    画图：只画全宽件、只画真实存在的东西
    ========================================================================= */
 const VW=1500, VH=880, PADL=70, PADR=40, PADT=110, PADB=70;
+const VIEW={k:1, SX:x=>x, SY:y=>y};        // 屏幕↔世界反算用（鼠标拖动）
+const DRAG={p:null, raf:0};                 // 当前被抓的粒子 + rAF 句柄
 function draw(){
   const d=derive();
   const topY=(P.popUp>0.5?P.y4:P.y3)+300;
   const xMax=d.L+120;
   const k=Math.min((VW-PADL-PADR)/xMax, (VH-PADT-PADB)/topY);
   const SX=x=>PADL+x*k, SY=y=>VH-PADB-y*k;
+  VIEW.k=k; VIEW.SX=SX; VIEW.SY=SY;
   const NS='http://www.w3.org/2000/svg';
   const svg=document.getElementById('sv'); svg.replaceChildren();
   const texts=[];
@@ -638,6 +707,12 @@ function draw(){
     el('circle',{cx:SX(j.headC[0]),cy:SY(j.headC[1]),r:AN.headR*k,fill:'#d69a86','fill-opacity':.85,
       stroke:'#e8b0a0','stroke-width':1});
   }
+  /* 鼠标抓取的粒子：画个圈做反馈 */
+  if (DRAG.p && !ANIM.active){
+    el('circle',{cx:SX(DRAG.p.x),cy:SY(DRAG.p.y),r:Math.max(7,DRAG.p.r*k*0.7),fill:'none',
+      stroke:'#e8d174','stroke-width':2});
+    el('circle',{cx:SX(DRAG.p.x),cy:SY(DRAG.p.y),r:2.5,fill:'#e8d174'});
+  }
   /* 图上方文字 */
   line(0,topY-170,d.L,topY-170,'#7d95a8');
   txt(d.L/2, topY-140, `车长 L ${R(d.L)} = x00 ${P.x00} + x01 ${P.x01} + x02 ${P.x02} + x03 ${P.x03} + x04 ${P.x04}`, '#8fb3cc', 12);
@@ -684,6 +759,17 @@ function buildPresets(){
     });
     bar.appendChild(bn);
   }
+  /* 「落下 / 稳定」：把所有粒子抬到 y+800 再演进 2.5 秒（从天上丢下来） */
+  const bd=document.createElement('button'); bd.id='dropBtn'; bd.textContent='落下 / 稳定';
+  bd.title='把所有粒子抬到 y+800，再演进 2.5 秒让重力自己找姿势';
+  bd.addEventListener('click',()=>{ dropAll(); for (const b of bar.querySelectorAll('button')) b.classList.remove('on'); bd.classList.add('on'); });
+  bar.appendChild(bd);
+}
+function dropAll(){
+  if (ANIM.active || !SIM.rags.length) return;
+  for (const rag of SIM.rags) for (const p of rag.p){ p.y+=800; p.vx=0; p.vy=0; p.pin=false; }
+  settle(2.5, SIM.rags, SIM.hard, SIM.soft);
+  render();
 }
 function togAtA(s){ return Math.abs(P[s.k]-s.a)<=Math.abs(P[s.k]-s.b); }
 function stateRow(s){
@@ -765,8 +851,56 @@ function report(){
 }
 function render(){ draw(); report(); table(); }
 
-buildUI(); buildPresets(); syncUI(); render();
-window.MY={P,DEF,STATES,PRESETS,derive,checks,draw,render,animateTo};
+/* =========================================================================
+   鼠标拖动：拾取最近的粒子 → pin 住并跟随 → 松开释放；拖动期间持续 physStep
+   ========================================================================= */
+function viewFromEvent(e){
+  const svg=document.getElementById('sv'), r=svg.getBoundingClientRect();
+  const gx=(e.clientX-r.left)/r.width*VW, gy=(e.clientY-r.top)/r.height*VH;
+  return {gx,gy, wx:(gx-PADL)/VIEW.k, wy:(VH-PADB-gy)/VIEW.k};
+}
+function pickParticle(gx,gy){                // 屏幕距离阈值 ~25px
+  let best=null,bd=1e9;
+  for (const rag of SIM.rags) for (const p of rag.p){
+    const dx=VIEW.SX(p.x)-gx, dy=VIEW.SY(p.y)-gy, dd=dx*dx+dy*dy;
+    if (dd<bd){ bd=dd; best=p; }
+  }
+  return (best && bd<=25*25) ? best : null;
+}
+function dragLoop(){
+  if (!DRAG.p){ DRAG.raf=0; return; }
+  for (let i=0;i<4;i++) physStep(SIM.rags,SIM.hard,SIM.soft,DTD);   // 一帧 4 子步
+  render();
+  DRAG.raf=requestAnimationFrame(dragLoop);
+}
+function bindDrag(){
+  const svg=document.getElementById('sv');
+  svg.style.touchAction='none';
+  svg.addEventListener('pointerdown',e=>{
+    if (ANIM.active) return;
+    const {gx,gy,wx,wy}=viewFromEvent(e);
+    const p=pickParticle(gx,gy); if (!p) return;
+    p.pin=true; p.tx=wx; p.ty=wy; DRAG.p=p;
+    try { svg.setPointerCapture(e.pointerId); } catch(_){}
+    if (!DRAG.raf) DRAG.raf=requestAnimationFrame(dragLoop);
+    e.preventDefault();
+  });
+  svg.addEventListener('pointermove',e=>{
+    if (!DRAG.p) return;
+    const {wx,wy}=viewFromEvent(e); DRAG.p.tx=wx; DRAG.p.ty=wy; e.preventDefault();
+  });
+  const up=()=>{
+    if (!DRAG.p) return;
+    DRAG.p.pin=false; DRAG.p=null;
+    if (DRAG.raf){ cancelAnimationFrame(DRAG.raf); DRAG.raf=0; }
+    settle(0.6,SIM.rags,SIM.hard,SIM.soft); render();
+  };
+  svg.addEventListener('pointerup',up);
+  svg.addEventListener('pointercancel',up);
+}
+
+buildUI(); buildPresets(); bindDrag(); syncUI(); render();
+window.MY={P,DEF,STATES,PRESETS,derive,checks,draw,render,animateTo,settle,dropAll,SIM,VIEW};
 </script>
 </body>
 </html>
