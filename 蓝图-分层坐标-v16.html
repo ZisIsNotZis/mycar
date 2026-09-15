@@ -75,7 +75,8 @@ const DEF = {
   x15:{v:380, min:250,max:800, st:10,g:'X 层B 座舱', n:'x15 后排靠背放平预留'},
   x16:{v:200, min:0,  max:1200,st:10,g:'X 层B 座舱', n:'x16 可翻旋转件长'},
   /* --- X 层C（y3..y4）--- */
-  x30:{v:1900,min:800, max:3600,st:10,g:'X 层C 升顶', n:'x30 升顶开口长'},
+  x30:{v:1090,min:0,  max:3600,st:10,g:'X 层C 升顶', n:'x30 开口前段长（不开顶）'},
+  x31:{v:1900,min:800, max:3600,st:10,g:'X 层C 升顶', n:'x31 升顶开口长'},
   /* --- 我定：宽度 / 角度 / 状态 --- */
   W:  {v:1800,min:1500,max:2050,st:10,g:'我定', n:'内宽（全宽件靠它定尺寸）'},
   fBa:{v:10, min:-10,max:60, st:1,  g:'我定', n:'前排靠背角',deg:1},
@@ -98,7 +99,7 @@ const AN = { ankle:80, knee:480, hip:900, shd:1420, top:1750,
 const LAYERS = {
   A:[['frunk','x00'],['machF','x01'],['batt','x02'],['machR','x03'],['trunk','x04']],
   B:[['upper','x10'],['footF','x11'],['seatF','x12'],['footR','x13'],['seatR','x14'],['backR','x15'],['rotable','x16']],
-  C:[['ceiling','x30']],
+  C:[['preCeil','x30'],['ceiling','x31']],
 };
 function chain(defs){
   const at = {}; let x = 0;
@@ -216,7 +217,7 @@ function checks(p=P, d=derive()){
 const W = 1420, H = 780, PADL = 70, PADR = 40, PADT = 60, PADB = 90;
 function draw(){
   const d = derive();
-  const xMax = Math.max(d.A.total, d.B.rotable.x1, P.x30) + 200;
+  const xMax = Math.max(d.A.total, d.B.rotable.x1, d.C.ceiling.x1) + 200;
   const yMax = Math.max(P.y4, P.y3) + 200;
   const k = Math.min((W-PADL-PADR)/xMax, (H-PADT-PADB)/yMax);
   const SX = x => PADL + x*k, SY = y => H-PADB - y*k;
@@ -320,10 +321,12 @@ function draw(){
       .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),fill:'#3a3320',stroke:'#e8d174','stroke-width':1.6});
   txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
 
-  /* --- 层C：升顶开口（y3..y4），跨 x30 长 --- */
-  const cx0 = d.C.ceiling.x0;                   // 层C 零坐标：也从 x=0 起
-  rect(cx0, cx0+P.x30, P.y3, P.y4, '#12324a', '#4aa3ff','6 4');
-  txt(cx0+P.x30/2, P.y4-18, `升顶开口 ${P.x30} · 顶棚 ${P.y4}`, '#4aa3ff', 11);
+  /* --- 层C：x30 开口前段（不开顶）+ x31 升顶开口（y3..y4），零坐标从 x=0 起 --- */
+  const pre = d.C.preCeil, op = d.C.ceiling;
+  rect(pre.x0, pre.x1, P.y3, P.y4, 'none', '#33465a','5 4');
+  txt((pre.x0+pre.x1)/2, P.y4-18, `x30 开口前段 ${Math.round(pre.len)}`, '#6b7a8c', 10);
+  rect(op.x0, op.x1, P.y3, P.y4, '#12324a', '#4aa3ff','6 4');
+  txt((op.x0+op.x1)/2, P.y4-18, `x31 升顶开口 ${Math.round(op.len)} · 顶棚 ${P.y4}`, '#4aa3ff', 11);
 
   /* --- 全长尺寸 --- */
   line(0,-40,d.A.total,-40,'#7d95a8');
