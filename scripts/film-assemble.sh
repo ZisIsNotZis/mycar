@@ -8,7 +8,7 @@ SRT=${3:?字幕 srt}
 OUT=${4:?输出 mp4}
 FPS=${5:-24}
 W=${6:-960}
-H=$(( W * 9 / 16 ))
+H=$((W * 9 / 16))
 
 # 1) 图片序列 → 无声视频（字幕烧进画面；字号随宽度自适应）
 ffmpeg -y -loglevel warning -framerate "$FPS" -i "$DIR/f%04d.png" \

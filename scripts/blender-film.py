@@ -71,7 +71,7 @@ if ENGINE == 'cycles':
 else:
     sc.render.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in \
         [i.identifier for i in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items] else 'BLENDER_EEVEE'
-    sc.eevee.taa_render_samples = envi('FILM_SAMPLES', 16)   # 透壳+透明材质下采样不用高，16 够
+    sc.eevee.taa_render_samples = envi('FILM_SAMPLES', 48)   # 透壳+透明材质下采样不用高，16 够
     if hasattr(sc.eevee, 'use_raytracing'):                  # 光线追踪在透明材质下很贵：默认关，FILM_RT=1 开
         sc.eevee.use_raytracing = bool(envi('FILM_RT', 0))
     sc.render.use_motion_blur = True
@@ -164,6 +164,11 @@ def prism(name, cls):
     return obj_from_mesh(name, bpy.data.meshes.new(name), material(cls))
 
 
+def quad(name, cls):
+    """刚性件：局部 X=车宽方向, Y=长度方向, Z=厚度。每帧只改 location/rotation/(长度)scale —— 真旋转，不是 bbox 伸缩。"""
+    return cube(name, cls)
+
+
 def set_prism(ob, z0, z1, pts):                 # 车身/玻璃：车 (x,y) 多边形 → Blender (Y,Z) 截面沿 X 挤出
     me = ob.data
     me.clear_geometry()
@@ -183,6 +188,17 @@ def set_box(ob, v):
     ob.scale = ((z1 - z0) / 1000.0, (x1 - x0) / 1000.0, (y1 - y0) / 1000.0)
 
 
+def set_quad(ob, v):
+    px, py, dx, dy, ln, th, z0, z1 = v
+    th = max(6.0, th)
+    ln = max(1.0, ln)
+    n = math.hypot(dx, dy) or 1.0
+    ob.location = blender_pt(px + dx / 2.0, py + dy / 2.0, (z0 + z1) / 2.0)
+    ob.rotation_mode = 'XYZ'
+    ob.rotation_euler = (math.atan2(dy, -dx), 0.0, 0.0)      # 绕车宽轴旋转（= Blender X）
+    ob.scale = ((z1 - z0) / 1000.0, ln / 1000.0, th / 1000.0)
+
+
 def set_cyl(ob, v):
     cx, cy, r, z0, z1 = v
     ob.location = ((z0 + z1) / 2000.0, -cx / 1000.0, cy / 1000.0)
@@ -195,9 +211,13 @@ objs = {}
 for key, meta in D['partDefs'].items():
     name = key.replace('/', '_')
     cls, k = meta['cls'], meta['k']
-    if cls == 'arch3':
-        continue                                   # 轮位机能包络：分析用，不进片子
-    ob = {'box': cube, 'cyl': cylinder, 'prism': prism}[k](name, cls)
+    if cls in ('arch3', 'man3'):
+        continue                                   # 轮位包络=分析用；man3 占位盒=真小人在演
+    ob = {'box': cube, 'cyl': cylinder, 'prism': prism, 'quad': quad}[k](name, cls)
+    if cls in SHELL:                  # 幽灵壳：不投影（否则半透明阴影会渲染成一片噪点）
+        ob.visible_shadow = False
+        ob.visible_diffuse = False
+        ob.visible_glossy = False
     objs[key] = (ob, k)
 
 # ---------------------------------------------------------------- 建人（每人一套：两腿两臂 + 躯干 + 头）
@@ -303,6 +323,8 @@ for key, v in prime.items():
             set_box(ob, v)
         elif kd == 'cyl':
             set_cyl(ob, v)
+        elif kd == 'quad':
+            set_quad(ob, v)
         else:
             set_prism(ob, v[0], v[1], v[2:])
     elif key.startswith('@'):
@@ -326,7 +348,10 @@ for fr in frames:
         elif kd == 'cyl':
             set_cyl(ob, v)
             keys = ['location', 'scale', 'rotation_euler']
-        else:                                   # 车身/玻璃：只变多边形（静态形状，关键帧在建对象时给一次）
+        elif kd == 'quad':
+            set_quad(ob, v)                     # 刚性件：绕铰点真旋转（不是包围盒伸缩）
+            keys = ['location', 'rotation_euler', 'scale']
+        else:                                   # 车身/玻璃：只变多边形（静态形状）
             set_prism(ob, v[0], v[1], v[2:])
             keys = []
         for attr in keys:
@@ -383,11 +408,11 @@ def area(name, loc, energy, size, rot=None, color=(1, 1, 1)):
     return o
 
 
-key = area('Key', (1500, 4200, 2500), 7000, 1.6)
+key = area('Key', (1500, 4200, 2500), 7000, 0.9)
 k = key.constraints.new('TRACK_TO'); k.target = cam  # 灯跟着相机（软箱感）
-fill = area('Fill', (-2000, 1500, -3500), 2600, 2.4, color=(0.85, 0.9, 1.0))
-rim = area('Rim', (5200, 2600, -2200), 4200, 1.4, color=(1.0, 0.95, 0.88))
-sun = bpy.data.lights.new('Sun', 'SUN'); sun.energy = 0.8; sun.angle = math.radians(12)
+fill = area('Fill', (-2000, 1500, -3500), 2600, 1.2, color=(0.85, 0.9, 1.0))
+rim = area('Rim', (5200, 2600, -2200), 4200, 0.9, color=(1.0, 0.95, 0.88))
+sun = bpy.data.lights.new('Sun', 'SUN'); sun.energy = 0.9; sun.angle = math.radians(4)
 so = bpy.data.objects.new('Sun', sun); bpy.context.collection.objects.link(so)
 so.rotation_euler = (math.radians(52), 0, math.radians(38))
 

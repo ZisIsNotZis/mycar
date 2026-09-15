@@ -1113,24 +1113,43 @@ function build3D(p,m,B){
   /* 地板 / 电池 / 尾仓 */
   box(0,p.L,d.floor,d.floor+26,-hw+60,hw-60,'floor3');
   if (p.b1>p.b0) box(p.b0,p.b1,p.gf,p.gf+p.bt,-p.bw/2,p.bw/2,'batt3');
-  /* 座椅：前排左右各一（宽 500，中间留 p.iw 给扶手箱）；二排通座（宽 1200） */
+  /* 座椅：前排左右各一（宽 500，中间留 p.iw 给扶手箱）；二排通座（宽 1200）
+     坐垫/靠背/头枕/腿托一律用 **quad**（真角度 + 铰点），不用包围盒 ——
+     包围盒会让它在动画里“自己伸缩”，看起来像个矩形在变形（用户第 2 轮：too non serious）。 */
+  const quadOut=(sh,z0,z1,cls)=>{
+    const p0=sh[0], p1=sh[1];
+    const dx=p1[0]-p0[0], dy=p1[1]-p0[1], L=Math.hypot(dx,dy)||1;
+    const nx=-dy/L, ny=dx/L, th=Math.abs((sh[3][0]-p0[0])*nx+(sh[3][1]-p0[1])*ny)||60;
+    o.push({k:'quad', pivot:[Math.round(p0[0]),Math.round(p0[1])], dir:[Math.round(dx*10)/10,Math.round(dy*10)/10],
+            len:Math.round(L), th:Math.round(th), z0, z1, cls});
+  };
   const szF=p.iw/2+10, szF1=szF+500;
   for (const [sz0,sz1,s] of [[szF,szF1,d.front],[-szF1,-szF,d.front],[ -600,600,d.rear]]){
-    const c=bboxQ(s.cush.sh), b=bboxQ(s.back.sh);
+    const c=bboxQ(s.cush.sh), cls=(s.F&&(p.rot>90))?'seatO3':'seat3';
     box(Math.min(s.cush.p0[0],s.cush.p1[0])+40,Math.max(s.cush.p0[0],s.cush.p1[0])-40,d.floor,c[2],sz0,sz1,'base3');   // 座椅底座
-    box(c[0],c[1],c[2],c[3],sz0,sz1,(s.F&&(p.rot>90))?'seatO3':'seat3');
-    box(b[0],b[1],b[2],b[3],sz0,sz1,(s.F&&(p.rot>90))?'seatO3':'seat3');
-    if (s.leg){ const l=bboxQ(s.leg.sh); box(l[0],l[1],l[2],l[3],sz0,sz1,'seat3'); }
+    quadOut(s.cush.sh,sz0,sz1,cls);
+    quadOut(s.back.sh,sz0,sz1,cls);
+    quadOut(s.head.sh,sz0,sz1,cls);
+    if (s.leg) quadOut(s.leg.sh,sz0,sz1,'seat3');
+  }
+  /* 可翻隔板：铰在 deckX1，随 pAng 真旋转（不再只是个矩形） */
+  {
+    const pa=p.pAng*D2R, fTh=40;
+    o.push({k:'quad', pivot:[Math.round(d.deckX1),Math.round(d.bedTop)],
+      dir:[Math.round(d.flapActual*Math.cos(pa)*10)/10, Math.round(d.flapActual*Math.sin(pa)*10)/10],
+      len:Math.round(Math.max(1,d.flapActual)), th:fTh, z0:-560, z1:560, cls:'part3'});
   }
   /* 床面（放平后） */
   if (d.bedMode) box(d.bedFrontX,p.L-90,d.bedTop,d.bedTop+60,-600,600,'bed3');
-  /* 中岛：箱体 + 套筒段 + 层1/层2 两块板（用户第 5 条） */
+  /* 中岛：箱体 + 套筒段（静态盒），层1/层2 用 quad（真铰点 + 真角度） */
   const isl3=d.isl;
   box(isl3.ix0,isl3.ix1,d.floor+30,isl3.seatPlane,-isl3.iw/2,isl3.iw/2,'isl3');
   if (isl3.riser>20) box(isl3.ix0,isl3.ix1,isl3.seatPlane,isl3.tabY,-isl3.iw/2,isl3.iw/2,'isl3');
-  const panel3=(from,to,th)=>box(Math.min(from[0],to[0]),Math.max(from[0],to[0]),Math.min(from[1],to[1])-th,Math.max(from[1],to[1]),-isl3.iw/2,isl3.iw/2,'tbl3');
-  panel3([isl3.ix0,isl3.seatPlane],isl3.l2tip,40);
-  panel3([isl3.ix0,isl3.h1y],isl3.l1tip,40);
+  const panelQ=(from,to,cls)=>o.push({k:'quad', pivot:[Math.round(from[0]),Math.round(from[1])],
+      dir:[Math.round((to[0]-from[0])*10)/10, Math.round((to[1]-from[1])*10)/10],
+      len:Math.round(Math.hypot(to[0]-from[0],to[1]-from[1])), th:40, z0:-isl3.iw/2, z1:isl3.iw/2, cls});
+  panelQ([isl3.ix0,isl3.seatPlane],isl3.l2tip,'tbl3');
+  panelQ([isl3.ix0,isl3.h1y],isl3.l1tip,'tbl3');
   /* 跨行桌板 */
   if (d.table) box(d.table.x0,d.table.x1,d.table.top-60,d.table.top,-560,560,'tbl3');
   /* 吊柜（左右各一，横向占用是关键） */
@@ -1257,10 +1276,11 @@ function draw3(){
 const GLB_STYLE={body3:'#9fb4c8',glass3:'#5f8fc0',tyre3:'#2b2f36',rim3:'#7b8894',arch3:'#c2565e',
   floor3:'#5d6f7d',batt3:'#2f7d8f',wet3:'#2b5b6b',seat3:'#6a7d90',seatO3:'#9a7ab0',base3:'#4a5c70',
   bed3:'#4f9a68',isl3:'#7a6a90',tbl3:'#8d9ba8',lk3:'#c0a85c',pop3:'#4f8fd0',tent3:'#6f9fc8',
-  bunk3:'#4f8fd0',scr3:'#d0c080',pj3:'#8a7aa0',man3:'#d69a86',none3:'#000000'};
+  bunk3:'#4f8fd0',scr3:'#d0c080',pj3:'#8a7aa0',man3:'#d69a86',part3:'#c8b45e',none3:'#000000'};
 const S3={body3:{stroke:'#d0e0ee'},glass3:{stroke:'#9fc0dd'},tyre3:{stroke:'#7b8b99'},
   rim3:{stroke:'#a8b8c4'},arch3:{stroke:'#e57373','fill-opacity':.18},
   floor3:{stroke:'#9bb0c0'},batt3:{stroke:'#56c8d8'},wet3:{stroke:'#56c8d8'},seat3:{stroke:'#a8c0d4'},
+  part3:{stroke:'#e8d174'},
   seatO3:{stroke:'#c8a8e0'},base3:{stroke:'#6b8098'},bed3:{stroke:'#7fe0a0'},isl3:{stroke:'#b48ead'},
   tbl3:{stroke:'#b0c0cc'},lk3:{stroke:'#e8d174'},pop3:{stroke:'#6fb4e8'},tent3:{stroke:'#8fc4e8','fill-opacity':.35},
   bunk3:{stroke:'#6fb4e8'},scr3:{stroke:'#e8d174'},pj3:{stroke:'#b48ead'},man3:{stroke:'#e8b0a0','fill-opacity':.6},
@@ -1274,7 +1294,7 @@ const GLB_PAL={
   body3:'#8fa3b8', glass3:'#2e5474', tyre3:'#1b1b1e', rim3:'#8a97a3', arch3:'#b5565e',
   floor3:'#6b7d8c', batt3:'#3f8fa3', wet3:'#2f6274', seat3:'#5a6b7d', seatO3:'#8a6ea0',
   bed3:'#57a06a', isl3:'#7a6690', tbl3:'#9aa8b4', lk3:'#c8ad5e', pop3:'#4a8fd0',
-  tent3:'#3f6f9f', bunk3:'#4a8fd0', scr3:'#d8c888', pj3:'#6a5a80', man3:'#d69a86',
+  tent3:'#3f6f9f', bunk3:'#4a8fd0', scr3:'#d8c888', pj3:'#6a5a80', man3:'#d69a86', part3:'#c8b45e',
 };
 function hex2lin(h){ const n=parseInt((h||'#556677').replace('#',''),16);
   const f=c=>{ c/=255; return c<=0.04045? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
@@ -1615,15 +1635,15 @@ const FILM={
     {f:1290,P:{pr:740}},
     {f:1390,M:{pop:'closed'}, P:{pr:0}},                                  // 收尾回落
   ],
-  cam:[                                  // 机位：始终把车放进画面；看内饰靠"车壳变透明"，相机不塞进盒子
+  cam:[                                  // 机位：外景实心壳；进车拍把壳放到几乎全透（0.06）留一层"幽灵轮廓"
     {f:0,   pos:[-1600,1700,7600], tgt:[1675,900,0], shell:1.00},
     {f:240, pos:[1300,1950,6900],  tgt:[1675,900,0], shell:1.00},
-    {f:430, pos:[6500,1650,6000],  tgt:[1675,900,0], shell:0.35},
-    {f:528, pos:[6600,1450,4000],  tgt:[1700,850,0], shell:0.28},
-    {f:760, pos:[6200,1700,3900],  tgt:[2000,900,0], shell:0.22},
-    {f:960, pos:[5100,1900,3900],  tgt:[2100,900,0], shell:0.20},
-    {f:1090,pos:[4600,2900,4300],  tgt:[2000,1200,0], shell:0.26},
-    {f:1248,pos:[5000,5200,4400],  tgt:[1950,1500,0], shell:0.34},
+    {f:430, pos:[7200,1700,6400],  tgt:[1675,900,0], shell:0.03},
+    {f:528, pos:[7300,1450,4200],  tgt:[1700,850,0], shell:0.02},
+    {f:760, pos:[7000,1800,4400],  tgt:[2000,900,0], shell:0.02},
+    {f:960, pos:[6100,2000,4300],  tgt:[2100,900,0], shell:0.02},
+    {f:1090,pos:[5400,3200,5000],  tgt:[2000,1200,0], shell:0.02},
+    {f:1248,pos:[6000,6200,5600],  tgt:[1950,1500,0], shell:0.04},
     {f:1380,pos:[1400,2200,7900],  tgt:[1675,950,0], shell:1.00},
     {f:1440,pos:[-1600,1700,7600], tgt:[1675,900,0], shell:1.00},
   ],
@@ -1676,6 +1696,7 @@ function bakeFilm(){
       if (b.k==='box') v=[num(b.x0),num(b.x1),num(b.y0),num(b.y1),num(b.z0),num(b.z1)];
       else if (b.k==='cyl') v=[num(b.cx),num(b.cy),num(b.r),num(b.z0),num(b.z1)];
       else if (b.k==='prism') v=[num(b.z0),num(b.z1)].concat(b.pts.map(q=>[num(q[0]),num(q[1])]));
+      else if (b.k==='quad') v=[num(b.pivot[0]),num(b.pivot[1]),num(b.dir[0]),num(b.dir[1]),num(b.len),num(b.th),num(b.z0),num(b.z1)];
       if (!partDefs[key]) partDefs[key]={cls:b.cls,k:b.k};
       const pv=JSON.stringify(prev[key]||null), nv=JSON.stringify(v);
       if (pv!==nv){ parts[key]=v; prev[key]=v; }
