@@ -81,15 +81,16 @@ const DEF = {
   /* 层A：全宽底盘件（零坐标链，车长派生） */
   x00:{v:420, min:200,max:1200,st:10,g:'层A 底盘', n:'x00 前备箱 低段长（在车头，内有溃缩梁）'},
   x01:{v:430, min:200,max:1200,st:10,g:'层A 底盘', n:'x01 前机能体 + 前备箱高段（高段在机能体之上）'},
-  x02:{v:1410,min:400,max:2600,st:10,g:'层A 底盘', n:'x02 电池'},
-  x03:{v:600, min:200,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体 + 尾仓高段（高段在机能体之上）'},
-  x04:{v:950, min:200,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓 低段长（从地面到床面）'},
+  x02:{v:1790,min:400,max:2600,st:10,g:'层A 底盘', n:'x02 电池'},
+  x03:{v:600, min:200,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体（尾仓高段在它之上）'},
+  x04:{v:900, min:200,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓 低段长（从地面到床面）'},
   /* 层B：座舱空间（首段"前备箱上段"= 前机能体长，派生） */
   x10:{v:620, min:0, max:2000,st:10,g:'层B 座舱', n:'x10 前部上段 = 前备箱高段（独立值，可长于/短于 x00+x01）'},
-  x11:{v:370, min:200,max:1000,st:10,g:'层B 座舱', n:'x11 前脚空间'},
+  x11:{v:680, min:200,max:1200,st:10,g:'层B 座舱', n:'x11 前脚空间'},
   x12:{v:440, min:250,max:900, st:10,g:'层B 座舱', n:'x12 前座空间（座垫长）'},
-  x13:{v:320, min:200,max:1000,st:10,g:'层B 座舱', n:'x13 后脚空间'},
+  x13:{v:500, min:200,max:1200,st:10,g:'层B 座舱', n:'x13 后脚空间'},
   x14:{v:380, min:250,max:1000,st:10,g:'层B 座舱', n:'x14 后座空间（座垫长）'},
+  x15:{v:500, min:0,  max:1600,st:10,g:'层B 座舱', n:'x15 尾仓上段长（后机能体之上，独立值，不是 x03+x04）'},
   /* 层C：升顶（开口长派生 = L − 前留白 − 后留白） */
   x30:{v:1050,min:0,max:2000,st:10,g:'层C 升顶', n:'x30 开口前留白（至少要在风挡之后）'},
   /* 我定 */
@@ -188,12 +189,15 @@ function hitsAny(j,S,skip){                // 返回第一个穿模的地方（n
 function bodySolids(d){                   // 所有实心体（全宽件）
   const S=[];
   const bx=(nm,x0,x1,y0,y1)=>S.push({nm, poly:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]});
-  S.push({nm:'前备箱', poly:ccw([[0,P.y0],[d.A.frunk.x1,P.y0],[d.A.frunk.x1,P.y1a],[P.x10,P.y1a],[P.x10,P.y1c],[0,P.y1c]])});
+  /* 前备箱 / 尾仓都是实心，且都是两段（凹多边形 → 拆成两个凸块，碰撞才不会漏报）*/
+  bx('前备箱低段', 0, d.A.frunk.x1, P.y0, P.y1c);
+  bx('前备箱高段', 0, P.x10, P.y1a, P.y1c);
   bx('前机能体', d.A.machF.x0, d.A.machF.x1, P.y0, P.y1a);
   bx('电池', d.A.batt.x0, d.A.batt.x1, P.y0, P.y1);
   bx('后机能体', d.A.machR.x0, d.A.machR.x1, P.y0, P.y1b);
-  S.push({nm:'尾仓', poly:ccw([[d.A.machR.x0,P.y1b],[d.A.machR.x0,P.y2],[d.A.trunk.x1,P.y2],
-                              [d.A.trunk.x1,P.y0],[d.A.trunk.x0,P.y0],[d.A.trunk.x0,P.y1b]])});
+  /* 尾仓高段：长度 = x15（独立值），尾端对齐尾仓低段前沿，顶 = 放平靠背下表面 */
+  bx('尾仓低段', d.A.trunk.x0, d.A.trunk.x1, P.y0, P.y2);
+  bx('尾仓高段', d.A.trunk.x0-P.x15, d.A.trunk.x0, P.y1b, P.y2-P.bckT);
   bx('前座垫', d.B.seatF.x0, d.B.seatF.x1, P.y2-SEAT.cushT, P.y2);
   bx('二排座垫', d.B.seatR.x0, d.B.seatR.x1, P.y2-SEAT.cushT, P.y2);
   const quad=(nm,hx,dir,len,th,side)=>{
@@ -233,12 +237,17 @@ function solveSit(who, S, d, skip){
   for (let th=0; th<=80; th+=2){
     const a=th*Math.PI/180;
     const knee=[hip[0]+face*AN.thigh*Math.cos(a), hip[1]+AN.thigh*Math.sin(a)];
-    let sup=surfaceAt(knee[0],d), dy=knee[1]-(sup+AN.ankle);
-    if (Math.abs(dy)>AN.shin) continue;
-    let ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
-    sup=surfaceAt(ankle[0],d); dy=knee[1]-(sup+AN.ankle);
-    if (Math.abs(dy)>AN.shin) continue;
-    ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
+    let sup=P.y1, ankle=null;
+    for (let it=0; it<4; it++){                       // 脚下的面需与落脚点自洽，迭代几下
+      const dy=knee[1]-(sup+AN.ankle);
+      if (Math.abs(dy)>AN.shin){ ankle=null; break; }
+      const dx=Math.sqrt(AN.shin*AN.shin-dy*dy);
+      ankle=[knee[0]+face*dx, sup+AN.ankle];
+      const s2=surfaceAt(ankle[0], d);
+      if (s2===sup) break;
+      sup=s2;
+    }
+    if (!ankle) continue;
     const j={...base, knee, ankle, toe:[ankle[0]+face*AN.footL, ankle[1]+8], footY:sup, theta:th, ok:true};
     if (!hitsAny(j, d.solids, skip)) return j;
   }
@@ -318,14 +327,16 @@ function derive(){
   const F=d.seat.front, Rp0=d.seat.rear;
   /* 前排没反转 → 车里永远有个坐着的人（床模式也是），姿势由物理求解。
      座垫是软垫（人坐在/靠在上面），不算障碍；硬的东西（前备箱/机能体/电池/尾仓/靠背/升顶壳）一个都不放过。 */
-  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背','尾仓'];   // 软垫 + 床垫压在尾仓上
+  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背'];   // 只有软垫/床垫：前备箱、尾仓是实心的
   if (!bedM() || P.rot<=90) d.dolls.push(solveSit('前排', F, d, SOFT));
   if (!bedM()) d.dolls.push(solveSit('二排', Rp0, d, SOFT));
   else if (P.popUp<=0.5){
     /* 躺姿：躺在床面上；可翻件立起来时上半身顺着它的平面躺（背贴其上，不横穿） */
     const a=P.pAng*Math.PI/180;
     const dir=[Math.cos(a), Math.sin(a)], nrm=[-Math.sin(a), Math.cos(a)];
-    const hip=[d.deck.x0+nrm[0]*AN.torsoW/2, P.y2+nrm[1]*AN.torsoW/2];
+    let hip=[d.deck.x0+nrm[0]*AN.torsoW/2, P.y2+nrm[1]*AN.torsoW/2];
+    const minY=P.y2+AN.torsoW/2;                       // 臀部不能沉到床面以下（沿平面往前滑）
+    if (hip[1]<minY) hip=[hip[0]+(minY-hip[1])*dir[0]/dir[1], minY];
     d.dolls.push(Object.assign({who:'床面', face:-1, footY:P.y2, theta:0, ok:true, skip:SOFT}, joints(hip, dir, P.y2, -1)));
   } else {
     /* 升顶 + 床 = 站在床面上（升顶站立） */
@@ -474,11 +485,11 @@ function draw(){
   txt(d.A.frunk.x1/2, P.y0+70, `前备箱 低段 ${R(d.A.frunk.len)}（含穿过的溃缩梁）`, '#e8d174', 11);
   txt(P.x10/2, P.y1c-18, `前备箱 高段 ${R(P.x10)}（在前机能体之上）`, '#e8d174', 11);
   /* 尾仓：低段 x04（地面→床面），高段 后机能体之上（机能体顶→床面）*/
-  const trLobe=ccw([[d.A.machR.x0,P.y1b],[d.A.machR.x0,P.y2],[d.A.trunk.x1,P.y2],
+  const trLobe=ccw([[d.A.trunk.x0-P.x15,P.y1b],[d.A.trunk.x0-P.x15,P.y2-P.bckT],[d.A.trunk.x1,P.y2-P.bckT],
                     [d.A.trunk.x1,P.y0],[d.A.trunk.x0,P.y0],[d.A.trunk.x0,P.y1b]]);
   poly(trLobe,'#0e2430','#e8d174','5 4');
   txt((d.A.trunk.x0+d.A.trunk.x1)/2, P.y0+(P.y2-P.y0)*0.5, `尾仓 低段 ${R(d.A.trunk.len)}（顶 = 床面）`, '#e8d174', 11);
-  txt((d.A.machR.x0+d.A.trunk.x0)/2, P.y2-18, `尾仓 高段（后机能体之上）`, '#e8d174', 10);
+  txt(d.A.trunk.x0-P.x15/2, P.y1b+(P.y2-P.bckT-P.y1b)*0.5, `尾仓 高段 ${R(P.x15)}（后机能体之上）`, '#e8d174', 10);
   for (const id of ['machF','batt','machR']){
     const s=d.A[id], top=ATOP[id];
     rect(s.x0,s.x1,P.y0,top,ACOL[id],'#5a6a7a');
