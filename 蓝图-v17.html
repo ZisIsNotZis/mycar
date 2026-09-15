@@ -226,6 +226,20 @@ function topAt(x,poly){                   // 凸多边形在 x 处的上边界�
   }
   return best;
 }
+function polyOverlap(A,B,tol){          // 凸多边形相交（SAT，tol = 允许的贴合量）
+  const sep=(P,Q)=>{
+    for (let i=0;i<P.length;i++){
+      const a=P[i], b=P[(i+1)%P.length];
+      const nx=-(b[1]-a[1]), ny=b[0]-a[0];
+      let mn=Infinity,mx=-Infinity,m2=Infinity,x2=-Infinity;
+      for (const p of P){ const v=p[0]*nx+p[1]*ny; mn=Math.min(mn,v); mx=Math.max(mx,v); }
+      for (const q of Q){ const v=q[0]*nx+q[1]*ny; m2=Math.min(m2,v); x2=Math.max(x2,v); }
+      if (Math.min(mx,x2)-Math.max(mn,m2) <= tol) return true;   // 有分离轴
+    }
+    return false;
+  };
+  return !sep(A,B) && !sep(B,A);
+}
 function surfaceAt(x,d){                  // 可踩的面 = 该 x 处最高的实心体顶面（软垫除外）
   let s=P.y1;
   if (Array.isArray(d.solids)) for (const so of d.solids){
@@ -467,6 +481,20 @@ function checks(){
   for (const j of d.dolls) if (j.knee) for (const [nm,g,r] of CAPS){ const [a,b]=g(j);
     if (a[0]-r<-0.5 || b[0]+r>d.L+0.5) over.push(`${j.who}·${nm}`); }
   for (const s of d.solids) for (const p of s.poly) if (p[0]<-0.5 || p[0]>d.L+0.5) over.push(s.nm);
+  /* 实心体之间不许互相侵占：这是"布局错"，不是"人摆不出来"。
+     允许的贴合/嵌套：前备箱低+高、尾仓低+高（同一件东西两段）、座垫与其自己的靠背、
+     可翻件/腿托（床面机构贴在床面/尾仓上）。 */
+  const fam=(nm)=> nm.startsWith('前备箱')?'前备箱':nm.startsWith('尾仓高')||nm.startsWith('尾仓低')?'尾仓':nm;
+  const pairs=[];
+  for (let i=0;i<d.solids.length;i++) for (let j=i+1;j<d.solids.length;j++){
+    const a=d.solids[i], b=d.solids[j];
+    if (a.nm==='可翻件'||b.nm==='可翻件'||a.nm==='腿托'||b.nm==='腿托') continue;
+    const fa=fam(a.nm), fb=fam(b.nm);
+    if (fa===fb) continue;
+    if ((fa.endsWith('座垫')&&fb.endsWith('靠背'))||(fa.endsWith('靠背')&&fb.endsWith('座垫'))) continue;
+    if (polyOverlap(a.poly,b.poly,3)) pairs.push(a.nm+'×'+b.nm);
+  }
+  H('C17', pairs.length===0, `实心体互不侵占${pairs.length?'：'+pairs.slice(0,4).join('、')+(pairs.length>4?' 等'+pairs.length+'处':''):''}`);
   H('C16', over.length===0,
     `所有几何都在 [0, L=${R(d.L)}] 之内（0 与 x00+…+x04 是两个极端点）${over.length?'：超出 '+over.join('、'):''}`);
   /* 坐着的人不许压在靠背厚度里：躯干中轴到靠背接触面的垂距 ≤ −半身厚 */
