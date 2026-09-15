@@ -251,44 +251,48 @@ function surfaceAt(x,d){                  // 可踩的面 = 该 x 处最高的�
 }
 /* 坐姿求解：髋由座位接触面定，上半身定了；腿从膝角 0° 起扫，
    第一个全身不穿模的膝角就是解（脚被挡住 → 膝盖自然抬高）。 */
+function supportsIn(x0,x1,d){             // 该区间里出现的所有可踩面高度（地板 + 各实心体顶面，软垫除外）
+  const hs=new Set([Math.round(P.y1)]);
+  // 注意：软垫（座垫/腿托/可翻件/放平靠背）不作为踩踏面
+  if (Array.isArray(d.solids)) for (const so of d.solids){
+    if (so.soft) continue;
+    const t0=topAt(x0,so.poly), t1=topAt(x1,so.poly), tm=topAt((x0+x1)/2,so.poly);
+    for (const t of [t0,t1,tm]) if (isFinite(t) && t>=P.y1-1) hs.add(Math.round(t));
+  }
+  return [...hs].sort((a,b)=>a-b);        // 从低到高：先试地面，地面不行再往箱体顶上放
+}
 function solveSit(who, S, d, skip){
   const face=S.face, dir=S.dir, side=(face<0?1:-1);
   const n=[dir[1]*side, -dir[0]*side];
-  const hipRef = Math.abs(n[0])<1e-6 ? S.hinge
+  const hipx = Math.abs(n[0])<1e-6 ? S.hinge
              : S.hinge + (-AN.torsoW/2 - AN.hipAboveSeat*n[1])/n[0];
-  let last=null;
-  /* 自由度：① 臀部沿座垫往前滑（人可以从靠背上滑下来坐）② 膝角（脚可以抬到箱体顶上） */
-  for (let s=0; s<=800; s+=20){
-    const hip=[hipRef + face*s, P.y2+AN.hipAboveSeat];
-    const shd=[hip[0]+dir[0]*AN.torso, hip[1]+dir[1]*AN.torso];
-    const headC=[shd[0]+dir[0]*215, shd[1]+dir[1]*215];
-    const base={who,hip,shd,headC,face,footY:P.y1,theta:0,ok:true,skip};
-    const upper=(()=>{ const CAP=CAPS.filter(c=>c[0]==='躯干'||c[0]==='头');
-      for (const [nm,g,r] of CAP){ const [a,bb]=g({...base, knee:hip, ankle:hip, toe:hip});
-        for (const so of d.solids){ if (skip && skip.includes(so.nm)) continue;
-          if (segPoly(a,bb,inflate(so.poly, Math.max(0,r-2)))) return nm+'×'+so.nm; } }
-      return null; })();
-    if (upper){ last={...base, ok:false, why:'上半身（躯干/头）撞到 '+upper+'（沿座垫往前滑 '+s+' 也没让开）'}; continue; }
-    for (let th=0; th<=80; th+=2){
-      const a=th*Math.PI/180;
-      const knee=[hip[0]+face*AN.thigh*Math.cos(a), hip[1]+AN.thigh*Math.sin(a)];
-      let sup=P.y1, ankle=null;
-      for (let it=0; it<4; it++){                       // 脚下的面需与落脚点自洽，迭代几下
-        const dy=knee[1]-(sup+AN.ankle);
-        if (Math.abs(dy)>AN.shin){ ankle=null; break; }
-        ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), sup+AN.ankle];
-        const s2=surfaceAt(ankle[0], d);
-        if (s2===sup) break;
-        sup=s2;
-      }
-      if (!ankle) continue;
-      const j={...base, knee, ankle, toe:[ankle[0]+face*AN.footL, ankle[1]+8], footY:sup, theta:th, ok:true};
+  const hip=[hipx, P.y2+AN.hipAboveSeat];
+  const shd=[hip[0]+dir[0]*AN.torso, hip[1]+dir[1]*AN.torso];
+  const headC=[shd[0]+dir[0]*215, shd[1]+dir[1]*215];
+  const base={who,hip,shd,headC,face,footY:P.y1,theta:0,ok:true,skip};
+  /* 背必须靠在座背上：髋完全由座位接触面决定，不往前滑（滑走 = 背悬空，不是合理姿势）。
+     自由度只有两个：膝角（把小腿抬起来）+ 脚落在哪个可踩面上。 */
+  const upper=(()=>{ const CAP=CAPS.filter(c=>c[0]==='躯干'||c[0]==='头');
+    for (const [nm,g,r] of CAP){ const [a,bb]=g({...base, knee:hip, ankle:hip, toe:hip});
+      for (const so of d.solids){ if (skip && skip.includes(so.nm)) continue;
+        if (segPoly(a,bb,inflate(so.poly, Math.max(0,r-2)))) return nm+'×'+so.nm; } }
+    return null; })();
+  if (upper) return {...base, ok:false, knee:null, ankle:null, toe:null, theta:null,
+    why:'背/头撞到 '+upper+'（座位贴得这么靠后时无处可坐）'};
+  let lastWhy='腿在这个座位位置下没有不撞实体的姿态';
+  for (let th=0; th<=80; th+=2){          // 膝角：0° = 腿自然伸；越大越把小/腿抬起来
+    const a=th*Math.PI/180;
+    const knee=[hip[0]+face*AN.thigh*Math.cos(a), hip[1]+AN.thigh*Math.sin(a)];
+    for (const h of supportsIn(knee[0]-480, knee[0], d)){
+      const ankleY=h+AN.ankle, dy=knee[1]-ankleY;
+      if (Math.abs(dy)>AN.shin){ lastWhy='小腿够不到 '+Math.round(h)+' 这个面'; continue; }
+      const ankle=[knee[0]+face*Math.sqrt(AN.shin*AN.shin-dy*dy), ankleY];
+      if (Math.abs(surfaceAt(ankle[0],d)-h)>6){ lastWhy='脚落不到 '+Math.round(h)+' 这个面上（那里是别的面）'; continue; }
+      const j={...base, knee, ankle, toe:[ankle[0]+face*AN.footL, ankle[1]+8], footY:h, theta:th, ok:true};
       if (!hitsAny(j, d.solids, skip)) return j;
     }
-    last={...base, ok:false, knee:null, ankle:null, toe:null, theta:null,
-      why:'腿在这个座位位置下没有不撞实体的姿态'};
   }
-  return last || {who, ok:false, why:'无解', hip:[hipRef,P.y2+AN.hipAboveSeat]};
+  return {...base, ok:false, knee:null, ankle:null, toe:null, theta:null, why:lastWhy};
 }
 
 function derive(){
