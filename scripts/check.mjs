@@ -74,8 +74,7 @@ const run = (ov, mo) =>
 
 /* 2) fold 联动 + 放平自报 */
 {
-  const a = await run({ fold: 0 }),
-    z = await run({ fold: 1 });
+  const z = await run({ fold: 1 });
   const flat =
     Math.abs(z.rearFlat.back.ang / D2R - 90) < 0.5 &&
     z.rearFlat.leg.LA / D2R < 0.5;
@@ -124,10 +123,9 @@ const run = (ov, mo) =>
   const st = await run({ fold: 1, pAng: 0, pr: 800 }, { pop: "stand" }); // 用足够大的 pr 验证可达性
   const need = st.d.standNeed;
   const stand = st.d.popTop >= need;
-  const top = st.humanR.headC[1] + 115;
   const bk = await run({ fold: 1, pAng: 0, pr: 800 }, { pop: "bunk" });
   const bunkOk = bk.d.popTop - bk.d.bunkY >= 450;
-  const bad = await run({ fold: 1, pAng: 0, pr: 300 }, { pop: "stand" });
+  const bad = await run({ fold: 1, pAng: 0, y4: 2200 }, { pop: "stand" });   // v15：升顶高度 = y4
   const caught = bad.checks.some((c) => c.id === "C3" && !c.ok);
   ok(
     "5 升顶站立净空",
@@ -143,8 +141,8 @@ const run = (ov, mo) =>
 
 /* 7) 统一标高：planeH 一个数管住"座面 = 床面"，坐垫厚派生 = planeH − base */
 {
-  const t1 = await run({ planeH: 350, base: 150 });
-  const t2 = await run({ planeH: 450, base: 150 });
+  const t1 = await run({ y2: 810, y1: 460 });          // v15：床面高度 = y2
+  const t2 = await run({ y2: 910, y1: 460 });
   const th = (q) => Math.hypot(q[0][0] - q[3][0], q[0][1] - q[3][1]);
   const thick = Math.abs(th(t1.rear.cush.sh) - 200) < 1 && Math.abs(th(t1.front.cush.sh) - 200) < 1;
   const same =
@@ -162,8 +160,8 @@ const run = (ov, mo) =>
 
 /* 8/18) 限高 */
 {
-  const h1 = await run({ H: 2050 }),
-    h2 = await run({ H: 1950 });
+  const h1 = await run({ y3: 2050 }),                  // v15：车高 = y3
+    h2 = await run({ y3: 1950 });
   const red = h1.checks.some((c) => c.id === "C18" && !c.ok);
   const sit = h2.checks.find((c) => c.id === "C5");
   ok(
