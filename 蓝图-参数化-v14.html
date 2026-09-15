@@ -565,19 +565,13 @@ function build(p, m){
     (tEaten>20?` · 三电占前 ${Math.round(tEaten)}`:'')+` · 铰点→尾门 ${Math.round((p.L-90)-p.xR)}`,'wet-t',11));
   /* 用户第 4 条：尾仓长 = 靠背 + 固定隔板 + 可翻隔板 —— 直接把等式写在盒子里 + 画接缝 */
   g.push(txt((stX0+p.L-90)/2, stY0+(d.bedTop-stY0)*0.5-26,
-    `= 二排靠背 ${Math.round(d.bedBackTip-p.xR)} + 固定 ${Math.round(d.deckLen)} + 可翻 ${Math.round(d.flapActual)}`,'wet-t',10));
+    `= 座椅包 ${Math.round(d.seatPack)} + 可翻 ${Math.round(d.flapActual)}`,'wet-t',10));
   for (const jx of [d.bedBackTip, d.deckX1]) if (jx>stX0+2 && jx<p.L-90-2) g.push(ln([jx,stY0+10],[jx,d.bedTop-10],4,'joint'));
 
-  /* 前/后溃缩区：图上直接看得见（用户：rear impact beam 太短）—— 尺寸链 + 斜纹带 */
-  d.crushF=[0, p.axF-d.archRF]; d.crushR=[p.axR+d.archRR, p.L];
-  g.push(rect(24, d.rocker, 70, d.hoodAt(0)-60-d.rocker,'crush','none'));            // 前撞梁（薄片）
-  g.push(rect(p.L-94, d.rocker, 70, d.bedTop-d.rocker,'crush','none'));              // 后撞梁（薄片）
-  g.push(ln([d.crushF[0],-430],[d.crushF[1],-430],8,'crush-d'));
-  g.push(txt((d.crushF[0]+d.crushF[1])/2,-448,`前溃缩 ${Math.round(d.crushF[1]-d.crushF[0])}`,'crush-t',10));
-  g.push(ln([d.crushR[0],-430],[d.crushR[1],-430],8,'crush-d'));
-  g.push(txt((d.crushR[0]+d.crushR[1])/2,-448,`后溃缩 ${Math.round(d.crushR[1]-d.crushR[0])}`,'crush-t',10));
-  g.push(ln([d.deckX0,d.bedTop],[d.deckX1,d.bedTop],22,'deck'));
-  g.push(txt((d.deckX0+d.deckX1)/2, d.bedTop-28, `固定隔板/二层平台 ${Math.round(d.deckLen)}`,'bed-t',9.5));
+  if (d.deckLen>20){                            // 固定隔板默认 0：没有件就不画线、不写字（用户第 14 轮）
+    g.push(ln([d.deckX0,d.bedTop],[d.deckX1,d.bedTop],22,'deck'));
+    g.push(txt((d.deckX0+d.deckX1)/2, d.bedTop-28, `固定隔板/二层平台 ${Math.round(d.deckLen)}`,'bed-t',9.5));
+  }
   /* 可翻隔板：铰在 deckX1；0°=平铺补床尾，90°=立起成尾柱隔断 */
   const pa=p.pAng*D2R;
   const fTip=[d.deckX1 + d.flapActual*Math.cos(pa), d.bedTop + d.flapActual*Math.sin(pa)];
