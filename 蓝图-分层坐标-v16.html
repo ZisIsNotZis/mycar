@@ -293,8 +293,9 @@ function draw(){
     const q=[[x0,y],[x1,y],[x1,y+w],[x0,y+w]].map(p2=>`${SX(p2[0])},${SY(p2[1])}`).join(' ');
     el('polygon',{points:q,fill:fill||'#22303e',stroke:stroke||'#8fb3cc','stroke-width':1.4});
   };
-  const slab=(hx,hy,dir,len,th,fill,stroke)=>{                       // 铰在一端、沿 dir 伸出的板（靠背/腿托）
-    const nx=-dir[1]*th, ny=dir[0]*th;
+  const slab=(hx,hy,dir,len,th,fill,stroke,side)=>{                   // 铰在一端、沿 dir 伸出的板（靠背/腿托）
+    const sg = (side==null ? 1 : side);                              // 默认 +1：厚度加在背后（+x）一侧，人靠在它的前面
+    const nx=dir[1]*th*sg, ny=-dir[0]*th*sg;
     const q=[[hx,hy],[hx+dir[0]*len,hy+dir[1]*len],
              [hx+dir[0]*len+nx,hy+dir[1]*len+ny],[hx+nx,hy+ny]].map(p2=>`${SX(p2[0])},${SY(p2[1])}`).join(' ');
     el('polygon',{points:q,fill:fill||'#22303e',stroke:stroke||'#8fb3cc','stroke-width':1.4});
@@ -303,7 +304,7 @@ function draw(){
   slab(S.front.hinge,S.front.y,S.front.back,S.front.backLen,d.cushT||200);       // 前排靠背
   body(S.rear.cush[0],S.rear.cush[1],S.rear.y,60);
   slab(S.rear.hinge,S.rear.y,S.rear.back,S.rear.backLen,d.cushT||200);          // 二排靠背（床模式放平）
-  if (P.fold<=0.5) slab(S.rear.cush[0],S.rear.y,[-Math.cos(70*Math.PI/180),-Math.sin(70*Math.PI/180)],P.legExt,40,'#2a3a4a');
+  if (P.fold<=0.5) slab(S.rear.cush[0],S.rear.y,[-Math.cos(70*Math.PI/180),-Math.sin(70*Math.PI/180)],P.legExt,40,'#2a3a4a','#8fb3cc',-1);
   /* 二排放平预留区 x15：靠背躺进来（半透明示意） */
   if (P.fold>0.5) rect(S.rear.hinge, S.rear.hinge+S.rear.backLen, P.y2, P.y2+40, '#2f4a5a','#8fb3cc','3 3');
   txt(S.front.hinge+70, S.front.y+ (P.fold>0.5?150:120), `前排靠背 ${P.fBa}°`,'#8fb3cc',10);
