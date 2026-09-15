@@ -570,16 +570,22 @@ function build(p, m){
   }
   g.push(ln([60,d.floor],[p.L-90,d.floor],26,'floor'));
 
-  /* 前备箱：超大整体空腔，只有两根溃缩大梁横贯（下沿到离地间隙，中线吃满） */
-  const hoodAt=d.hoodAt, frx0=40, frx1=d.cowlX-60, fry0=d.clear+20;
-  const frxW=p.axF-d.archRF;                      // 轮包前缘：此后只能占轮包上方
-  const frPts=[[frx0,fry0],[frxW,fry0],[frxW,d.archFtop],[frx1,d.archFtop],
-               [frx1,hoodAt(frx1)-60],[frx0,hoodAt(frx0)-60]];   // L 形：绕开轮包
-  g.push(poly(frPts,'store2','none'));
-  const fTop=hoodAt(frx0)-60, fHgt=Math.max(1,fTop-fry0);
-  g.push(ln([frx0+10,fry0+fHgt*0.8],[frxW-10,fry0+fHgt*0.8],14,'rail'));
-  g.push(txt(frxW*0.5, fry0+fHgt*0.45+6, `前备箱 前段${Math.round(frxW-frx0)}×${Math.round(fHgt)}`,'store-t',10));
-  g.push(txt((frxW+frx1)/2, d.archFtop+70, `轮包上 ${Math.round(frx1-frxW)}`,'store-t',9.5));
+  /* ================= 层A（y0..y1）：底盘链五件，**同一高度、首尾相接** =================
+     用户第 17 轮：层A 只有一种高度 —— frunk/前机能体/电池/后机能体/尾仓 都是一个高度段的方块，
+     所以 frunk 不再"跟机盖走"、不再有中间那道多余的高度。 */
+  {
+    const A=d.A, yA=p.y0, hA=p.y1-p.y0;
+    const slot=(k,fill,cls)=>g.push(rect(A[k].x0, yA, A[k].x1-A[k].x0, hA, cls||'store2', fill));
+    slot('frunk','#101c26'); slot('machF','#3a1f22','slice'); slot('batt','#132434');
+    slot('machR','#3a1f22','slice'); slot('trunk','#0e2430');
+    const mid=(k)=>(A[k].x0+A[k].x1)/2;
+    g.push(txt(mid('frunk'), yA+hA-14, `前备箱 ${Math.round(p.x00)}`,'store-t',10));
+    g.push(txt(mid('machF'), yA+38, `转向+AC+48V+MCU ${Math.round(p.x01)} · 全宽`,'slice-t',9));
+    g.push(txt(mid('batt'),  yA+hA/2+4, `电池 ${Math.round(p.x02)} ≈${d.kWh}kWh`,'batt-t',10));
+    g.push(txt(mid('machR'), yA+38, `同轴三电 ${Math.round(p.x03)} · 全宽`,'slice-t',9));
+    g.push(txt(mid('trunk'), yA+hA-14, `尾仓 ${Math.round(p.x04)}`,'wet-t',10));
+    g.push(txt(A.total/2, yA-40, `层A 底盘链 总长 ${Math.round(A.total)} · 每处接缝 0（自动相接）`,'dim-t',10));
+  }
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
   for (const [mc,tag,note] of [[d.machF,'前机能体','转向/48V/AC·溃缩件'],[d.machR,'后机能体','同轴三电（电机+减速+逆变）']]){
@@ -589,16 +595,7 @@ function build(p, m){
   }
 
   /* 尾仓：一层湿区（可冲洗）+ 固定隔板/二层平台 + 可翻隔板 */
-  const stX0=Math.max(p.xR, d.machR.x1), stY0=d.clear+20;   // 只有三电之后那段才是储物（用户第 9 轮）
-  g.push(rect(stX0, stY0, (p.L-90)-stX0, d.bedTop-stY0,'wet','#0e2430'));
-  const tFree=(p.L-90)-stX0, tEaten=Math.max(0, d.machR.x1-p.xR);
-  g.push(txt((stX0+p.L-90)/2, stY0+(d.bedTop-stY0)*0.5+4,
-    `下层储物仓 可用 ${Math.round(tFree)}×${Math.round(d.bedTop-stY0)}(到离地)`+
-    (tEaten>20?` · 三电占前 ${Math.round(tEaten)}`:'')+` · 铰点→尾门 ${Math.round((p.L-90)-p.xR)}`,'wet-t',11));
-  /* 用户第 4 条：尾仓长 = 靠背 + 固定隔板 + 可翻隔板 —— 直接把等式写在盒子里 + 画接缝 */
-  g.push(txt((stX0+p.L-90)/2, stY0+(d.bedTop-stY0)*0.5-26,
     `= 座椅包 ${Math.round(d.seatPack)} + 可翻 ${Math.round(d.flapActual)}`,'wet-t',10));
-  for (const jx of [d.bedBackTip, d.deckX1]) if (jx>stX0+2 && jx<p.L-90-2) g.push(ln([jx,stY0+10],[jx,d.bedTop-10],4,'joint'));
 
   if (d.deckLen>20){                            // 固定隔板默认 0：没有件就不画线、不写字（用户第 14 轮）
     g.push(ln([d.deckX0,d.bedTop],[d.deckX1,d.bedTop],22,'deck'));
@@ -1097,7 +1094,6 @@ const STYLES={
   'pj-t':{fill:'#b48ead'}, beam:{stroke:'#e8d174','stroke-width':1.2,'stroke-dasharray':'7 5',opacity:.6},
   'beam-t':{fill:'#e8d174',opacity:.85},
   rod:{stroke:'#d8c0e0','stroke-width':3,'stroke-dasharray':'1 0'},
-  joint:{stroke:'#7fd0a0','stroke-width':1,'stroke-dasharray':'3 3'},
   crush:{fill:'#3a2020',stroke:'#b5565e','stroke-width':1.2,'stroke-dasharray':'4 5','fill-opacity':.5},
   'crush-d':{stroke:'#e57373'}, 'crush-t':{fill:'#e57373','font-weight':700},
 };
@@ -1157,15 +1153,15 @@ function build3D(p,m,B){
     box(mc.x0, mc.x1, Math.max(d.clear, mc.top-mc.h), mc.top, -mc.w/2, mc.w/2, 'slice3');   // 真实尺寸的全宽机能体
   }
 
-  /* 前备箱（2 段：轮包前满高 + 轮包上浅层） */
-  for (const sz of [1,-1]){
-    const z0=sz>0?-(p.W/2-190):-(p.W/2-190), z1=sz>0?(p.W/2-190):(p.W/2-190);
-    box(40, p.axF-d.archRF, d.clear+20, d.hoodAt((40+p.axF-d.archRF)/2)-60, Math.min(z0,z1), Math.max(z0,z1), 'frunk3');
-    box(p.axF-d.archRF, d.cowlX-60, d.archFtop, d.hoodAt((p.axF-d.archRF+d.cowlX-60)/2)-60, Math.min(z0,z1), Math.max(z0,z1), 'frunk3');
-    break;
+  /* 层A（y0..y1）：底盘链五件，同一高度、首尾相接 */
+  {
+    const A=d.A, wA=(p.W-380)/2;
+    box(A.frunk.x0,A.frunk.x1,p.y0,p.y1,-wA,wA,'frunk3');
+    box(A.machF.x0,A.machF.x1,p.y0,p.y1,-wA,wA,'slice3');
+    box(A.batt.x0, A.batt.x1, p.y0,p.y1,-wA,wA,'batt3');
+    box(A.machR.x0,A.machR.x1,p.y0,p.y1,-wA,wA,'slice3');
+    box(A.trunk.x0,A.trunk.x1,p.y0,p.y1,-wA,wA,'wet3');
   }
-  /* 下尾仓：从**二排靠背铰点**到尾门（与床尾段首尾相接，不是叠在一起；用户第 4 条） */
-  box(Math.max(p.xR, d.machR.x1), p.L-90, d.clear+20, d.bedTop, -(p.W/2-60), p.W/2-60, 'wet3');
   /* 地板 / 电池 / 尾仓 */
   box(0,p.L,d.floor-d.plate,d.floor,-hw+60,hw-60,'floor3');
   if (d.batt.x1>d.batt.x0) box(d.batt.x0,d.batt.x1,d.clear,d.clear+d.batt.h,-d.batt.w/2,d.batt.w/2,'batt3');
@@ -1649,6 +1645,14 @@ function computeBands(){
       el.style.left=(s.a/N*100)+'%'; el.style.width=Math.max(1,(s.b-s.a)/N*100)+'%'; band.appendChild(el); }
   }
 }
+window.MY={P,M,DEF,AN,build,checks,probe,project,hardOK,redraw,build3D,render3,glbFromScene,bakeFilm,FILM,
+  ge:{segSeg,inQuad,segQuad,quadQuad},solidList,solidOverlaps,
+  presets:PRESETS,
+  applyPreset:(i)=>{ const was=ANIM_ON; ANIM_ON=false; PRESETS[i][1](); ANIM_ON=was; },
+  reset:()=>{ for (const k in DEF) P[k]=DEF[k].v; M.pop='closed'; M.showDim=true; M.view='2d'; },
+  anim:(on)=>{ ANIM_ON=!!on; },
+  set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
+
 buildUI();
 /* 3D 交互：拖动旋转、滚轮缩放（只重绘面，不重建几何） */
 (function(){
@@ -1854,13 +1858,6 @@ function bakeFilm(){
           meta:{L:P.L,W:P.W,H:P.H,AN:{legW:AN.legW,shinW:AN.shinW,footW:AN.footW,torsoW:AN.torsoW,
                 armW:AN.armW,neckW:AN.neckW,headR:AN.headR,shW:AN.shW}}};
 }
-window.MY={P,M,DEF,AN,build,checks,probe,project,hardOK,redraw,build3D,render3,glbFromScene,bakeFilm,FILM,
-  ge:{segSeg,inQuad,segQuad,quadQuad},solidList,solidOverlaps,
-  presets:PRESETS,
-  applyPreset:(i)=>{ const was=ANIM_ON; ANIM_ON=false; PRESETS[i][1](); ANIM_ON=was; },
-  reset:()=>{ for (const k in DEF) P[k]=DEF[k].v; M.pop='closed'; M.showDim=true; M.view='2d'; },
-  anim:(on)=>{ ANIM_ON=!!on; },
-  set:(o)=>{Object.assign(P,o.P||{});Object.assign(M,o.M||{});redraw();}};
 </script>
 </body>
 </html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>my car · 分层坐标系统 v16</title>
+<style>
+  :root{--bg:#0d1117;--panel:#141a22;--line:#2d3742;--ink:#c9d4e0;--dim:#6b7a8c;
+  --blue:#4aa3ff;--green:#5fd08a;--orange:#f0a35e;--red:#e57373;--yellow:#e8d174;--cyan:#56c8d8;--purple:#b48ead}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:13px/1.5 "Noto Sans SC","PingFang SC",system-ui,sans-serif;padding:12px}
+  h1{font-size:17px} h1 .en{color:var(--dim);font-size:11px;font-weight:400;margin-left:8px}
+  .sub{color:var(--dim);font-size:11px;margin:3px 0 8px}
+  .wrap{display:flex;gap:10px;align-items:flex-start}
+  .left{flex:1;min-width:0}
+  .right{width:360px;flex-shrink:0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
+  .ctrl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;max-height:calc(100vh - 60px);overflow-y:auto}
+  .sec{color:var(--dim);font-size:10px;letter-spacing:1px;margin:10px 0 4px;border-top:1px dashed var(--line);padding-top:6px}
+  .ctl{margin-bottom:4px}
+  .ctl label{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+  .ctl label b{color:var(--blue);font-family:ui-monospace,monospace;min-width:46px;text-align:right}
+  input[type=number]{width:64px;background:#0b1017;border:1px solid var(--line);color:var(--ink);border-radius:4px;font:11px ui-monospace,monospace;padding:1px 3px;text-align:right}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;background:transparent;height:14px}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#232e3a}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;margin-top:-4px;border-radius:50%;background:var(--blue)}
+  svg{display:block;width:100%;height:auto}
+  table{border-collapse:collapse;font-size:11px;width:100%}
+  th,td{border:1px solid var(--line);padding:1px 5px}
+  th{color:var(--dim);background:#10161d;width:42%;text-align:left}
+  td.n{font-family:ui-monospace,monospace;color:var(--blue);text-align:right}
+  .ok{color:var(--green)} .bad{color:var(--red)} .dim2{color:var(--dim)}
+</style>
+</head>
+<body>
+<h1>my car <span class="en">v16 · 分层坐标系统（clean rewrite）</span></h1>
+<div class="sub">
+  三层：<b>Y 高度</b> y0 底盘底 → y1 舱内地面 → y2 床面 → y3 顶棚 → y4 升顶；
+  <b>X 层A</b>（y0..y1，全宽底盘件）· <b>X 层B</b>（y1..y3，座舱空间）· <b>X 层C</b>（y3..y4，升顶）。
+  每层是一条<b>首尾相接的链</b>；只画<b>全宽</b>件，画面上不出现车本身。
+</div>
+<div class="wrap">
+  <div class="left"><div class="panel">
+    <svg id="sv" viewBox="0 0 1420 780" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div></div>
+  <div class="right"><div class="ctrl" id="ctrl"></div></div>
+</div>
+<script>
+/* =========================================================================
+   参数表 —— 只有这些。用户第 16 轮给的分层坐标；"我定"的是宽度/角度/状态。
+   ========================================================================= */
+const DEF = {
+  /* --- Y 高度（离地绝对值 mm）--- */
+  y0:{v:140, min:80, max:320, st:5, g:'Y 高度', n:'y0 底盘底（离地）'},
+  y1:{v:460, min:250,max:800, st:5, g:'Y 高度', n:'y1 舱内地面'},
+  y2:{v:810, min:400,max:1100,st:5, g:'Y 高度', n:'y2 床面'},
+  y2a:{v:810,min:400,max:1100,st:5, g:'Y 高度', n:'y2a 前座面（非床模式）'},
+  y2b:{v:810,min:400,max:1100,st:5, g:'Y 高度', n:'y2b 二排座面（非床模式）'},
+  y3:{v:1900,min:1400,max:2200,st:10,g:'Y 高度', n:'y3 顶棚'},
+  y4:{v:2640,min:1800,max:3300,st:10,g:'Y 高度', n:'y4 升顶顶棚'},
+  /* --- X 层A（y0..y1）：全宽底盘件，首尾相接 --- */
+  x00:{v:590, min:0,  max:1400,st:10,g:'X 层A 底盘', n:'x00 前备箱长'},
+  x01:{v:520, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x01 转向+AC+48V+MCU 长（全宽）'},
+  x02:{v:1000,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x02 电池长'},
+  x03:{v:560, min:150,max:1200,st:10,g:'X 层A 底盘', n:'x03 电机（同轴三电）长（全宽）'},
+  x04:{v:1170,min:200,max:2400,st:10,g:'X 层A 底盘', n:'x04 尾仓长'},
+  /* --- X 层B（y1..y3）：座舱空间，首尾相接 --- */
+  x10:{v:330, min:80, max:700, st:10,g:'X 层B 座舱', n:'x10 前部上段长'},
+  x11:{v:520, min:250,max:900, st:10,g:'X 层B 座舱', n:'x11 前脚空间'},
+  x12:{v:460, min:300,max:700, st:10,g:'X 层B 座舱', n:'x12 前座空间（座垫长）'},
+  x13:{v:600, min:250,max:900, st:10,g:'X 层B 座舱', n:'x13 后脚空间'},
+  x14:{v:900, min:300,max:1100,st:10,g:'X 层B 座舱', n:'x14 后座空间（座垫+收起腿托）'},
+  x15:{v:440, min:250,max:800, st:10,g:'X 层B 座舱', n:'x15 后排靠背放平预留'},
+  x16:{v:500, min:0,  max:1200,st:10,g:'X 层B 座舱', n:'x16 可翻旋转件长'},
+  /* --- X 层C（y3..y4）--- */
+  x30:{v:2000,min:800, max:3600,st:10,g:'X 层C 升顶', n:'x30 升顶开口长'},
+  /* --- 我定：宽度 / 角度 / 状态 --- */
+  W:  {v:1800,min:1500,max:2050,st:10,g:'我定', n:'内宽（全宽件靠它定尺寸）'},
+  fBa:{v:10, min:-10,max:60, st:1,  g:'我定', n:'前排靠背角',deg:1},
+  rBa:{v:14, min:-10,max:60, st:1,  g:'我定', n:'二排靠背角（坐姿）',deg:1},
+  legExt:{v:300,min:0,max:600,st:10,g:'我定', n:'腿托伸出量（做床时跨过脚部空洞）'},
+  pAng:{v:0,  min:0,  max:90,  st:1,  g:'状态', n:'可翻旋转件角（0 平铺 / 90 立起）',deg:1},
+  fold:{v:0,  min:0,  max:1,   st:0.02,g:'状态', n:'变形进度（0 坐姿 / 1 大床）'},
+};
+const P = {}; for (const k in DEF) P[k] = DEF[k].v;
+
+/* =========================================================================
+   派生：三层链。层内首尾相接（这就是"自动贴住"），层与层靠 y 分段互不干扰。
+   ========================================================================= */
+const LAYERS = {
+  A:[['frunk','x00'],['machF','x01'],['batt','x02'],['machR','x03'],['trunk','x04']],
+  B:[['upper','x10'],['footF','x11'],['seatF','x12'],['footR','x13'],['seatR','x14'],['backR','x15'],['rotable','x16']],
+  C:[['ceiling','x30']],
+};
+function chain(defs){
+  const at = {}; let x = 0;
+  for (const [id,key] of defs){ at[id] = {x0:x, x1:x+P[key], len:P[key]}; x += P[key]; }
+  at.total = x;
+  return at;
+}
+function derive(){
+  const A = chain(LAYERS.A), B = chain(LAYERS.B), C = chain(LAYERS.C);
+  const floor = P.y1, bed = P.y2, ceil = P.y3;
+  const d = {A,B,C, floor, bed, ceil, pop: P.y4};
+  /* 底盘层：全宽件（y0..y1 吃满） */
+  d.battH = Math.max(60, floor - P.y0);
+  d.kWh = Math.round(P.x02 * (P.W-380) * d.battH * 160 / 1e9);
+  /* 座舱层：座位面 / 床面 */
+  d.seatF = (P.fold>0.5 ? bed : P.y2a);
+  d.seatR = (P.fold>0.5 ? bed : P.y2b);
+  d.bedFrom = B.seatF.x0;                        // 床面前缘 = 前座垫前缘
+  d.bedTo   = B.rotable.x1;                      // 床面后缘 = 可翻件尾
+  d.bedLen  = d.bedTo - d.bedFrom;
+  d.stand   = d.bedLen >= 1750;                  // 人长 1750
+  /* 尾部闭合：层A 与层B 应停在同一个尾门（差 90 = 尾门结构） */
+  d.closeGap = A.total - (B.total + 90);
+  d.L = A.total;
+  return d;
+}
+
+/* =========================================================================
+   校验：① 层内相邻件严丝合缝 ② 层与层 y 区间不重叠 ③ 关键尺寸
+   ========================================================================= */
+function checks(p=P, d=derive()){
+  const out = [], R = Math.round;
+  const H=(id,ok,t)=>{ out.push({id,ok,lv:'hard',t}); };
+  const I=(id,t)=>{ out.push({id,ok:true,lv:'info',t}); };
+
+  const gapsA = []; for (let i=1;i<LAYERS.A.length;i++){ const a=d.A[LAYERS.A[i-1][0]], b=d.A[LAYERS.A[i][0]]; gapsA.push(b.x0-a.x1); }
+  const gapsB = []; for (let i=1;i<LAYERS.B.length;i++){ const a=d.B[LAYERS.B[i-1][0]], b=d.B[LAYERS.B[i][0]]; gapsB.push(b.x0-a.x1); }
+  H('T1', gapsA.every(g=>Math.abs(g)<1) && gapsB.every(g=>Math.abs(g)<1),
+    `层内接缝全 0（层A ${gapsA.join('/')} · 层B ${gapsB.join('/')}）`);
+  H('T2', P.y0 < P.y1 && P.y1 < P.y2 && P.y2 <= P.y2a && P.y2 <= P.y2b && P.y3 > P.y2 && P.y4 > P.y3,
+    `高度栈有序：y0<y1<y2≤y2a/y2b<y3<y4（${P.y0}<${P.y1}<${P.y2}≤${Math.max(P.y2a,P.y2b)}<${P.y3}<${P.y4}）`);
+  H('T3', Math.abs(d.closeGap)<=30, `两层在尾门闭合：层A ${R(d.A.total)} − (层B ${R(d.B.total)} + 90) = ${R(d.closeGap)}`);
+  H('T4', d.bedLen>=1750, `床面长 ${R(d.bedLen)} ≥ 1750（人 1750）`);
+  H('T5', d.seatF+960<=P.y3, `坐姿净空（前座面 ${R(d.seatF)} + 960 ≤ 顶棚 ${P.y3}）`);
+  H('T6', P.y4-P.y2 >= 1750+60, `站立：升顶顶棚 ${P.y4} − 床面 ${P.y2} = ${P.y4-P.y2} ≥ 1810（人 1750 + 60）`);
+  I('I1', `全长 ${R(d.L)} = 层A 链：` + LAYERS.A.map(([id,k])=>`${k} ${P[k]}`).join(' + '));
+  I('I2', `电池 ${R(P.x02)}×${P.W-380}×${R(d.battH)} ≈ ${d.kWh} kWh（自动吃满层A 高度）`);
+  I('I3', `床面 ${R(d.bedFrom)}–${R(d.bedTo)}（前座垫前缘 → 可翻件尾），座面 ${R(d.seatF)}/${R(d.seatR)}`);
+  return out;
+}
+
+/* =========================================================================
+   画图：只画全宽件 —— 层A 五个方块、层B 七个空间、层C 升顶开口 + 高度栈。
+   不画：车壳、玻璃、轮子、中岛、吊柜、单人座椅、人（都不是全宽件）。
+   ========================================================================= */
+const W = 1420, H = 780, PADL = 70, PADR = 40, PADT = 60, PADB = 90;
+function draw(){
+  const d = derive();
+  const xMax = Math.max(d.A.total, d.B.total, P.x30) + 200;
+  const yMax = Math.max(P.y4, P.y3) + 200;
+  const k = Math.min((W-PADL-PADR)/xMax, (H-PADT-PADB)/yMax);
+  const SX = x => PADL + x*k, SY = y => H-PADB - y*k;
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('sv'); svg.replaceChildren();
+  const el = (tag,at,txt)=>{ const e=document.createElementNS(NS,tag);
+    for (const a in at) e.setAttribute(a,at[a]); if (txt!=null) e.textContent=txt; svg.appendChild(e); return e; };
+  const rect=(x0,x1,y0,y1,fill,stroke,dash)=>el('rect',{x:SX(x0),y:SY(y1),width:(x1-x0)*k,height:(y1-y0)*k,
+    fill:fill||'none',stroke:stroke||'#3a4a5a','stroke-width':1,'stroke-dasharray':dash||null});
+  const txt=(x,y,s,fill,size,anchor)=>el('text',{x:SX(x),y:SY(y),fill:fill||'#8fb3cc','font-size':size||11,
+    'text-anchor':anchor||'middle'},s);
+  const line=(x0,y0,x1,y1,stroke,dash)=>el('line',{x1:SX(x0),y1:SY(y0),x2:SX(x1),y2:SY(y1),
+    stroke:stroke||'#3a4a5a','stroke-width':1,'stroke-dasharray':dash||null});
+
+  /* --- 高度栈：y0..y4 四条水平参考线 + 标注 --- */
+  const ys = [['y0 底盘底',P.y0,'#5c7386'],['y1 地面',P.y1,'#7fd0a0'],['y2 床面',P.y2,'#5fd08a'],
+              ['y2a/2b 座面',P.y2a,'#8fb3cc'],['y3 顶棚',P.y3,'#4aa3ff'],['y4 升顶',P.y4,'#4aa3ff']];
+  for (const [t,y,c] of ys){ line(0,y,xMax,y,c,y===P.y1?null:'4 4'); txt(0,y+18,t,c,10,'start'); }
+
+  /* --- 层A：五个全宽件，y0..y1，首尾相接 --- */
+  const ACOL = {frunk:'#101c26',machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
+  const ALAB = {frunk:['前备箱',P.x00,'#e8d174'],machF:['转向+AC+48V+MCU',P.x01,'#e57373'],
+                batt:['电池',P.x02,'#56c8d8'],machR:['同轴三电',P.x03,'#e57373'],trunk:['尾仓',P.x04,'#e8d174']};
+  for (const [id] of LAYERS.A){
+    const s = d.A[id];
+    rect(s.x0,s.x1,P.y0,P.y1,ACOL[id],'#5a6a7a');
+    txt((s.x0+s.x1)/2, P.y0+(P.y1-P.y0)*0.62, `${ALAB[id][0]} ${Math.round(s.len)}`, ALAB[id][2], 11);
+  }
+  txt(d.A.total/2, P.y0-14, `层A 底盘链 总长 ${Math.round(d.A.total)} · 每处接缝 0`, '#8fb3cc', 11);
+
+  /* --- 层B：七个空间，y1..y3（空间用浅色框＋名称；里面只放全宽件：床面 / 可翻件） --- */
+  const BNAM = {upper:'x10 前部上段',footF:'x11 前脚空间',seatF:'x12 前座空间',footR:'x13 后脚空间',
+                seatR:'x14 后座空间',backR:'x15 靠背放平预留',rotable:'x16 可翻件'};
+  for (const [id] of LAYERS.B){
+    const s = d.B[id];
+    rect(s.x0,s.x1,P.y1,P.y3,'none','#33465a','5 4');
+    txt((s.x0+s.x1)/2, P.y3-16, BNAM[id], '#6b7a8c', 10);
+    txt((s.x0+s.x1)/2, P.y1+ (P.y3-P.y1)*0.34, `${Math.round(s.len)}`, '#4a6a86', 11);
+  }
+  /* 床面（全宽面，y2）：做床时是连续的；坐姿时只画两个座面 */
+  if (P.fold > 0.5){
+    rect(d.bedFrom, d.bedTo, P.y2, P.y2+30, '#2f6a46', '#5fd08a');
+    txt((d.bedFrom+d.bedTo)/2, P.y2+64, `床面 ${Math.round(d.bedLen)}（连续全宽）`, '#5fd08a', 12);
+  } else {
+    rect(d.B.seatF.x0, d.B.seatF.x1, P.y2a, P.y2a+30, '#2f4a5a', '#8fb3cc');
+    rect(d.B.seatR.x1-Math.max(300,P.x14-300), d.B.seatR.x1, P.y2b, P.y2b+30, '#2f4a5a', '#8fb3cc');
+    txt((d.B.seatF.x0+d.B.seatF.x1)/2, P.y2a+60, `前座面 ${P.y2a}`,'#8fb3cc',11);
+    txt(d.B.seatR.x1-150, P.y2b+60, `二排座面 ${P.y2b}`,'#8fb3cc',11);
+  }
+  /* 可翻旋转件：铰在 x16 的前端，随 pAng 转（全宽件） */
+  const rot = d.B.rotable, th = 40, a = P.pAng*Math.PI/180;
+  const tipX = rot.x0 + rot.len*Math.cos(a), tipY = P.y2 + rot.len*Math.sin(a);
+  el('polygon',{points:[[rot.x0,P.y2],[tipX,tipY],[tipX,tipY+th],[rot.x0,P.y2+th]]
+      .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),fill:'#3a3320',stroke:'#e8d174','stroke-width':1.6});
+  txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
+
+  /* --- 层C：升顶开口（y3..y4），跨 x30 长 --- */
+  rect(d.B.upper.x0+20, d.B.upper.x0+20+P.x30, P.y3, P.y4, '#12324a', '#4aa3ff','6 4');
+  txt(d.B.upper.x0+20+P.x30/2, P.y4-18, `升顶开口 ${P.x30} · 顶棚 ${P.y4}`, '#4aa3ff', 11);
+
+  /* --- 全长尺寸 --- */
+  line(0,-40,d.A.total,-40,'#7d95a8');
+  txt(d.A.total/2,-58,`全长 ${Math.round(d.A.total)}`,'#8fb3cc',12);
+}
+
+/* =========================================================================
+   UI
+   ========================================================================= */
+function buildUI(){
+  const c = document.getElementById('ctrl'); c.replaceChildren();
+  let g0 = '';
+  for (const key in DEF){
+    const D = DEF[key];
+    if (D.g !== g0){ g0 = D.g; const s=document.createElement('div'); s.className='sec'; s.textContent=D.g; c.appendChild(s); }
+    const row = document.createElement('div'); row.className='ctl';
+    const lab = document.createElement('label');
+    const nm = document.createElement('span'); nm.textContent = D.n;
+    const num = document.createElement('input'); num.type='number'; num.value=P[key];
+    num.min=D.min; num.max=D.max; num.step=D.st; num.id='n_'+key;
+    const val = document.createElement('b'); val.id='v_'+key;
+    lab.append(nm,num,val);
+    const rng = document.createElement('input'); rng.type='range';
+    rng.min=D.min; rng.max=D.max; rng.step=D.st; rng.value=P[key]; rng.id=key;
+    row.append(lab,rng); c.appendChild(row);
+    const upd = ()=>{ syncOne(key); draw(); table(); };
+    rng.addEventListener('input',()=>{ P[key]=+rng.value; upd(); });
+    num.addEventListener('change',()=>{ let v=parseFloat(num.value); if(isNaN(v)) v=P[key];
+      v=Math.min(D.max,Math.max(D.min,v)); P[key]=v; rng.value=v; upd(); });
+  }
+  const t = document.createElement('div'); t.className='sec'; t.textContent='校验'; c.appendChild(t);
+  const box = document.createElement('div'); box.id='chk'; c.appendChild(box);
+  const s2 = document.createElement('div'); s2.className='sec'; s2.textContent='派生量'; c.appendChild(s2);
+  const tb = document.createElement('div'); tb.id='tbl'; c.appendChild(tb);
+}
+function syncOne(key){
+  const D = DEF[key], v = document.getElementById('v_'+key), n = document.getElementById('n_'+key);
+  if (v) v.textContent = D.deg ? Math.round(P[key])+'°' : Math.round(P[key]);
+  if (n && document.activeElement !== n) n.value = P[key];
+}
+function table(){
+  const d = derive(), R = Math.round;
+  const rows = [
+    ['全长（层A 链）', R(d.A.total)],
+    ['层B 座舱链', R(d.B.total)],
+    ['尾门闭合差（应 0）', R(d.closeGap)],
+    ['底盘层高 = 电池厚', R(d.battH)],
+    ['电池', `${R(P.x02)}×${P.W-380}×${R(d.battH)} ≈ ${d.kWh} kWh`],
+    ['床面长', R(d.bedLen)],
+    ['床面前→后', `${R(d.bedFrom)} → ${R(d.bedTo)}`],
+    ['前/二排座面', `${R(d.seatF)} / ${R(d.seatR)}`],
+    ['升顶抬高', R(P.y4-P.y3)],
+  ];
+  const tb = document.getElementById('tbl'); tb.replaceChildren();
+  const tab = document.createElement('table');
+  for (const [a,b] of rows){ const tr=document.createElement('tr');
+    const th=document.createElement('th'); th.textContent=a;
+    const td=document.createElement('td'); td.className='n'; td.textContent=b;
+    tr.append(th,td); tab.appendChild(tr); }
+  tb.appendChild(tab);
+}
+function report(){
+  const cs = checks(), box = document.getElementById('chk'); box.replaceChildren();
+  for (const c of cs){ const el=document.createElement('div');
+    el.className = c.lv==='info' ? 'dim2' : (c.ok?'ok':'bad');
+    el.textContent = (c.lv==='info' ? '· ' : (c.ok?'✓ ':'✗ ')) + c.t; box.appendChild(el); }
+}
+function render(){ draw(); report(); table(); }
+
+buildUI(); render();
+window.MY = { P, DEF, derive, checks, draw, render, chain };
+</script>
+</body>
+</html>

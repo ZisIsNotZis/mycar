@@ -12,7 +12,7 @@ p.on("console", (m) => {
   if (m.type() === "error") errs.push("CONSOLE " + m.text());
 });
 await p.goto("file://" + file);
-await p.waitForTimeout(400);
+await p.waitForTimeout(300);
 
 const R = [];
 const ok = (id, pass, msg) => R.push({ id, pass: !!pass, msg });
@@ -221,7 +221,7 @@ const run = (ov, mo) =>
         let g = false;
         try {
           g = MY.hardOK(q, MY.M);
-        } catch (e) {
+        } catch {
           g = false;
         }
         if (g) {
@@ -244,7 +244,7 @@ const run = (ov, mo) =>
       let g = false;
       try {
         g = MY.hardOK(cur, MY.M);
-      } catch (e) {
+      } catch {
         g = false;
       }
       if (g) {
