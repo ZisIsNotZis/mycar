@@ -107,11 +107,9 @@ function chain(defs){
   return at;
 }
 function derive(){
-  const A0 = chain(LAYERS.A);
-  const firewall = A0.machF.x1;                 // 座舱层从防火墙起算（真车：前部结构之后才是座舱）
-  const B0 = chain(LAYERS.B);
-  const B = {}; for (const k in B0) B[k] = typeof B0[k]==='number' ? B0[k]+firewall : {x0:B0[k].x0+firewall, x1:B0[k].x1+firewall, len:B0[k].len};
-  const A = A0, C = chain(LAYERS.C);
+  const A = chain(LAYERS.A);
+  const B = chain(LAYERS.B);          // 零坐标：层B 也从 x=0 起，不再锚在防火墙（第 17 轮）
+  const C = chain(LAYERS.C);
   const floor = P.y1, bed = P.y2, ceil = P.y3;
   const d = {A,B,C, floor, bed, ceil, pop: P.y4};
   /* 底盘层：全宽件（y0..y1 吃满） */
@@ -126,9 +124,6 @@ function derive(){
   d.bedTo   = B.rotable.x1;                      // 床面后缘 = 可翻件尾（= 尾门）
   d.bedLen  = d.bedTo - d.bedFrom;
   d.stand   = d.bedLen >= 1750;                  // 人长 1750
-  /* 尾部闭合：层A 与层B 应停在同一个尾门（差 90 = 尾门结构） */
-  d.firewall = firewall;
-  d.closeGap = (B.rotable.x1) - (A.total - 90);   // 座舱链尾 应正好落在尾门
   d.L = A.total;
   /* ---- 座椅几何：全部从层B 链推（座垫=x12 / x14−腿托；靠背铰在座垫尾；x15 是放平预留） ---- */
   const ba = P.fBa*Math.PI/180, ra = P.rBa*Math.PI/180, bedM = P.fold>0.5;
@@ -190,7 +185,7 @@ function checks(p=P, d=derive()){
     `层内接缝全 0（层A ${gapsA.join('/')} · 层B ${gapsB.join('/')}）`);
   H('T2', P.y0 < P.y1 && P.y1 < P.y2 && P.y2 <= P.y2a && P.y2 <= P.y2b && P.y3 > P.y2 && P.y4 > P.y3,
     `高度栈有序：y0<y1<y2≤y2a/y2b<y3<y4（${P.y0}<${P.y1}<${P.y2}≤${Math.max(P.y2a,P.y2b)}<${P.y3}<${P.y4}）`);
-  H('T3', Math.abs(d.closeGap)<=30, `座舱链尾 = 尾门：${R(d.B.rotable.x1)} vs ${R(d.A.total-90)}（差 ${R(d.closeGap)}）· 防火墙 x=${R(d.firewall)}`);
+  I('I5', `层A 链总长 ${R(d.A.total)} · 层B 链总长 ${R(d.B.total)}（两层各自从 x=0 起，差 ${R(d.A.total-d.B.total)}）`);
   H('T4', d.bedLen>=1750, `床面长 ${R(d.bedLen)} ≥ 1750（人 1750）`);
   H('T5', d.seatF+960<=P.y3, `坐姿净空（前座面 ${R(d.seatF)} + 960 ≤ 顶棚 ${P.y3}）`);
   H('T6', P.y4-P.y2 >= 1750+60, `站立：升顶顶棚 ${P.y4} − 床面 ${P.y2} = ${P.y4-P.y2} ≥ 1810（人 1750 + 60）`);
@@ -246,16 +241,15 @@ function draw(){
   const ACOL = {frunk:'#101c26',machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
   const ALAB = {frunk:['前备箱',P.x00,'#e8d174'],machF:['转向+AC+48V+MCU',P.x01,'#e57373'],
                 batt:['电池',P.x02,'#56c8d8'],machR:['同轴三电',P.x03,'#e57373'],trunk:['尾仓',P.x04,'#e8d174']};
-  /* 前备箱第 2 段：从 x=0 起，与第 1 段相接（底面贴着它的顶面），跨过前机能体顶面直到 x10 末端
-     —— 第 17 轮：frunk 更高、第二段专用 x10、且必须连在第 1 段上 */
-  const fr2 = {x0:d.A.frunk.x0, xStep:d.A.machF.x0, x1:d.B.upper.x1,
-               yLo:P.y1, yStep:P.y1a, yHi:P.y2};
+  /* 前备箱第 2 段 = 层B 的 x10 区（零坐标：0 → x10 长），画在机能体顶面之上
+     —— 第 17 轮：frunk 更高、第二段专用 x10、从 x=0 起、且连在第 1 段上 */
+  const fr2 = {x0:0, x1:d.B.upper.x1, yLo:P.y1, yStep:P.y1a, yHi:P.y2,
+               xStep:Math.min(d.A.machF.x0, d.B.upper.x1)};
   el('polygon',{points:[[fr2.x0,fr2.yLo],[fr2.xStep,fr2.yLo],[fr2.xStep,fr2.yStep],
                         [fr2.x1,fr2.yStep],[fr2.x1,fr2.yHi],[fr2.x0,fr2.yHi]]
       .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),
     fill:'#101c26',stroke:'#e8d174','stroke-width':1.4,'stroke-dasharray':'5 4'});
-  txt((fr2.x0+fr2.x1)/2, fr2.yHi-26, '前备箱 第2段（连在第 1 段上 · 跨机能体到 x10）', '#e8d174', 11);
-  txt((fr2.x0+fr2.xStep)/2, fr2.yLo+34, `${Math.round(fr2.x0)}–${Math.round(fr2.x1)} × 高 ${Math.round(fr2.yHi-fr2.yStep)}`, '#6b7a8c', 10);
+  txt((fr2.x0+fr2.x1)/2, fr2.yHi-26, '前备箱 第2段', '#e8d174', 11);
 
   for (const [id] of LAYERS.A){
     const s = d.A[id];
@@ -266,8 +260,6 @@ function draw(){
     if (top > P.y1) txt((s.x0+s.x1)/2, top+18, `顶 ${top}`, '#e57373', 10);
   }
   txt(d.A.total/2, P.y0-14, `层A 底盘链 总长 ${Math.round(d.A.total)} · 每处接缝 0`, '#8fb3cc', 11);
-  line(d.firewall, P.y1-40, d.firewall, P.y3+40, '#e8d174', '3 3');
-  txt(d.firewall, P.y3+56, `防火墙 ${Math.round(d.firewall)}（座舱层起点）`,'#e8d174',10);
 
   /* --- 层B：七个空间，y1..y3（空间用浅色框＋名称；里面只放全宽件：床面 / 可翻件） --- */
   const BNAM = {upper:'x10 前部上段',footF:'x11 前脚空间',seatF:'x12 前座空间',footR:'x13 后脚空间',
@@ -329,7 +321,7 @@ function draw(){
   txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
 
   /* --- 层C：升顶开口（y3..y4），跨 x30 长 --- */
-  const cx0 = d.firewall + 40;
+  const cx0 = d.C.ceiling.x0;                   // 层C 零坐标：也从 x=0 起
   rect(cx0, cx0+P.x30, P.y3, P.y4, '#12324a', '#4aa3ff','6 4');
   txt(cx0+P.x30/2, P.y4-18, `升顶开口 ${P.x30} · 顶棚 ${P.y4}`, '#4aa3ff', 11);
 
@@ -377,7 +369,7 @@ function table(){
   const rows = [
     ['全长（层A 链）', R(d.A.total)],
     ['层B 座舱链', R(d.B.total)],
-    ['尾门闭合差（应 0）', R(d.closeGap)],
+    ['层B 座舱链总长', R(d.B.total)],
     ['底盘层高 = 电池厚', R(d.battH)],
     ['电池', `${R(P.x02)}×${P.W-380}×${R(d.battH)} ≈ ${d.kWh} kWh`],
     ['床面长', R(d.bedLen)],
