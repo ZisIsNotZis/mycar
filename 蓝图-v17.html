@@ -79,18 +79,19 @@ const DEF = {
   y3:{v:1900,min:0,max:3200,st:10,g:'Y 高度', n:'y3 顶棚'},
   y4:{v:2640,min:0,max:3800,st:10,g:'Y 高度', n:'y4 升顶顶棚'},
   /* 层A：全宽底盘件（零坐标链，车长派生） */
-  x00:{v:500, min:200,max:1200,st:10,g:'层A 底盘', n:'x00 前备箱（在车头，腔体内穿过溃缩梁）'},
-  x01:{v:550, min:200,max:1200,st:10,g:'层A 底盘', n:'x01 前机能体（转向/AC/48V/MCU）'},
+  x00:{v:420, min:200,max:1200,st:10,g:'层A 底盘', n:'x00 前备箱 低段长（在车头，内有溃缩梁）'},
+  x01:{v:430, min:200,max:1200,st:10,g:'层A 底盘', n:'x01 前机能体 + 前备箱高段（高段在机能体之上）'},
   x02:{v:1410,min:400,max:2600,st:10,g:'层A 底盘', n:'x02 电池'},
-  x03:{v:600, min:200,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体（同轴三电）'},
-  x04:{v:710, min:200,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓（顶 = 床面）'},
+  x03:{v:600, min:200,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体 + 尾仓高段（高段在机能体之上）'},
+  x04:{v:950, min:200,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓 低段长（从地面到床面）'},
   /* 层B：座舱空间（首段"前备箱上段"= 前机能体长，派生） */
-  x11:{v:350, min:200,max:1000,st:10,g:'层B 座舱', n:'x11 前脚空间'},
+  x10:{v:620, min:0, max:2000,st:10,g:'层B 座舱', n:'x10 前部上段 = 前备箱高段（独立值，可长于/短于 x00+x01）'},
+  x11:{v:370, min:200,max:1000,st:10,g:'层B 座舱', n:'x11 前脚空间'},
   x12:{v:440, min:250,max:900, st:10,g:'层B 座舱', n:'x12 前座空间（座垫长）'},
-  x13:{v:350, min:200,max:1000,st:10,g:'层B 座舱', n:'x13 后脚空间'},
-  x14:{v:560, min:250,max:1000,st:10,g:'层B 座舱', n:'x14 后座空间（座垫长）'},
+  x13:{v:320, min:200,max:1000,st:10,g:'层B 座舱', n:'x13 后脚空间'},
+  x14:{v:380, min:250,max:1000,st:10,g:'层B 座舱', n:'x14 后座空间（座垫长）'},
   /* 层C：升顶（开口长派生 = L − 前留白 − 后留白） */
-  x30:{v:120,min:0,max:2000,st:10,g:'层C 升顶', n:'x30 开口前留白'},
+  x30:{v:1050,min:0,max:2000,st:10,g:'层C 升顶', n:'x30 开口前留白（至少要在风挡之后）'},
   /* 我定 */
   W:{v:1800,min:1000,max:2400,st:10,g:'我定', n:'内宽（全宽件的宽）'},
   bckT:{v:100,min:20,max:300,st:10,g:'我定', n:'靠背厚'},
@@ -128,6 +129,10 @@ const PRESETS = [
    ========================================================================= */
 const R = Math.round;
 const bedM = () => P.fold > 0.5;
+function ccw(p){                          // 保证多边形逆时针（碰撞与绘制都要）
+  let a=0; for (let i=0;i<p.length;i++){ const q=p[(i+1)%p.length]; a+=p[i][0]*q[1]-q[0]*p[i][1]; }
+  return a<0 ? p.slice().reverse() : p;
+}
 function chainFrom(defs){
   const at={}; let x=0;
   for (const [id,len] of defs){ at[id]={x0:x, x1:x+len, len}; x+=len; }
@@ -183,11 +188,12 @@ function hitsAny(j,S,skip){                // 返回第一个穿模的地方（n
 function bodySolids(d){                   // 所有实心体（全宽件）
   const S=[];
   const bx=(nm,x0,x1,y0,y1)=>S.push({nm, poly:[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]});
-  bx('前备箱', d.A.frunk.x0, d.A.frunk.x1, P.y0, P.y1c);
+  S.push({nm:'前备箱', poly:ccw([[0,P.y0],[d.A.frunk.x1,P.y0],[d.A.frunk.x1,P.y1a],[P.x10,P.y1a],[P.x10,P.y1c],[0,P.y1c]])});
   bx('前机能体', d.A.machF.x0, d.A.machF.x1, P.y0, P.y1a);
   bx('电池', d.A.batt.x0, d.A.batt.x1, P.y0, P.y1);
   bx('后机能体', d.A.machR.x0, d.A.machR.x1, P.y0, P.y1b);
-  bx('尾仓', d.A.trunk.x0, d.A.trunk.x1, P.y0, P.y2);
+  S.push({nm:'尾仓', poly:ccw([[d.A.machR.x0,P.y1b],[d.A.machR.x0,P.y2],[d.A.trunk.x1,P.y2],
+                              [d.A.trunk.x1,P.y0],[d.A.trunk.x0,P.y0],[d.A.trunk.x0,P.y1b]])});
   bx('前座垫', d.B.seatF.x0, d.B.seatF.x1, P.y2-SEAT.cushT, P.y2);
   bx('二排座垫', d.B.seatR.x0, d.B.seatR.x1, P.y2-SEAT.cushT, P.y2);
   const quad=(nm,hx,dir,len,th,side)=>{
@@ -246,7 +252,7 @@ function derive(){
   const A = d.A = chainFrom([['frunk',P.x00],['machF',P.x01],['batt',P.x02],['machR',P.x03],['trunk',P.x04]]);
   const L = d.L = A.total;
   /* 层B：座舱链；首段 = 前备箱上段 = 前机能体那一段（派生） */
-  const B = d.B = chainFrom([['frunkUp',A.frunk.len],['footF',P.x11],['seatF',P.x12],['footR',P.x13],['seatR',P.x14]]);   // 首段 = 前备箱专用长度 x00（不是 x00+x01）
+  const B = d.B = chainFrom([['upper',P.x10],['footF',P.x11],['seatF',P.x12],['footR',P.x13],['seatR',P.x14]]);   // 首段 = x10 前部上段 = 前备箱高段（专用长度，与 x01 无关）
   /* 层C：升顶；开口 = 前留白 → 车长 − 后留白 */
   const C = d.C = chainFrom([['roofF',P.x30],['opening',Math.max(0,L-P.x30-SEAT.roofBack)],['roofR',SEAT.roofBack]]);
   d.floor=P.y1; d.ceil=P.y3; d.pop=P.y4;
@@ -312,7 +318,7 @@ function derive(){
   const F=d.seat.front, Rp0=d.seat.rear;
   /* 前排没反转 → 车里永远有个坐着的人（床模式也是），姿势由物理求解。
      座垫是软垫（人坐在/靠在上面），不算障碍；硬的东西（前备箱/机能体/电池/尾仓/靠背/升顶壳）一个都不放过。 */
-  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背'];
+  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背','尾仓'];   // 软垫 + 床垫压在尾仓上
   if (!bedM() || P.rot<=90) d.dolls.push(solveSit('前排', F, d, SOFT));
   if (!bedM()) d.dolls.push(solveSit('二排', Rp0, d, SOFT));
   else if (P.popUp<=0.5){
@@ -402,7 +408,13 @@ function checks(){
       `上铺的人整身落在升顶开口内（${R(bk.toe[0])} → ${R(bk.headC[0]+AN.headR)} ⊂ ${R(d.C.opening.x0)} → ${R(d.C.opening.x1)}）`);
     I('I6', `上铺面 = 顶棚 ${R(P.y3)} → 升顶 ${R(P.y4)}，净空 ${R(P.y4-P.y3)}`);
   }
-  H('C10', P.y2-SEAT.cushT >= Math.max(P.y1a,P.y1b), `座垫底 ${R(P.y2-SEAT.cushT)} ≥ 机能体顶 ${R(Math.max(P.y1a,P.y1b))}（座椅在机能体上方）`);
+  /* 一切都在 [0, L] 之内：0 与 x00+x01+x02+x03+x04 是两个极端点 */
+  const over=[];
+  for (const j of d.dolls) if (j.knee) for (const [nm,g,r] of CAPS){ const [a,b]=g(j);
+    if (a[0]-r<-0.5 || b[0]+r>d.L+0.5) over.push(`${j.who}·${nm}`); }
+  for (const s of d.solids) for (const p of s.poly) if (p[0]<-0.5 || p[0]>d.L+0.5) over.push(s.nm);
+  H('C16', over.length===0,
+    `所有几何都在 [0, L=${R(d.L)}] 之内（0 与 x00+…+x04 是两个极端点）${over.length?'：超出 '+over.join('、'):''}`);
   /* 坐着的人不许压在靠背厚度里：躯干中轴到靠背接触面的垂距 ≤ −半身厚 */
   for (const j of d.dolls.filter(x=>!x.bunk && x.who!=='床面' && x.who!=='站立')){
     const S = j.who==='前排' ? d.seat.front : d.seat.rear;
@@ -414,7 +426,7 @@ function checks(){
   }
   H('C13', d.backZone.x1 <= d.A.trunk.x0+0.5,
     `二排靠背放平后尾端 ${R(d.backZone.x1)} ≤ 尾仓前沿 ${R(d.A.trunk.x0)}（不压尾仓）`);
-  I('I3', `层B：前备箱上段 ${R(d.B.frunkUp.len)}（= 前机能体）· 前脚 ${P.x11} · 前座 ${P.x12} · 后脚 ${P.x13} · 后座 ${P.x14} · 靠背放平预留 ${R(d.backZone.len)} · 可翻件 ${R(d.deck.len)}`);
+  I('I3', `层B：x10 前部上段（前备箱高段）${R(d.B.upper.len)} · 前脚 ${P.x11} · 前座 ${P.x12} · 后脚 ${P.x13} · 后座 ${P.x14} · 靠背放平预留 ${R(d.backZone.len)} · 可翻件 ${R(d.deck.len)}`);
   I('I4', `升顶开口 ${R(d.C.opening.len)}：${R(d.C.opening.x0)} → ${R(d.C.opening.x1)}（前留白 ${P.x30} · 后留白 ${SEAT.roofBack}）`);
   return out;
 }
@@ -452,24 +464,33 @@ function draw(){
   if (P.popUp>0.5) ys.push(['y4 升顶',P.y4,'#4aa3ff']);
   for (const [t,y,c] of ys){ line(0,y,d.L,y,c,y===P.y1?null:'4 4'); txt(0,y+20,t,c,10,'start'); }
 
-  /* 层A：全宽底盘件 */
-  const ACOL={frunk:'#101c26',machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
-  const ATOP={frunk:P.y1c,machF:P.y1a,batt:P.y1,machR:P.y1b,trunk:P.y2};
-  const ANAME={frunk:'前备箱',machF:'前机能体',batt:'电池',machR:'后机能体',trunk:'尾仓'};
-  for (const id of ['frunk','machF','batt','machR','trunk']){
+  /* 层A：全宽底盘件（前备箱、尾仓都是两段宽度：低段 + 在机能体之上的高段）*/
+  const ACOL={machF:'#3a1f22',batt:'#132434',machR:'#3a1f22'};
+  const ANAME={machF:'前机能体',batt:'电池',machR:'后机能体'};
+  const ATOP={machF:P.y1a,batt:P.y1,machR:P.y1b};
+  /* 前备箱：低段 0→x00（地板在地面），高段 0→x10（越过前机能体，地板 = 机能体顶）*/
+  const frLobe=ccw([[0,P.y0],[d.A.frunk.x1,P.y0],[d.A.frunk.x1,P.y1a],[P.x10,P.y1a],[P.x10,P.y1c],[0,P.y1c]]);
+  poly(frLobe,'#101c26','#e8d174','5 4');
+  txt(d.A.frunk.x1/2, P.y0+70, `前备箱 低段 ${R(d.A.frunk.len)}（含穿过的溃缩梁）`, '#e8d174', 11);
+  txt(P.x10/2, P.y1c-18, `前备箱 高段 ${R(P.x10)}（在前机能体之上）`, '#e8d174', 11);
+  /* 尾仓：低段 x04（地面→床面），高段 后机能体之上（机能体顶→床面）*/
+  const trLobe=ccw([[d.A.machR.x0,P.y1b],[d.A.machR.x0,P.y2],[d.A.trunk.x1,P.y2],
+                    [d.A.trunk.x1,P.y0],[d.A.trunk.x0,P.y0],[d.A.trunk.x0,P.y1b]]);
+  poly(trLobe,'#0e2430','#e8d174','5 4');
+  txt((d.A.trunk.x0+d.A.trunk.x1)/2, P.y0+(P.y2-P.y0)*0.5, `尾仓 低段 ${R(d.A.trunk.len)}（顶 = 床面）`, '#e8d174', 11);
+  txt((d.A.machR.x0+d.A.trunk.x0)/2, P.y2-18, `尾仓 高段（后机能体之上）`, '#e8d174', 10);
+  for (const id of ['machF','batt','machR']){
     const s=d.A[id], top=ATOP[id];
     rect(s.x0,s.x1,P.y0,top,ACOL[id],'#5a6a7a');
-    if ((id==='machF'||id==='machR') && top>P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');
-    txt((s.x0+s.x1)/2, P.y0+(top-P.y0)*0.5, `${ANAME[id]} ${R(s.len)}${id==='frunk'?'（含穿过的溃缩梁）':(id==='trunk'?'（顶=床面）':'')}`,
-        id==='batt'?'#56c8d8':'#e8d174', 11);
-    if (id==='machF'||id==='machR') txt((s.x0+s.x1)/2, top+20, `顶 ${top}`, '#e57373', 10);
+    if (top>P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');
+    txt((s.x0+s.x1)/2, P.y0+(top-P.y0)*0.5, `${ANAME[id]} ${R(s.len)}`, id==='batt'?'#56c8d8':'#e8d174', 11);
+    if (top>P.y1) txt((s.x0+s.x1)/2, top+20, `顶 ${top}`, '#e57373', 10);
   }
-  /* 溃缩梁：前备箱与尾仓各一组。一组 = 左右两根并行，侧视只看得见一根；上下两处就是两根 */
-  for (const id of ['frunk','trunk']){
-    const z=d.A[id], top=ATOP[id];
+  /* 溃缩梁：前备箱低段与尾仓低段各一组（一组 = 左右并行两根，侧视只看得见一根 → 上下两处 = 两根） */
+  for (const [z0,z1,top] of [[0,d.A.frunk.x1,P.y1a],[d.A.trunk.x0,d.A.trunk.x1,P.y2]]){
     for (let i=0;i<2;i++){
       const y=P.y0 + (top-P.y0)*(i+1)/3;
-      rect(z.x0+8, z.x1-8, y-BEAM.t/2, y+BEAM.t/2, '#243040','#4a5a6a');
+      rect(z0+8, z1-8, y-BEAM.t/2, y+BEAM.t/2, '#243040','#4a5a6a');
     }
   }
   /* 前备箱就是上面那个整个腔体（专用长度 x00）；层B 首段与它同跨度，不再重复画 */
@@ -534,7 +555,7 @@ function draw(){
   /* 图上方文字 */
   line(0,topY-170,d.L,topY-170,'#7d95a8');
   txt(d.L/2, topY-140, `车长 L ${R(d.L)} = x00 ${P.x00} + x01 ${P.x01} + x02 ${P.x02} + x03 ${P.x03} + x04 ${P.x04}`, '#8fb3cc', 12);
-  txt(d.L/2, topY-100, `座面 = 床面 ${R(P.y2)}（派生）· 前备箱上段 ${R(d.B.frunkUp.len)} = 前机能体长（派生）· 可翻件 ${R(d.deck.len)}（派生）`, '#8fb3cc', 11);
+  txt(d.L/2, topY-100, `座面 = 床面 ${R(P.y2)} · 前备箱：低段 ${R(d.A.frunk.len)}（层A x00）+ 高段 ${R(d.B.upper.len)}（层B x10，在机能体之上）· 可翻件 ${R(d.deck.len)}（派生）`, '#8fb3cc', 11);
   txt(d.L/2, topY-64, P.popUp>0.5?`站立净空 ${R(d.standClear)}（升顶已升）`:`升顶降：常规态`, '#4a6a86', 11);
 
   for (const t of texts) svg.appendChild(t);
