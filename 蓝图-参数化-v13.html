@@ -565,6 +565,19 @@ function build(p, m){
   const stX0=p.xR, stY0=p.gr+20;                 // 从二排靠背铰点 → 尾门（与床尾段相接，见 D44）
   g.push(rect(stX0, stY0, (p.L-90)-stX0, d.bedTop-stY0,'wet','#0e2430'));
   g.push(txt((stX0+p.L-90)/2, stY0+(d.bedTop-stY0)*0.5+4, `下层储物仓 ${Math.round((p.L-90)-stX0)}×${Math.round(d.bedTop-stY0)}(到离地)`,'wet-t',11));
+  /* 用户第 4 条：尾仓长 = 靠背 + 固定隔板 + 可翻隔板 —— 直接把等式写在盒子里 + 画接缝 */
+  g.push(txt((stX0+p.L-90)/2, stY0+(d.bedTop-stY0)*0.5-26,
+    `= 二排靠背 ${Math.round(d.bedBackTip-p.xR)} + 固定 ${Math.round(d.deckLen)} + 可翻 ${Math.round(d.flapActual)}`,'wet-t',10));
+  for (const jx of [d.bedBackTip, d.deckX1]) if (jx>stX0+2 && jx<p.L-90-2) g.push(ln([jx,stY0+10],[jx,d.bedTop-10],4,'joint'));
+
+  /* 前/后溃缩区：图上直接看得见（用户：rear impact beam 太短）—— 尺寸链 + 斜纹带 */
+  d.crushF=[0, p.axF-d.archRF]; d.crushR=[p.axR+d.archRR, p.L];
+  g.push(rect(24, d.rocker, 70, d.hoodAt(0)-60-d.rocker,'crush','none'));            // 前撞梁（薄片）
+  g.push(rect(p.L-94, d.rocker, 70, d.bedTop-d.rocker,'crush','none'));              // 后撞梁（薄片）
+  g.push(ln([d.crushF[0],-430],[d.crushF[1],-430],8,'crush-d'));
+  g.push(txt((d.crushF[0]+d.crushF[1])/2,-448,`前溃缩 ${Math.round(d.crushF[1]-d.crushF[0])}`,'crush-t',10));
+  g.push(ln([d.crushR[0],-430],[d.crushR[1],-430],8,'crush-d'));
+  g.push(txt((d.crushR[0]+d.crushR[1])/2,-448,`后溃缩 ${Math.round(d.crushR[1]-d.crushR[0])}`,'crush-t',10));
   g.push(ln([d.deckX0,d.bedTop],[d.deckX1,d.bedTop],22,'deck'));
   g.push(txt((d.deckX0+d.deckX1)/2, d.bedTop-28, `固定隔板/二层平台 ${Math.round(d.deckLen)}`,'bed-t',9.5));
   /* 可翻隔板：铰在 deckX1；0°=平铺补床尾，90°=立起成尾柱隔断 */
@@ -576,14 +589,20 @@ function build(p, m){
   g.push(txt(fTip[0], fTip[1]-40, `可翻隔板 ${p.pAng}°`,'part-t',10,fTip[0]>p.L-600?'end':'middle'));
   if (p.pAng>45) g.push(txt((d.deckX1+p.L)/2, p.H-60, `尾柱净高 ${Math.round(d.colH)}·竖放可两层`,'part-t',10));
 
-  /* 床面（变形中/放平后）：前座垫 + 腿托 + 座垫 + 靠背 + 固定隔板 + 可翻隔板 */
+  /* 床面（变形中/放平后）：前座垫 + 腿托 + 座垫 + 靠背 + 固定隔板 + 可翻隔板
+     分段标签用**真实区间**（v13 早期把腿托段写成[腿托尖,xR]、靠背段写成[xR+rCl,靠背尾]，
+     于是莱单上永远看不到“二排靠背”那一段 —— 用户就无法把 靠背+固定+可翻 加起来验尾仓）。 */
   if (FOLD>0.02){
     g.push(ln([d.bedFrontX,d.bedTop],[p.L-90,d.bedTop],26,'bed'));
-    const segs=[['前座垫',d.frontCushFrontX,d.frontCushRearX],['腿托',d.bedFlatTip,p.xR],
-                ['二排座垫',p.xR,p.xR+p.rCl],['二排靠背',p.xR+p.rCl,d.bedBackTip],
+    const segs=[['前座垫',d.frontCushFrontX,d.frontCushRearX],['腿托',d.bedFlatTip,p.xR-p.rCl],
+                ['二排座垫',p.xR-p.rCl,p.xR],['二排靠背',p.xR,d.bedBackTip],
                 ['固定隔板',d.deckX0,d.deckX1],['可翻隔板',d.deckX1,p.L-90]];
-    for (const [s0,a,b] of segs) if (b-a>40) g.push(txt((a+b)/2, d.bedTop-28, `${s0}${Math.round(b-a)}`,'bed-t',9.5));
+    segs.forEach(([s0,a,b],si)=>{ if (Math.abs(b-a)>40)                      // 交错两行，短段不再互相压字
+      g.push(txt((a+b)/2, d.bedTop-28-(si%2?26:0), `${s0}${Math.round(Math.abs(b-a))}`,'bed-t',9.5)); });
     g.push(txt(p.L/2, d.bedTop+200, `可睡长度 ${Math.round(d.bedRun)}（👤1750）`,'bed-t',11));
+    /* 分段接缝：让“靠背→隔板→可翻隔板 → 尾仓”看成一件事，而不是叠在一起 */
+    for (const jx of [p.xR, p.xR-p.rCl, d.bedFlatTip, d.deckX0, d.deckX1])
+      if (jx>d.bedFrontX-1 && jx<p.L-89) g.push(ln([jx,d.bedTop-70],[jx,d.bedTop+70],4,'joint'));
   }
 
   /* 会客模式：跨行桌板（搭在墙面榫卯上，不用时从下层仓取） */
@@ -1048,6 +1067,9 @@ const STYLES={
   'pj-t':{fill:'#b48ead'}, beam:{stroke:'#e8d174','stroke-width':1.2,'stroke-dasharray':'7 5',opacity:.6},
   'beam-t':{fill:'#e8d174',opacity:.85},
   rod:{stroke:'#d8c0e0','stroke-width':3,'stroke-dasharray':'1 0'},
+  joint:{stroke:'#7fd0a0','stroke-width':1,'stroke-dasharray':'3 3'},
+  crush:{fill:'#3a2020',stroke:'#b5565e','stroke-width':1.2,'stroke-dasharray':'4 5','fill-opacity':.5},
+  'crush-d':{stroke:'#e57373'}, 'crush-t':{fill:'#e57373','font-weight':700},
 };
 function renderSVG(B,S){
   const NS='http://www.w3.org/2000/svg', svg=document.getElementById('sv');
