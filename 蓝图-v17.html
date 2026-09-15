@@ -212,13 +212,27 @@ function bodySolids(d){                   // 所有实心体（全宽件）
   const a=P.pAng*Math.PI/180, o=[d.deck.x0,P.y2], rotPt=(p)=>[o[0]+(p[0]-o[0])*Math.cos(a)-(p[1]-o[1])*Math.sin(a),
                                                                o[1]+(p[0]-o[0])*Math.sin(a)+(p[1]-o[1])*Math.cos(a)];
   S.push({nm:'可翻件', poly:[[o[0],o[1]],[o[0]+d.deck.len,o[1]],[o[0]+d.deck.len,o[1]-SEAT.deckT],[o[0],o[1]-SEAT.deckT]].map(rotPt)});
+  const SOFT=['前座垫','二排座垫','腿托','可翻件','二排靠背'];   // 只有软垫/床垫：前备箱、尾仓是实心的
+  for (const s of S) s.soft = SOFT.includes(s.nm);
   return S;
 }
-function surfaceAt(x,d){                  // 可踩的面：地板 + 机能体顶 + 尾仓顶（=床面）
+function topAt(x,poly){                   // 凸多边形在 x 处的上边界（无交集 → −∞）
+  let best=-Infinity; const n=poly.length;
+  for (let i=0;i<n;i++){
+    const A=poly[i], B=poly[(i+1)%n];
+    if (x<Math.min(A[0],B[0])-1e-9 || x>Math.max(A[0],B[0])+1e-9) continue;
+    const t=Math.abs(B[0]-A[0])<1e-9 ? 0.5 : (x-A[0])/(B[0]-A[0]);
+    best=Math.max(best, A[1]+(B[1]-A[1])*t);
+  }
+  return best;
+}
+function surfaceAt(x,d){                  // 可踩的面 = 该 x 处最高的实心体顶面（软垫除外）
   let s=P.y1;
-  if (x>=d.A.machF.x0 && x<=d.A.machF.x1) s=Math.max(s,P.y1a);
-  if (x>=d.A.machR.x0 && x<=d.A.machR.x1) s=Math.max(s,P.y1b);
-  if (x>=d.A.trunk.x0 && x<=d.A.trunk.x1) s=Math.max(s,P.y2);
+  if (Array.isArray(d.solids)) for (const so of d.solids){
+    if (so.soft) continue;
+    const t=topAt(x, so.poly);
+    if (t>s) s=t;
+  }
   return s;
 }
 /* 坐姿求解：髋由座位接触面定，上半身定了；腿从膝角 0° 起扫，
