@@ -246,6 +246,17 @@ function draw(){
   const ACOL = {frunk:'#101c26',machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
   const ALAB = {frunk:['前备箱',P.x00,'#e8d174'],machF:['转向+AC+48V+MCU',P.x01,'#e57373'],
                 batt:['电池',P.x02,'#56c8d8'],machR:['同轴三电',P.x03,'#e57373'],trunk:['尾仓',P.x04,'#e8d174']};
+  /* 前备箱第 2 段：从 x=0 起，与第 1 段相接（底面贴着它的顶面），跨过前机能体顶面直到 x10 末端
+     —— 第 17 轮：frunk 更高、第二段专用 x10、且必须连在第 1 段上 */
+  const fr2 = {x0:d.A.frunk.x0, xStep:d.A.machF.x0, x1:d.B.upper.x1,
+               yLo:P.y1, yStep:P.y1a, yHi:P.y2};
+  el('polygon',{points:[[fr2.x0,fr2.yLo],[fr2.xStep,fr2.yLo],[fr2.xStep,fr2.yStep],
+                        [fr2.x1,fr2.yStep],[fr2.x1,fr2.yHi],[fr2.x0,fr2.yHi]]
+      .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),
+    fill:'#101c26',stroke:'#e8d174','stroke-width':1.4,'stroke-dasharray':'5 4'});
+  txt((fr2.x0+fr2.x1)/2, fr2.yHi-26, '前备箱 第2段（连在第 1 段上 · 跨机能体到 x10）', '#e8d174', 11);
+  txt((fr2.x0+fr2.xStep)/2, fr2.yLo+34, `${Math.round(fr2.x0)}–${Math.round(fr2.x1)} × 高 ${Math.round(fr2.yHi-fr2.yStep)}`, '#6b7a8c', 10);
+
   for (const [id] of LAYERS.A){
     const s = d.A[id];
     const top = id==='machF' ? P.y1a : (id==='machR' ? P.y1b : P.y1);   // 机能体比地板高
@@ -254,11 +265,6 @@ function draw(){
     txt((s.x0+s.x1)/2, P.y0+(P.y1-P.y0)*0.62, `${ALAB[id][0]} ${Math.round(s.len)}`, ALAB[id][2], 11);
     if (top > P.y1) txt((s.x0+s.x1)/2, top+18, `顶 ${top}`, '#e57373', 10);
   }
-  /* 前备箱第 2 段：专用 x10（前部上段），不是 x00+x01 —— 第 17 轮 */
-  const fr2 = {x0:d.B.upper.x0, x1:d.B.upper.x1, y0:P.y1a, y1:P.y2};
-  rect(fr2.x0, fr2.x1, fr2.y0, fr2.y1, '#101c26', '#e8d174','5 4');
-  txt((fr2.x0+fr2.x1)/2, fr2.y1-14, '前备箱 第2段', '#e8d174', 11);
-  txt((fr2.x0+fr2.x1)/2, fr2.y0+18, `${Math.round(fr2.x1-fr2.x0)} × ${Math.round(fr2.y1-fr2.y0)}`, '#6b7a8c', 10);
   txt(d.A.total/2, P.y0-14, `层A 底盘链 总长 ${Math.round(d.A.total)} · 每处接缝 0`, '#8fb3cc', 11);
   line(d.firewall, P.y1-40, d.firewall, P.y3+40, '#e8d174', '3 3');
   txt(d.firewall, P.y3+56, `防火墙 ${Math.round(d.firewall)}（座舱层起点）`,'#e8d174',10);
