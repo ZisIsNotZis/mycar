@@ -10,14 +10,15 @@ FPS=${5:-24}
 W=${6:-960}
 H=$(( W * 9 / 16 ))
 
-# 1) 图片序列 → 无声视频（字幕走 subtitles 滤镜烧进画面；字号随宽自适应）
+# 1) 图片序列 → 无声视频（字幕烧进画面；字号随宽度自适应）
 ffmpeg -y -loglevel warning -framerate "$FPS" -i "$DIR/f%04d.png" \
   -vf "scale=${W}:${H},subtitles='${SRT}':force_style='FontName=Noto Sans CJK SC,FontSize=15,PrimaryColour=&H00FFFFFF,OutlineColour=&H90000000,BorderStyle=1,Outline=1,Shadow=0,MarginV=18'" \
   -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p "$OUT.noaudio.mp4"
 
-# 2) 配旁白（旁白比片子短就自然结束；长了则截断到片长）
+# 2) 配旁白：**以画面长度为准**——旁白短就静音收尾（apad 必须配 -t，否则 ffmpeg 会一直编下去）
+DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$OUT.noaudio.mp4")
 ffmpeg -y -loglevel warning -i "$OUT.noaudio.mp4" -i "$VO" \
-  -c:v copy -c:a aac -b:a 160k -shortest "$OUT"
+  -map 0:v -map 1:a -c:v copy -c:a aac -b:a 160k -af apad -t "$DUR" "$OUT"
 
 echo "→ $OUT"
 ffprobe -v error -show_entries format=duration,size -of default=nw=1 "$OUT"
