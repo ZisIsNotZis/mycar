@@ -73,9 +73,13 @@
    ===================================================================== */
 
 const DEF = {
-  L:   {v:3700,min:3000,max:5400,st:10, g:'车身', n:'全长 L（紧凑化：小外廓·大内部）'},
-  W:   {v:1800,min:1500,max:2050,st:10, g:'车身', n:'外宽 W'},
-  H:   {v:1900,min:1400,max:2000,st:10, g:'车身', n:'车高 H（不升顶）'},
+  L:   {v:3700,min:3000,max:5400,st:10, g:'闭合(派生)', n:'全长（= 各件位置推出来的闭合值）',hide:1},
+  W:   {v:1800,min:1500,max:2050,st:10, g:'闭合(派生)', n:'内宽（全宽件靠它定尺寸）',hide:1},
+  H:   {v:1900,min:1400,max:2000,st:10, g:'闭合(派生)', n:'车高（= 座面+坐姿净空推出的闭合值）',hide:1},
+  machLF:{v:520,min:200,max:900,st:10,g:'底盘', n:'★前机能体：转向/48V/AC+溃缩件 纵向尺寸（全宽）'},
+  machHF:{v:340,min:120,max:600,st:10,g:'底盘', n:'★前机能体高度（全宽）'},
+  machLR:{v:560,min:200,max:900,st:10,g:'底盘', n:'★后机能体：同轴三电（电机+减速+逆变）纵向尺寸（全宽）'},
+  machHR:{v:360,min:120,max:600,st:10,g:'底盘', n:'★后机能体高度（全宽）'},
   clear:{v:140, min:100, max:260, st:5,  g:'底盘', n:'离地间隙（底盘属性）'},
   tdf: {v:660, min:550, max:780, st:2,  g:'底盘', n:'前轮直径'},
   tdr: {v:660, min:550, max:780, st:2,  g:'底盘', n:'后轮直径'},
@@ -164,8 +168,10 @@ function build(p, m){
   /* 机能体（全宽、中线上的实心件，D15）：前=转向/48V/AC+溃缩件，后=同轴三电
      —— 电池**派生**：自动吃满两者之间能到的全部空间（不再有 b0/b1/bw 三个滑块） */
   d.plate = 26;                                 // 地板板厚（地板面之下）
-  d.machF = {x0: p.axF - p.tdf/2 - 60, x1: p.axF + p.tdf/2 + 60, top: d.floor-d.plate};
-  d.machR = {x0: p.axR - p.tdr/2 - 60, x1: p.axR + p.tdr/2 + 60, top: d.floor-d.plate};
+  /* 全宽机能体 = 真实件（用户第 12 轮）：前=转向/48V/AC+溃缩件，后=同轴三电。
+     尺寸是参数（真实硬件），位置跟着轴走，**横向铺满内宽** —— 轮子不是全宽，它才是。 */
+  d.machF = {x0: p.axF - p.machLF/2, x1: p.axF + p.machLF/2, top: d.floor-d.plate, h: p.machHF, w: p.W-380};
+  d.machR = {x0: p.axR - p.machLR/2, x1: p.axR + p.machLR/2, top: d.floor-d.plate, h: p.machHR, w: p.W-380};
   d.batt = {x0: d.machF.x1 + 20, x1: d.machR.x0 - 20, w: p.W - 380, h: p.bt - d.plate};
   d.legSpanBed = (p.xR - p.rCl) - p.xF;         // 做床时腿托必须跨过的洞（脚部空洞）
   d.cushT = p.planeH - p.base;
@@ -583,9 +589,10 @@ function build(p, m){
   if (p.trunk>0.02) g.push(txt(e2[0]+40, e2[1]+40, `开 ${Math.round(p.trunk*100)}%（后伸 ${Math.round(Math.max(e1[0],e2[0])-p.L)}）`,'door-t',10,'start'));
 
   /* 轮位机能区：前后轴切片全被机械占满（前=转向/48V/AC+溃缩件，后=同轴三电） */
-  for (const [ax,arc,tag,note] of [[p.axF,d.archF,'前轮位','转向/48V/AC·溃缩件'],[p.axR,d.archR,'后轮位','同轴三电（电机+减速+逆变）']]){
-    g.push(rect(ax-arc.r, d.clear, 2*arc.r, arc.r, 'slice','none'));
-    g.push(txt(ax, arc.top+40, `${tag}：${note}`,'slice-t',9.5));
+  for (const [mc,tag,note] of [[d.machF,'前机能体','转向/48V/AC·溃缩件'],[d.machR,'后机能体','同轴三电（电机+减速+逆变）']]){
+    const y1=d.floor-d.plate;
+    g.push(rect(mc.x0, Math.max(d.clear, y1-mc.h), mc.x1-mc.x0, Math.min(mc.h, y1-d.clear), 'slice','#3a1f22'));
+    g.push(txt((mc.x0+mc.x1)/2, Math.max(d.clear,y1-mc.h)+mc.h*0.45, `${tag} ${Math.round(mc.x1-mc.x0)}×${mc.h}（全宽 ${mc.w}）`,'slice-t',9.5));
   }
 
   /* 尾仓：一层湿区（可冲洗）+ 固定隔板/二层平台 + 可翻隔板 */
@@ -1165,8 +1172,8 @@ function build3D(p,m,B){
   /* 轮位机身切片：两侧轮包 + **中间全宽的机能体**（D15：前=转向/48V/AC+溃缩件，后=同轴三电）
      以前 3D 只画了两侧轮包，里"其实是实心"的中间是空的 —— 于是任何判据都看不到
      "尾仓/电池被三电压占"这类冲突（用户第 9 轮）。 */
-  for (const [ax,td] of [[p.axF,p.tdf],[p.axR,p.tdr]]){
-    box(ax-td/2-60, ax+td/2+60, d.clear, d.floor-d.plate, -(hw-archIn), hw-archIn, 'slice3');   // 地板下的全宽实心件
+  for (const mc of [d.machF, d.machR]){
+    box(mc.x0, mc.x1, Math.max(d.clear, mc.top-mc.h), mc.top, -mc.w/2, mc.w/2, 'slice3');   // 真实尺寸的全宽机能体
   }
 
   /* 前备箱（2 段：轮包前满高 + 轮包上浅层） */
@@ -1535,6 +1542,7 @@ function buildUI(){
   let g0='';
   for (const k in DEF){
     const D=DEF[k];
+    if (D.hide) continue;                       // 派生/闭合量不给滑块（用户：shape 不该调）
     if (D.g!==g0){ g0=D.g; c.appendChild(mk('sec',g0)); }
     const w=mk('ctl');
     const lab=document.createElement('label');
@@ -1583,7 +1591,7 @@ const pushUndo=()=>{undoStack.push(JSON.stringify({P,M})); if(undoStack.length>6
 const exportJSON=()=>JSON.stringify({P,M});
 function importJSON(s){try{const o=JSON.parse(s); Object.assign(P,o.P||{}); Object.assign(M,o.M||{}); redraw(); syncUI(); bandsSoon();}catch(e){alert('JSON 解析失败');}}
 function syncOne(k){ const D=DEF[k];
-  $('v_'+k).textContent = D.deg ? Math.round(P[k])+'°' : (D.st<1 ? (+P[k]).toFixed(2) : Math.round(P[k]));
+  ($('v_'+k)||{}).textContent = D.deg ? Math.round(P[k])+'°' : (D.st<1 ? (+P[k]).toFixed(2) : Math.round(P[k]));
   const n=$('n_'+k); if(n && document.activeElement!==n) n.value=P[k]; }
 function syncUI(){
   for (const k in DEF){ const r=$(k); if(r) r.value=P[k]; syncOne(k); }
@@ -1647,7 +1655,7 @@ function bandsSoon(){ clearTimeout(bandTimer); bandTimer=setTimeout(computeBands
 function computeBands(){
   const N=40;
   for (const k in DEF){
-    const D=DEF[k], rng=$(k); if(!rng) continue;
+    const D=DEF[k], rng=$(k); if(!rng||D.hide) continue;
     const band=rng.parentElement.querySelector('.band'); band.replaceChildren();
     let cur=null; const segs=[];
     for (let i=0;i<=N;i++){
