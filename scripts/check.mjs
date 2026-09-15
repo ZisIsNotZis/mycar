@@ -141,16 +141,22 @@ const run = (ov, mo) =>
   );
 }
 
-/* 7) 绘制厚度 = 滑块值 */
+/* 7) 统一标高：planeH 一个数管住"座面 = 床面"，坐垫厚派生 = planeH − base */
 {
-  const t = await run({ rCt: 240, fCt: 120 });
-  const th = (q) => Math.hypot(q[0][0] - q[3][0], q[0][1] - q[3][1]); // 上下边的垂直厚度
-  const rc = th(t.rear.cush.sh),
-    fc = th(t.front.cush.sh);
+  const t1 = await run({ planeH: 350, base: 150 });
+  const t2 = await run({ planeH: 450, base: 150 });
+  const th = (q) => Math.hypot(q[0][0] - q[3][0], q[0][1] - q[3][1]);
+  const thick = Math.abs(th(t1.rear.cush.sh) - 200) < 1 && Math.abs(th(t1.front.cush.sh) - 200) < 1;
+  const same =
+    Math.abs(t1.front.topY - t1.rear.topY) < 0.5 &&
+    Math.abs(t1.d.bedTop - t1.front.topY) < 0.5;
+  const moved =
+    Math.abs(t2.front.topY - t1.front.topY - 100) < 0.5 &&
+    Math.abs(t2.d.bedTop - t1.d.bedTop - 100) < 0.5;
   ok(
-    "7 坐垫绘制厚度=滑块值",
-    Math.abs(rc - 240) < 5 && Math.abs(fc - 120) < 5,
-    `二排画 ${rc.toFixed(0)}mm(设240)，前排画 ${fc.toFixed(0)}mm(设120)`,
+    "7 统一标高 planeH（座面=床面=地板+planeH，坐垫厚派生）",
+    thick && same && moved,
+    `坐垫厚=${Math.round(th(t1.rear.cush.sh))}（=planeH−base）；前后同高=${same}；planeH+100 → 座面/床面+100=${moved}`,
   );
 }
 
