@@ -59,9 +59,11 @@
 </div>
 <script>
 /* =========================================================================
-   常量（不是参数）：板厚、靠背长、头枕、溃缩梁数量 —— 物理上就是这样
+   常量（不是参数）：板厚、座背长（已含头枕）、溃缩梁厚度 —— 物理上就是这样
+   座背 = 座背本体 + 头枕，合并成一个矩形：前排 740、二排 740（一样长，都够头枕）。
+   （真车必须有头枕，靠背不能只有 480/600 那么短；所以坐姿靠背与放平预留共用同一长度。）
    ========================================================================= */
-const SEAT = { cushT:60, backF:600, backR:480, headR:140, deckT:40, legT:40, roofBack:60 };
+const SEAT = { cushT:60, backF:740, backR:740, deckT:40, legT:40, roofBack:60 };
 const BEAM = { t:30 };                         // 前/后溃缩梁：侧视里只看得见一组（并行那根被挡住）
 const AN = { ankle:80, knee:480, hip:900, shd:1420, top:1750, shin:400, thigh:420, torso:520,
              headSeg:330, headR:115, hipAboveSeat:90, legW:130, shinW:100, torsoW:230, armW:78, footW:80, footL:80 };
@@ -81,7 +83,9 @@ const DEF = {
   /* 层A：全宽底盘件（零坐标链，车长派生） */
   x00:{v:420, min:200,max:1200,st:10,g:'层A 底盘', n:'x00 前备箱 低段长（在车头，内有溃缩梁）'},
   x01:{v:430, min:200,max:1200,st:10,g:'层A 底盘', n:'x01 前机能体 + 前备箱高段（高段在机能体之上）'},
-  x02:{v:1790,min:400,max:2600,st:10,g:'层A 底盘', n:'x02 电池'},
+  /* 座背加长到 740 后，靠背放平预留要多 120，电池加长 120 把尾仓前沿往后让出这 120；
+     L 由 4140 变为 4260（另一种做法是二排前移 120、保 L=4140，会挤后脚空间）。 */
+  x02:{v:1910,min:400,max:2600,st:10,g:'层A 底盘', n:'x02 电池（已加长 120 以容纳二排 740 靠背）'},
   x03:{v:600, min:200,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体（尾仓高段在它之上）'},
   x04:{v:900, min:200,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓 低段长（从地面到床面）'},
   /* 层B：座舱空间（首段"前备箱上段"= 前机能体长，派生） */
@@ -93,6 +97,8 @@ const DEF = {
   x15:{v:500, min:0,  max:1600,st:10,g:'层B 座舱', n:'x15 尾仓上段长（后机能体之上，独立值，不是 x03+x04）'},
   /* 层C：升顶（开口长派生 = L − 前留白 − 后留白） */
   x30:{v:1050,min:0,max:2000,st:10,g:'层C 升顶', n:'x30 开口前留白（至少要在风挡之后）'},
+  /* 顶中间横梁：真的存在的一根全宽小截面梁，x 绝对可调；默认放在升顶开口中部附近 */
+  xBeam:{v:2625,min:600,max:3600,st:10,g:'层C 升顶', n:'xBeam 顶中间横梁 x（开口内，默认中部）'},
   /* 我定 */
   W:{v:1800,min:1000,max:2400,st:10,g:'我定', n:'内宽（全宽件的宽）'},
   bckT:{v:100,min:20,max:300,st:10,g:'我定', n:'靠背厚'},
@@ -211,15 +217,18 @@ function bodySolids(d){                   // 所有实心体（全宽件）
   };
   const F=d.seat.front, Rp=d.seat.rear;
   /* 坐姿：靠背的碰撞面向上多托一段（肩在靠背顶之上，不托就会向后倒）——只影响碰撞，不改绘图高度 */
-  const bExt = bedM() ? 0 : SEAT.headR;
-  quad('前排靠背', F.hinge, F.dir, F.len+bExt, P.bckT, F.face<0?1:-1);
-  quad('二排靠背', Rp.hinge, Rp.dir, Rp.len+bExt, P.bckT, Rp.dir[0]>=0?1:-1);
+  /* 靠背长度已含头枕：碰撞面与绘图共用同一个长度，不再额外向上延伸（原来的 bExt 已删） */
+  quad('前排靠背', F.hinge, F.dir, F.len, P.bckT, F.face<0?1:-1);
+  quad('二排靠背', Rp.hinge, Rp.dir, Rp.len, P.bckT, Rp.dir[0]>=0?1:-1);
   if (d.legRest) bx('腿托', d.legRest.x0, d.legRest.x1, P.y2-SEAT.legT, P.y2);
   const a=P.pAng*Math.PI/180, o=[d.deck.x0,P.y2], rotPt=(p)=>[o[0]+(p[0]-o[0])*Math.cos(a)-(p[1]-o[1])*Math.sin(a),
                                                                o[1]+(p[0]-o[0])*Math.sin(a)+(p[1]-o[1])*Math.cos(a)];
   S.push({nm:'可翻件', poly:[[o[0],o[1]],[o[0]+d.deck.len,o[1]],[o[0]+d.deck.len,o[1]-SEAT.deckT],[o[0],o[1]-SEAT.deckT]].map(rotPt)});
   /* 上铺铺板：只有「升顶 + 未做床」才搭在开口上（做床时人要站着，铺板收起） */
   if (P.popUp>0.5 && !bedM()) bx('上铺板', d.C.opening.x0, d.C.opening.x1, P.y3-40, P.y3);
+  /* 顶中间横梁：全宽、真实存在；梁顶 = y3，截面 80(宽)×60(高)。铺板搭在它上面
+     （同属「顶结构」，允许贴合）；做床站着时没有铺板，这根梁就直接顶在人身上。 */
+  bx('顶横梁', P.xBeam-40, P.xBeam+40, P.y3-60, P.y3);
   /* 软垫 = 可压的面（只从上方单向支撑，不做侧推）：座垫/腿托/可翻件/放平后的二排靠背 */
   const SOFT=['前座垫','二排座垫','腿托','可翻件'];
   for (const s of S) s.soft = SOFT.includes(s.nm) || (s.nm==='二排靠背' && bedM());
@@ -331,6 +340,15 @@ function project(rag,hard,soft){
         if (wb){ B.contact=true; B.cnx=0; B.cny=1; }
       }
     }
+    /* 绳子：锚点 ↔ 头 的最大长度（不等式）约束。松时完全不发力，只有拉直了才把「头」
+       粒子沿绳方向拉回；锚点固定、粒子没有被钉死 —— 所以会摆动，然后稳定。 */
+    if (rag.rope){
+      const h=rag.p[rag.rope.pi];
+      if (!h.pin){
+        const dx=h.x-rag.rope.ax, dy=h.y-rag.rope.ay, dd=Math.hypot(dx,dy)||1e-9;
+        if (dd>rag.rope.L){ const scon=rag.rope.L/dd; h.x=rag.rope.ax+dx*scon; h.y=rag.rope.ay+dy*scon; }
+      }
+    }
   }
 }
 /* ---- ② physStep(dt)：重力 → 积分 → 投影 → 速度/摩擦 ---- */
@@ -389,7 +407,9 @@ function seedLie(d){
   return kinJoints(hip, dir, P.y2, -1);
 }
 function seedStand(d){
-  const sx=(d.C.opening.x0+d.C.opening.x1)/2, b=P.y2;
+  /* 顶中间横梁在开口中部、梁身恰好占满站立躯干的高度带，所以吊绳锚点放到开口偏前、
+     避开这根梁（梁本身不挪）——否则悬挂姿势只能斜靠在梁上，既不直也会穿。 */
+  const sx=d.C.opening.x0+0.34*d.C.opening.len, b=P.y2;
   return {hip:[sx,b+AN.hip],knee:[sx,b+AN.knee],ankle:[sx,b+AN.ankle],toe:[sx-AN.footL,b+AN.ankle],
     shd:[sx,b+AN.shd],headC:[sx,b+AN.top-AN.headR],face:-1,footY:b};
 }
@@ -408,7 +428,13 @@ function buildSim(d){
   if (!bed || P.rot<=90) rags.push(makeRag('前排', seedSeat(d.seat.front,d)));
   if (!bed) rags.push(makeRag('二排', seedSeat(d.seat.rear,d)));
   else if (P.popUp<=0.5) rags.push(makeRag('床面', seedLie(d)));
-  else rags.push(makeRag('站立', seedStand(d)));
+  else {
+    /* 升顶站立：头顶挂一根可见的绳子（最大长度约束，不是钉死）。
+       锚点固定在升顶顶棚 y4、开口中部上方；绳长让「头心」离床面 ≈1700（头顶 ≈1815 < y4）。 */
+    const st=seedStand(d), rag=makeRag('站立', st);
+    rag.rope={ax:st.headC[0], ay:P.y4, pi:PIDX['头'], L:Math.max(0,P.y4-(P.y2+1700))};
+    rags.push(rag);
+  }
   if (P.popUp>0.5 && !bed) rags.push(makeRag('上铺', seedBunk(d)));
   SIM.rags=rags;
   const mk=s=>({nm:s.nm, poly:s.poly, ip:RADII.map(r=>inflate(s.poly,r))});
@@ -423,6 +449,7 @@ function dollsFromSim(d){
     const j=poseOf(rag);
     j.ok=true; j.theta=null; j.footY=j.ankle[1];
     if (rag.who==='上铺') j.bunk=true;
+    if (rag.rope) j.rope=rag.rope;
     j.hit=hitsAny(j, d.solids, null);         // 判据与物理同一个碰撞函数
     return j;
   });
@@ -456,14 +483,14 @@ function derive(){
     front:{ cush:[B.seatF.x0,B.seatF.x1], hinge:fHinge, face:fFace, len:SEAT.backF,
             dir: bed ? [0,1] : [-fFace*Math.sin(fBa), Math.cos(fBa)] },
     rear: { cush:[B.seatR.x0,B.seatR.x1], hinge:B.seatR.x1, face:-1,
-            len: bed ? SEAT.backR+SEAT.headR : SEAT.backR,
+            len: SEAT.backR,                        // 已含头枕；坐姿与放平共用同一长度
             dir: bed ? [1,0] : [Math.sin(rBa), Math.cos(rBa)] },
   };
   /* 床模式：前排靠背一律立直当床头板（v13 规矩）。
      床面前界 = 靠背的**背面（厚度的另一侧）**：人只能躺在靠背之后，不能穿过那块厚度 */
   d.bedFrom = bed ? (fFace<0 ? fHinge + P.bckT : fHinge) : NaN;
   /* 派生①：靠背放平预留 = 二排靠背 + 头枕 */
-  d.backZone = { x0:B.seatR.x1, x1:B.seatR.x1+SEAT.backR+SEAT.headR, len:SEAT.backR+SEAT.headR };
+  d.backZone = { x0:B.seatR.x1, x1:B.seatR.x1+SEAT.backR, len:SEAT.backR };
   /* 派生②：可翻件 = 靠背放平尾端 → 车尾 */
   d.deck = { x0:d.backZone.x1, x1:L, len:L-d.backZone.x1, ang:P.pAng };
   /* 派生③：腿托 = 同一块伸缩板，永远把「前排座椅后面 → 二排座垫前缘」这段空缺填满
@@ -554,7 +581,8 @@ function checks(){
   /* 实心体之间不许互相侵占：这是"布局错"，不是"人摆不出来"。
      允许的贴合/嵌套：前备箱低+高、尾仓低+高（同一件东西两段）、座垫与其自己的靠背、
      可翻件/腿托（床面机构贴在床面/尾仓上）。 */
-  const fam=(nm)=> nm.startsWith('前备箱')?'前备箱':nm.startsWith('尾仓高')||nm.startsWith('尾仓低')?'尾仓':nm;
+  const fam=(nm)=> nm.startsWith('前备箱')?'前备箱':nm.startsWith('尾仓高')||nm.startsWith('尾仓低')?'尾仓'
+    :(nm==='顶横梁'||nm==='上铺板')?'顶结构':nm;
   const pairs=[];
   for (let i=0;i<d.solids.length;i++) for (let j=i+1;j<d.solids.length;j++){
     const a=d.solids[i], b=d.solids[j];
@@ -580,6 +608,19 @@ function checks(){
     `二排靠背放平后尾端 ${R(d.backZone.x1)} ≤ 尾仓前沿 ${R(d.A.trunk.x0)}（不压尾仓）`);
   I('I3', `层B：x10 前部上段（前备箱高段）${R(d.B.upper.len)} · 前脚 ${P.x11} · 前座 ${P.x12} · 后脚 ${P.x13} · 后座 ${P.x14} · 靠背放平预留 ${R(d.backZone.len)} · 可翻件 ${R(d.deck.len)}`);
   I('I4', `升顶开口 ${R(d.C.opening.len)}：${R(d.C.opening.x0)} → ${R(d.C.opening.x1)}（前留白 ${P.x30} · 后留白 ${SEAT.roofBack}）`);
+  /* 顶中间横梁 + 站立绳子：如实报出来，不为画面好看挪开/忽略 */
+  {
+    const st=d.dolls.find(x=>x.who==='站立');
+    const bx0=P.xBeam-40, bx1=P.xBeam+40, by0=P.y3-60, by1=P.y3;
+    const tx0=st?Math.min(st.hip[0],st.shd[0]):NaN, tx1=st?Math.max(st.hip[0],st.shd[0]):NaN,
+          ty0=st?Math.min(st.hip[1],st.shd[1]):NaN, ty1=st?Math.max(st.hip[1],st.shd[1]):NaN;
+    const cross = st && tx1>bx0 && tx0<bx1 && ty1>by0 && ty0<by1;
+    I('I7', `顶中间横梁 x=${R(P.xBeam)}（截面 80×60，梁顶 = y3 ${R(P.y3)}，全宽，已计入实心体）：`+
+      `梁身占 y ${R(by0)}–${R(by1)}，正是站着的人躯干的高度带 → 站在该 x 处必被挡住（真实冲突）。`+
+      (st?`吊绳演示身体在 x=${R(st.hip[0])}，${cross?'本帧仍与梁重合':'本帧不穿梁'}`:'（当前无站立的人）'));
+    if (st && st.rope) I('I8', `升顶站立绳子：锚点 (${R(st.rope.ax)}, ${R(st.rope.ay)} = y4)，绳长 ${R(st.rope.L)}，`+
+      `头心离床面 ${R(st.headC[1]-P.y2)}（目标 ≈1700）`);
+  }
   return out;
 }
 
@@ -620,7 +661,7 @@ function draw(){
   for (const [t,y,c] of ys){ line(0,y,d.L,y,c,y===P.y1?null:'4 4'); txt(0,y+20,t,c,10,'start'); }
 
   /* 层A：全宽底盘件（前备箱、尾仓都是两段宽度：低段 + 在机能体之上的高段）*/
-  const ACOL={machF:'#3a1f22',batt:'#132434',machR:'#3a1f22'};
+  const ACOL={machF:'#3a1f22',batt:'#132434',machR:'#2e2412'};   // 每件一种颜色，各自单块
   const ANAME={machF:'前机能体',batt:'电池',machR:'后机能体'};
   const ATOP={machF:P.y1a,batt:P.y1,machR:P.y1b};
   /* 前备箱：低段 0→x00（地板在地面），高段 0→x10（越过前机能体，地板 = 机能体顶）*/
@@ -636,10 +677,10 @@ function draw(){
   txt(d.A.trunk.x0-P.x15/2, P.y1b+(P.y2-P.bckT-P.y1b)*0.5, `尾仓 高段 ${R(P.x15)}（后机能体之上）`, '#e8d174', 10);
   for (const id of ['machF','batt','machR']){
     const s=d.A[id], top=ATOP[id];
+    /* 从底盘底 y0 一直画到它自己的顶（前机能体 y1a / 电池 y1 / 后机能体 y1b）：单块、无叠加 */
     rect(s.x0,s.x1,P.y0,top,ACOL[id],'#5a6a7a');
-    if (top>P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');
     txt((s.x0+s.x1)/2, P.y0+(top-P.y0)*0.5, `${ANAME[id]} ${R(s.len)}`, id==='batt'?'#56c8d8':'#e8d174', 11);
-    if (top>P.y1) txt((s.x0+s.x1)/2, top+20, `顶 ${top}`, '#e57373', 10);
+    txt((s.x0+s.x1)/2, top+20, `顶 ${R(top)}`, '#8fb3cc', 10);
   }
   /* 溃缩梁：前备箱低段与尾仓低段各一组（一组 = 左右并行两根，侧视只看得见一根 → 上下两处 = 两根） */
   for (const [z0,z1,top] of [[0,d.A.frunk.x1,P.y1a],[d.A.trunk.x0,d.A.trunk.x1,P.y2]]){
@@ -694,11 +735,27 @@ function draw(){
     line(d.C.opening.x0,P.y3,d.C.opening.x1,P.y3,'#4aa3ff','2 4');
     txt((d.C.opening.x0+d.C.opening.x1)/2, P.y3+22, `升顶：降（常规）· 开口 ${R(d.C.opening.len)}（升起来才画）`, '#4a6a86', 10);
   }
+  /* 上铺板：升顶 + 未做床时真的画出来（全宽件）。几何直接读 d.solids —— 与碰撞体同一份，不是两套。 */
+  const bunkS=d.solids.find(s=>s.nm==='上铺板');
+  if (bunkS){ poly(bunkS.poly,'#243044','#9fb6d6');
+    txt((d.C.opening.x0+d.C.opening.x1)/2, P.y3-18, `上铺板 ${R(d.C.opening.len)}×40（铺面 y3）`, '#9fb6d6', 10); }
+  /* 顶中间横梁：小截面、全宽，画在梁顶 = y3（短标签放在梁身上，避免遮挡上面铺位的人） */
+  const beamS=d.solids.find(s=>s.nm==='顶横梁');
+  if (beamS){ poly(beamS.poly,'#3a2f4a','#c0a0ff');
+    txt(P.xBeam, P.y3-22, '顶横梁', '#c0a0ff', 9); }
   /* 假人（最后画）。过渡动画中不画（中间姿态没有物理意义，v13 的规矩）；无解的不画。 */
   for (const j of (ANIM.active ? [] : d.dolls)){
     if (j.ok===false || !j.knee || !j.ankle || !j.toe){
       txt(j.hip?j.hip[0]:d.L-300, P.y2+46, `${j.who}：姿态无解（${j.why||'身材与实体冲突'}）—— 不画穿模的人`, '#e57373', 11);
       continue;
+    }
+    /* 绳子的可视化（只有升顶站立那具有）：细线 + 锚点标记，从锚点连到「头」粒子 */
+    if (j.rope && j.headC){
+      el('line',{x1:SX(j.rope.ax),y1:SY(j.rope.ay),x2:SX(j.headC[0]),y2:SY(j.headC[1]),
+        stroke:'#e8d174','stroke-width':1.2});
+      el('circle',{cx:SX(j.rope.ax),cy:SY(j.rope.ay),r:3.5,fill:'#e8d174'});
+      el('circle',{cx:SX(j.rope.ax),cy:SY(j.rope.ay),r:7,fill:'none',stroke:'#e8d174','stroke-width':1});
+      txt(j.rope.ax, j.rope.ay+24, '绳锚点（升顶顶棚 y4）', '#e8d174', 9);
     }
     const seg=(p1,p2,w)=>el('line',{x1:SX(p1[0]),y1:SY(p1[1]),x2:SX(p2[0]),y2:SY(p2[1]),
       stroke:'#d69a86','stroke-width':Math.max(2,w*k),'stroke-linecap':'round'});
