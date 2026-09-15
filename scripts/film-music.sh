@@ -6,7 +6,7 @@ set -euo pipefail
 VO=${1:?旁白 mp3}
 DUR=${2:?片长秒}
 OUT=${3:?输出 wav}
-MARKS=${4:-21.5,43.5,55.5}          # 转场点（秒）：动作开始 / 抬顶 / 收尾
+MARKS=${4:-21.5,43.5,55.5} # 转场点（秒）：动作开始 / 抬顶 / 收尾
 
 # 1) 一段 12 秒的软垫（A 小调：110 / 220 / 261.6 / 329.6 Hz），慢起慢落
 ffmpeg -y -loglevel error \
@@ -19,16 +19,17 @@ ffmpeg -y -loglevel error \
 afade=t=in:st=0:d=3,afade=t=out:st=9:d=3[m]" -map "[m]" /tmp/mycar-film/music-pad.wav
 
 # 2) 按转场点摆放（每处 12s，重叠部分自然叠加）
-inp=""; fc=""
+inp=""
+fc=""
 i=0
 for m in ${MARKS//,/ }; do
   inp="$inp -i /tmp/mycar-film/music-pad.wav"
   ms=$(python3 -c "print(int(float('$m')*1000))")
   fc="${fc}[${i}]adelay=${ms}|${ms},volume=0.55[p${i}];"
-  i=$((i+1))
+  i=$((i + 1))
 done
 mix=""
-for j in $(seq 0 $((i-1))); do mix="${mix}[p${j}]"; done
+for j in $(seq 0 $((i - 1))); do mix="${mix}[p${j}]"; done
 ffmpeg -y -loglevel error $inp -filter_complex "${fc}${mix}amix=inputs=$i:normalize=0:duration=longest[m]" \
   -map "[m]" -t "$DUR" /tmp/mycar-film/music-track.wav
 
