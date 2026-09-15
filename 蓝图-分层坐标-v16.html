@@ -194,6 +194,14 @@ function checks(p=P, d=derive()){
   H('T2', P.y0 < P.y1 && P.y1 < P.y2 && P.y2 <= P.y2a && P.y2 <= P.y2b && P.y3 > P.y2 && P.y4 > P.y3,
     `高度栈有序：y0<y1<y2≤y2a/y2b<y3<y4（${P.y0}<${P.y1}<${P.y2}≤${Math.max(P.y2a,P.y2b)}<${P.y3}<${P.y4}）`);
   I('I5', `层A 链总长 ${R(d.A.total)} · 层B 链总长 ${R(d.B.total)}（两层各自从 x=0 起，差 ${R(d.A.total-d.B.total)}）`);
+  /* 可翻件（做床时才在位）：立起来不能捅穿顶棚 */
+  const dkLen = d.L - (d.seat.rear.hinge + d.seat.rear.backLen);
+  if (P.fold > 0.5){
+    const maxA = Math.asin(Math.min(1, Math.max(0,(P.y3-P.y2)/Math.max(1,dkLen))))*180/Math.PI;
+    const tip = P.y2 + dkLen*Math.sin(P.pAng*Math.PI/180);
+    H('T8', tip <= P.y3 + 0.5,
+      `可翻件 ${P.pAng}° 时尾端高 ${R(tip)} ≤ 顶棚 ${R(P.y3)}（长 ${R(dkLen)}，最多只能立到 ${R(maxA)}°）`);
+  } else I('I6', `可翻件 ${R(dkLen)}（放平靠背尾端 → 车尾），坐姿时不在位（不画）`);
   H('T4', d.bedLen>=1750, `床面长 ${R(d.bedLen)} ≥ 1750（人 1750）`);
   H('T5', d.seatF+960<=P.y3, `坐姿净空（前座面 ${R(d.seatF)} + 960 ≤ 顶棚 ${P.y3}）`);
   H('T6', P.y4-P.y2 >= 1750+60, `站立：升顶顶棚 ${P.y4} − 床面 ${P.y2} = ${P.y4-P.y2} ≥ 1810（人 1750 + 60）`);
@@ -261,11 +269,13 @@ function draw(){
 
   for (const [id] of LAYERS.A){
     const s = d.A[id];
-    const top = id==='machF' ? P.y1a : (id==='machR' ? P.y1b : P.y1);   // 机能体比地板高
+    const isMach = id==='machF' || id==='machR';
+    const top = id==='machF' ? P.y1a : id==='machR' ? P.y1b : id==='trunk' ? P.y2 : P.y1;  // 机能体/尾仓比地板高
     rect(s.x0,s.x1,P.y0,top,ACOL[id],'#5a6a7a');
-    if (top > P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');       // 伸出地板的那一截
-    txt((s.x0+s.x1)/2, P.y0+(P.y1-P.y0)*0.62, `${ALAB[id][0]} ${Math.round(s.len)}`, ALAB[id][2], 11);
-    if (top > P.y1) txt((s.x0+s.x1)/2, top+18, `顶 ${top}`, '#e57373', 10);
+    if (isMach && top > P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');   // 机能体伸出地板的那一截
+    txt((s.x0+s.x1)/2, P.y0+(top-P.y0)*0.5,
+        `${ALAB[id][0]} ${Math.round(s.len)}${id==='trunk'?'（y0 → y2）':''}`, ALAB[id][2], 11);
+    if (isMach) txt((s.x0+s.x1)/2, top+18, `顶 ${top}`, '#e57373', 10);
   }
   txt(d.A.total/2, P.y0-14, `层A 底盘链 总长 ${Math.round(d.A.total)} · 每处接缝 0`, '#8fb3cc', 11);
 
@@ -322,19 +332,18 @@ function draw(){
       stroke:'#e8b0a0','stroke-width':1});
   }
 
-  /* 可翻件：做床时铰在**放平靠背的尾端**、一直铺到车尾（与靠背首尾相接，不压在它下面）；
-     坐姿时仍按 pAng 立在 x16 那块。 */
-  const rot = d.B.rotable, th = 40;
+  /* 可翻件：挂在**放平靠背的尾端** 2530，随 pAng 转（0 平铺 = 床面 / 90 立起 = 开尾仓）；
+     靠背立着时它没有落脚点（且会被靠背扫到），因此坐姿不画。 */
+  const th = 40, a = P.pAng*Math.PI/180;
   if (P.fold > 0.5){
-    const hx = S.rear.hinge + S.rear.backLen, tx = d.L;
-    rect(hx, tx, P.y2, P.y2+th, '#3a3320', '#e8d174');
-    txt((hx+tx)/2, P.y2+64, `可翻件 ${Math.round(tx-hx)}（靠背尾端 ${Math.round(hx)} → 车尾 ${Math.round(tx)}）`, '#e8d174', 11);
-  } else {
-    const a = P.pAng*Math.PI/180;
-    const tipX = rot.x0 + rot.len*Math.cos(a), tipY = P.y2 + rot.len*Math.sin(a);
-    el('polygon',{points:[[rot.x0,P.y2],[tipX,tipY],[tipX,tipY+th],[rot.x0,P.y2+th]]
+    const hx = S.rear.hinge + S.rear.backLen, tx = d.L, len = tx - hx;
+    const tipX = hx + len*Math.cos(a), tipY = P.y2 + len*Math.sin(a);
+    el('polygon',{points:[[hx,P.y2],[tipX,tipY],[tipX,tipY+th],[hx,P.y2+th]]
         .map(q=>`${SX(q[0])},${SY(q[1])}`).join(' '),fill:'#3a3320',stroke:'#e8d174','stroke-width':1.6});
-    txt(tipX + 90, tipY-14, `可翻件 ${P.pAng}°`, '#e8d174', 11);
+    txt((hx+tx)/2, P.y2 + (P.pAng>45 ? 90 : 64),
+        `可翻件 ${Math.round(len)}（靠背尾端 ${Math.round(hx)} → 车尾 ${Math.round(tx)}）· ${P.pAng}°`, '#e8d174', 11);
+  } else {
+    txt(d.B.rotable.x0 + d.B.rotable.len/2, P.y2+26, '可翻件：随靠背放下才到位', '#6b7a8c', 10);
   }
 
   /* --- 层C：x30 开口前段（不开顶）+ x31 升顶开口（y3..y4），零坐标从 x=0 起 --- */
