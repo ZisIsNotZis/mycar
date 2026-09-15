@@ -29,7 +29,7 @@
   button.tog:hover{border-color:var(--blue)}
   svg{display:block;width:100%;height:auto}
   .modes{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
-  .modes .cap{color:var(--dim);font-size:10px;align-self:center}
+  .modes .cap{color:var(--dim);font-size:10px;align-self:center;margin-right:2px}
   .modes button{background:#1b2531;border:1px solid var(--line);color:var(--ink);border-radius:6px;
     padding:4px 11px;font:12px system-ui,sans-serif;cursor:pointer}
   .modes button:hover{border-color:var(--blue)}
@@ -44,48 +44,47 @@
 <body>
 <h1>my car <span class="en">v17 · 分层物理模型（clean room 重写）</span></h1>
 <div class="sub">
-  三层零坐标链：<b>层A</b> 全宽底盘件（<b>车长 L 是它的和，派生</b>）· <b>层B</b> 座舱空间 · <b>层C</b> 升顶。
-  只画<b>全宽件</b>（不画车壳、轮子、玻璃、非全宽的家具）。<br>
-  参数只留物理上真实存在、且不能被推导的量；下面这些<b>没有参数</b>：
-  可翻件（铰在二排靠背放平后的尾端、一直到车尾）· 腿托（伸出时正好顶住前排）·
-  靠背放平预留（= 靠背+头枕的水平长度）· 前备箱上段（= 前机能体那一段）· 升顶开口长（= 车长 − 前后留白）·
-  座面高（= 床面，靠座垫厚对齐，不做升降）· 车壳（后算）。
+  三层零坐标链：<b>层A</b> 全宽底盘件（<b>车长 L = 链和，派生</b>）· <b>层B</b> 座舱空间 · <b>层C</b> 升顶。
+  只画<b>全宽件</b>，只画<b>物理上真实存在</b>的东西（车壳、轮子、玻璃、示意面、非全宽家具都不画）。<br>
+  <b>参数</b>只留物理上真实存在、且推不出来的量；<b>机构状态</b>（前排旋转 / 二排放平 / 可翻件角 / 升顶）是开关，不是参数；
+  <b>预设</b> = 状态的组合。<b>派生量</b>：车长、可翻件（铰点=靠背放平尾端、长度=到车尾）、腿托（伸出必顶住前排）、
+  靠背放平预留、前备箱上段、升顶开口长、座面高（=床面）、车壳。
 </div>
 <div class="wrap">
   <div class="left"><div class="panel">
     <div class="modes" id="modes"></div>
-    <svg id="sv" viewBox="0 0 1500 860" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg id="sv" viewBox="0 0 1500 880" xmlns="http://www.w3.org/2000/svg"></svg>
   </div></div>
   <div class="right"><div class="ctrl" id="ctrl"></div></div>
 </div>
 <script>
 /* =========================================================================
-   常量（不是参数）：板厚、靠背长、头枕 —— 物理上就是这么多，没什么可调的
+   常量（不是参数）：板厚、靠背长、头枕、溃缩梁数量 —— 物理上就是这样
    ========================================================================= */
 const SEAT = { cushT:60, backF:600, backR:480, headR:140, deckT:40, legT:40, roofBack:60 };
-/* 人：1750 关节链（站姿离地高）。所有姿态都从这一份推，不存在第二套人体。 */
+const BEAM = { n:4, t:30 };                     // 前备箱里穿过去的溃缩梁（只画位置，不标尺寸）
 const AN = { ankle:80, knee:480, hip:900, shd:1420, top:1750, shin:400, thigh:420, torso:520,
              headSeg:330, headR:115, hipAboveSeat:90, legW:130, shinW:100, torsoW:230, armW:78, footW:80, footL:80 };
 
 /* =========================================================================
-   参数：只留"物理上真实存在、且不能被别的量推出来"的
+   参数：只留"物理上真实存在、且推不出来"的量（机构状态不在这里）
    ========================================================================= */
 const DEF = {
-  /* Y 高度 */
   y0:{v:160, min:0,max:800, st:5, g:'Y 高度', n:'y0 底盘底（离地）'},
   y1:{v:460, min:0,max:1400,st:5, g:'Y 高度', n:'y1 舱内地面'},
   y1a:{v:520,min:0,max:1500,st:5, g:'Y 高度', n:'y1a 前机能体顶面（可踩）'},
   y1b:{v:560,min:0,max:1500,st:5, g:'Y 高度', n:'y1b 后机能体顶面（可踩）'},
-  y1c:{v:900,min:0,max:1900,st:5, g:'Y 高度', n:'y1c 前备箱顶面（在机能体之上）'},
-  y2:{v:810, min:0,max:1700,st:5, g:'Y 高度', n:'y2 床面 = 座面（派生座面，不做升降）'},
+  y1c:{v:900,min:0,max:1900,st:5, g:'Y 高度', n:'y1c 前备箱顶面（含穿过的溃缩梁）'},
+  y2:{v:810, min:0,max:1700,st:5, g:'Y 高度', n:'y2 床面 = 座面（座面是派生量，不做升降）'},
   y3:{v:1900,min:0,max:3200,st:10,g:'Y 高度', n:'y3 顶棚'},
   y4:{v:2640,min:0,max:3800,st:10,g:'Y 高度', n:'y4 升顶顶棚'},
-  /* 层A：全宽底盘件（零坐标链，车长由它派生） */
-  x01:{v:1050,min:300,max:2600,st:10,g:'层A 底盘', n:'x01 前机能体（转向/AC/48V/MCU，从 x=0 起）'},
-  x02:{v:1410,min:300,max:2600,st:10,g:'层A 底盘', n:'x02 电池'},
-  x03:{v:600, min:300,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体（同轴三电）'},
-  x04:{v:710, min:300,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓（顶 = 床面）'},
-  /* 层B：座舱空间（零坐标链；首段"前备箱上段"= 前机能体长，是派生量） */
+  /* 层A：全宽底盘件（零坐标链，车长派生） */
+  x00:{v:500, min:200,max:1200,st:10,g:'层A 底盘', n:'x00 前备箱（在车头，腔体内穿过溃缩梁）'},
+  x01:{v:550, min:200,max:1200,st:10,g:'层A 底盘', n:'x01 前机能体（转向/AC/48V/MCU）'},
+  x02:{v:1410,min:400,max:2600,st:10,g:'层A 底盘', n:'x02 电池'},
+  x03:{v:600, min:200,max:1600,st:10,g:'层A 底盘', n:'x03 后机能体（同轴三电）'},
+  x04:{v:710, min:200,max:1600,st:10,g:'层A 底盘', n:'x04 尾仓（顶 = 床面）'},
+  /* 层B：座舱空间（首段"前备箱上段"= 前机能体长，派生） */
   x11:{v:350, min:200,max:1000,st:10,g:'层B 座舱', n:'x11 前脚空间'},
   x12:{v:440, min:250,max:900, st:10,g:'层B 座舱', n:'x12 前座空间（座垫长）'},
   x13:{v:350, min:200,max:1000,st:10,g:'层B 座舱', n:'x13 后脚空间'},
@@ -95,78 +94,96 @@ const DEF = {
   /* 我定 */
   W:{v:1800,min:1000,max:2400,st:10,g:'我定', n:'内宽（全宽件的宽）'},
   bckT:{v:100,min:20,max:300,st:10,g:'我定', n:'靠背厚'},
-  fBa:{v:10,min:-10,max:45,st:1,g:'我定', n:'前排靠背角（坐姿；停车/床模式一律立直）',deg:1},
+  fBa:{v:10,min:-10,max:45,st:1,g:'我定', n:'前排靠背角（坐姿；床模式一律立直）',deg:1},
   rBa:{v:14,min:-10,max:45,st:1,g:'我定', n:'二排靠背角（坐姿）',deg:1},
-  /* 机构状态：每个都有"常规位" */
-  rot:  {v:0, g:'机构状态', n:'前排旋转',      tog:['朝前（常规）','朝后'],     a:0,  b:180},
-  fold: {v:0, g:'机构状态', n:'二排',          tog:['坐姿（常规）','放平'],     a:0,  b:1},
-  pAng: {v:90,g:'机构状态', n:'可翻件（隔板）', tog:['立 90°（常规）','放平 0°'], a:90, b:0},
-  popUp:{v:0, g:'机构状态', n:'升顶顶棚',      tog:['降（常规）','升'],        a:0,  b:1},
 };
-const P = {}; for (const k in DEF) P[k] = DEF[k].v;
 
 /* =========================================================================
-   派生：一切能推的东西都在这里推，画图与判据都只读这一份
+   机构状态：不是参数。每个都有"常规位"，界面上是开关钮。
    ========================================================================= */
-function chainFrom(defs){                       // 首尾相接的链（每处接缝恒为 0）
-  const at = {}; let x = 0;
-  for (const [id,len] of defs){ at[id] = {x0:x, x1:x+len, len}; x += len; }
-  at.total = x; return at;
-}
+const STATES = [
+  {k:'rot',  n:'前排旋转',      a:0,  b:180, lab:['朝前（常规）','朝后']},
+  {k:'fold', n:'二排',          a:0,  b:1,   lab:['坐姿（常规）','放平']},
+  {k:'pAng', n:'可翻件（隔板）', a:90, b:0,   lab:['立 90°（常规）','放平 0°']},
+  {k:'popUp',n:'升顶顶棚',      a:0,  b:1,   lab:['降（常规）','升']},
+];
+const P = {}; for (const k in DEF) P[k]=DEF[k].v; for (const s of STATES) P[s.k]=s.a;
+
+/* =========================================================================
+   预设 = 机构状态的组合
+   ========================================================================= */
+const PRESETS = [
+  ['常规',       {rot:0,   fold:0, pAng:90, popUp:0}],
+  ['对坐',       {rot:180, fold:0, pAng:90, popUp:0}],   // 前排转过来面对面（不是床）
+  ['大床',       {rot:180, fold:1, pAng:0,  popUp:0}],
+  ['大床观影',   {rot:180, fold:1, pAng:45, popUp:0}],
+  ['小床',       {rot:0,   fold:1, pAng:0,  popUp:0}],   // 小床 = 大床但不转前排
+  ['小床观影',   {rot:0,   fold:1, pAng:45, popUp:0}],
+  ['升顶',       {rot:0,   fold:0, pAng:90, popUp:1}],
+  ['升顶站立',   {rot:0,   fold:1, pAng:0,  popUp:1}],
+];
+
+/* =========================================================================
+   派生
+   ========================================================================= */
 const R = Math.round;
 const bedM = () => P.fold > 0.5;
-
+function chainFrom(defs){
+  const at={}; let x=0;
+  for (const [id,len] of defs){ at[id]={x0:x, x1:x+len, len}; x+=len; }
+  at.total=x; return at;
+}
 function derive(){
-  const d = {};
-  /* --- 层A：全宽底盘件链，车长 L 派生 --- */
-  const A = d.A = chainFrom([['machF',P.x01],['batt',P.x02],['machR',P.x03],['trunk',P.x04]]);
+  const d={};
+  /* 层A：全宽底盘件链；车长 L 派生 */
+  const A = d.A = chainFrom([['frunk',P.x00],['machF',P.x01],['batt',P.x02],['machR',P.x03],['trunk',P.x04]]);
   const L = d.L = A.total;
-  /* --- 层B：座舱链；首段 = 前备箱上段 = 前机能体那一段（派生，不是参数） --- */
-  const B = d.B = chainFrom([['frunkUp',A.machF.len],['footF',P.x11],['seatF',P.x12],['footR',P.x13],['seatR',P.x14]]);
-  /* --- 层C：升顶；开口 = 前留白 → 车长 − 后留白 --- */
+  /* 层B：座舱链；首段 = 前备箱上段 = 前机能体那一段（派生） */
+  const B = d.B = chainFrom([['frunkUp',A.machF.x1],['footF',P.x11],['seatF',P.x12],['footR',P.x13],['seatR',P.x14]]);   // 首段 = 前备箱整段（车头→机能体后沿），使层B 与层A 同坐标
+  /* 层C：升顶；开口 = 前留白 → 车长 − 后留白 */
   const C = d.C = chainFrom([['roofF',P.x30],['opening',Math.max(0,L-P.x30-SEAT.roofBack)],['roofR',SEAT.roofBack]]);
-  /* --- 高度 --- */
-  d.floor=P.y1; d.seatY=P.y2; d.bedY=P.y2; d.ceil=P.y3; d.pop=P.y4;
-  d.seatF = P.y2; d.seatR = P.y2;                // 座面 = 床面（靠座垫厚对齐）
-  /* --- 座位下"可踩的面"：脚踩在全宽件顶上（用户：feet can be put ON the machinery） --- */
+  d.floor=P.y1; d.ceil=P.y3; d.pop=P.y4;
+  d.seatF = P.y2; d.seatR = P.y2;                       // 座面 = 床面（派生）
+  /* 脚下的面（全宽件顶面可踩） */
   d.underY = x => {
+    if (x>=A.frunk.x0 && x<=A.frunk.x1) return P.y1c;
     if (x>=A.machF.x0 && x<=A.machF.x1) return P.y1a;
     if (x>=A.machR.x0 && x<=A.machR.x1) return P.y1b;
-    if (x>=A.trunk.x0 && x<=A.trunk.x1) return P.y2;   // 尾仓顶 = 床面
+    if (x>=A.trunk.x0 && x<=A.trunk.x1) return P.y2;
     return P.y1;
   };
-  /* --- 座椅：前排可旋转；停车/床模式前排靠背一律立直（立直的那块就是床头板，v13 的规矩） --- */
-  const fBa=P.fBa*Math.PI/180, rBa=P.rBa*Math.PI/180, bed = bedM();
-  const fFace = P.rot>90 ? 1 : -1;                  // +1 朝后（+x）/ −1 朝前（−x）
-  const fHinge = fFace<0 ? B.seatF.x1 : B.seatF.x0;
+  const bed = bedM();
+  const fBa=P.fBa*Math.PI/180, rBa=P.rBa*Math.PI/180;
+  const fFace = P.rot>90 ? 1 : -1;                      // +1 朝后 / −1 朝前
+  const fHinge = fFace<0 ? B.seatF.x1 : B.seatF.x0;     // 靠背铰在"人的背后"那一侧
   d.seat = {
-    front:{ cush:[B.seatF.x0,B.seatF.x1], y:P.y2, hinge:fHinge, face:fFace, len:SEAT.backF,
-            dir: bed ? [0,1] : [fFace*Math.sin(fBa), Math.cos(fBa)] },
-    rear: { cush:[B.seatR.x0,B.seatR.x1], y:P.y2, hinge:B.seatR.x1, face:-1,
+    /* 前排：靠背方向恒指向人的背后 → 朝前时朝 +x、朝后时朝 −x */
+    front:{ cush:[B.seatF.x0,B.seatF.x1], hinge:fHinge, face:fFace, len:SEAT.backF,
+            dir: bed ? [0,1] : [-fFace*Math.sin(fBa), Math.cos(fBa)] },
+    rear: { cush:[B.seatR.x0,B.seatR.x1], hinge:B.seatR.x1, face:-1,
             len: bed ? SEAT.backR+SEAT.headR : SEAT.backR,
-            dir: bed ? [1,0] : [Math.sin(rBa),Math.cos(rBa)] },
+            dir: bed ? [1,0] : [Math.sin(rBa), Math.cos(rBa)] },
   };
-  /* 床模式：前排靠背立直后，它的背面就是床面的前界 */
+  /* 床面前界 = 立直的前排靠背背面 */
   d.bedFrom = bed ? fHinge + (fFace<0 ? P.bckT : 0) : NaN;
-  /* --- 派生区①：靠背放平预留 = 靠背 + 头枕 躺平后的水平长度 --- */
-  d.backZone = { x0:B.seatR.x1, x1:B.seatR.x1 + SEAT.backR + SEAT.headR, len:SEAT.backR + SEAT.headR };
-  /* --- 派生②：可翻件（隔板）= 从靠背放平后的尾端，一直到车尾 --- */
+  /* 派生①：靠背放平预留 = 二排靠背 + 头枕 */
+  d.backZone = { x0:B.seatR.x1, x1:B.seatR.x1+SEAT.backR+SEAT.headR, len:SEAT.backR+SEAT.headR };
+  /* 派生②：可翻件 = 靠背放平尾端 → 车尾 */
   d.deck = { x0:d.backZone.x1, x1:L, len:L-d.backZone.x1, ang:P.pAng };
-  /* --- 派生③：腿托 = 从前排靠背背面 / 前座垫后缘，到二排座垫前缘 —— 伸出时正好顶住前排 --- */
+  /* 派生③：腿托 = 前排靠背背面/前座垫后缘 → 二排座垫前缘（必顶住前排） */
   d.legRest = bed ? (()=>{ const x0=Math.max(d.bedFrom, B.seatF.x1);
-                          return {x0, x1:B.seatR.x0, len:B.seatR.x0-x0}; })() : null;
-  /* --- 床面：连续的一段（靠背 + 腿托 + 座垫 + 放平靠背 + 头枕 + 可翻件），无空洞 --- */
+                           return {x0, x1:B.seatR.x0, len:B.seatR.x0-x0}; })() : null;
   d.bed = bed ? { x0:d.bedFrom, x1:L, len:L-d.bedFrom } : null;
+  /* 床面段：5 段（固定隔板已删；头枕算在二排靠背那一段里） */
   d.bedSeg = bed ? [
     ...(d.bedFrom < B.seatF.x1 ? [['前座垫', d.bedFrom, B.seatF.x1]] : []),
     ['腿托',     d.legRest.x0, d.legRest.x1],
     ['二排座垫', B.seatR.x0, B.seatR.x1],
-    ['二排靠背', B.seatR.x1, B.seatR.x1+SEAT.backR],
-    ['头枕',     B.seatR.x1+SEAT.backR, d.backZone.x1],
+    ['二排靠背+头枕', B.seatR.x1, d.backZone.x1],
     ['可翻件',   d.deck.x0, d.deck.x1],
   ] : [];
-  /* --- 假人：IK 从座位与"脚下的面"推；坐姿/床姿同一个 joints --- */
-  const joints=(hip,backDir,footY,FACE)=>{         // FACE = −1 朝前（−x）/ +1 朝后（+x）
+  /* 假人：同一套 joints，坐姿/床姿都从座位与"脚下的面"推 */
+  const joints=(hip,backDir,footY,FACE)=>{
     const A2=AN;
     const knee=[hip[0]+FACE*A2.thigh, hip[1]];
     const drop=knee[1]-(footY+A2.ankle);
@@ -177,10 +194,9 @@ function derive(){
     const headC=[shd[0]+backDir[0]*215, shd[1]+backDir[1]*215];
     return {hip,knee,ankle,toe,shd,headC,face:FACE,footY};
   };
-  const place=(hip,backDir,FOOT,FACE)=>{           // 脚下的面由落脚点反解（两遍足够）
-    let j = joints(hip,backDir,FOOT,FACE);
-    const y2 = d.underY(j.ankle[0]);
-    return y2!==FOOT ? joints(hip,backDir,y2,FACE) : j;
+  const place=(hip,backDir,FOOT,FACE)=>{
+    const j=joints(hip,backDir,FOOT,FACE), y=d.underY(j.ankle[0]);
+    return y!==FOOT ? joints(hip,backDir,y,FACE) : j;
   };
   d.dolls=[];
   if (!bedM()){
@@ -188,21 +204,21 @@ function derive(){
     d.dolls.push(Object.assign({who:'前排'}, place([fhx, P.y2+AN.hipAboveSeat], F.dir, P.y1, F.face)));
     d.dolls.push(Object.assign({who:'二排'}, place([d.seat.rear.hinge-8, P.y2+AN.hipAboveSeat], d.seat.rear.dir, P.y1, -1)));
   } else {
-    const headC=[L-80-AN.headR, P.y2+65];
-    const shd=[headC[0]-215, headC[1]], hip=[shd[0]-AN.torso, shd[1]];
+    /* 躺姿：身体**躺在床面之上**（下面是座垫/腿托/放平靠背/可翻件，没有别的面） */
+    const headC=[L-80-AN.headR, P.y2+AN.torsoW/2];
+    const shd=[headC[0]-215, headC[1]], hip=[shd[0]-AN.torso, headC[1]];
     d.dolls.push(Object.assign({who:'床面'}, joints(hip,[1,0],P.y2,-1)));
   }
-  /* --- 升顶：站立净空 --- */
   d.standClear = P.y4 - P.y2;
   return d;
 }
 
 /* =========================================================================
-   判据：几何自洽 + 物理不许冲突。全部引用 derive() 的同一份几何。
+   判据
    ========================================================================= */
-function segBox(p1,p2,b){                        // 线段 × 轴对齐矩形（Liang–Barsky）
+function segBox(p1,p2,b){
   const dx=p2[0]-p1[0], dy=p2[1]-p1[1];
-  let t0=0, t1=1;
+  let t0=0,t1=1;
   for (const [dd,o,q0,q1] of [[dx,p1[0],b.x0,b.x1],[dy,p1[1],b.y0,b.y1]]){
     if (Math.abs(dd)<1e-9){ if (o<q0||o>q1) return false; continue; }
     let a=(q0-o)/dd, c=(q1-o)/dd; if (a>c){ const t=a; a=c; c=t; }
@@ -212,72 +228,65 @@ function segBox(p1,p2,b){                        // 线段 × 轴对齐矩形（
   return true;
 }
 function checks(){
-  const d = derive(), out = [];
+  const d=derive(), out=[];
   const H=(id,ok,t)=>out.push({id,ok,lv:'hard',t});
   const I=(id,t)=>out.push({id,ok:true,lv:'info',t});
-  /* ① 链自洽 */
-  H('C1', [P.x01,P.x02,P.x03,P.x04,P.x11,P.x12,P.x13,P.x14,P.x30].every(v=>v>=0),
-    `链内无负段；车长 L = ${R(d.L)} = x01+x02+x03+x04`);
-  /* ② 高度栈有序 */
+  H('C1', [P.x00,P.x01,P.x02,P.x03,P.x04,P.x11,P.x12,P.x13,P.x14,P.x30].every(v=>v>=0) &&
+           P.x00+P.x01+P.x02+P.x03+P.x04>0,
+    `链内无负段；车长 L = ${R(d.L)} = x00 ${P.x00}+x01 ${P.x01}+x02 ${P.x02}+x03 ${P.x03}+x04 ${P.x04}`);
   H('C2', P.y0<P.y1 && P.y1<=Math.min(P.y1a,P.y1b) && Math.max(P.y1a,P.y1b)<P.y2 && P.y1c>P.y2 && P.y2<P.y3 && P.y4>P.y3,
-    `高度栈：y0 ${R(P.y0)} < y1 ${R(P.y1)} ≤ 机能体顶 ${R(Math.max(P.y1a,P.y1b))} < y2 座/床面 ${R(P.y2)} < 前备箱顶 y1c ${R(P.y1c)} < y3 ${R(P.y3)} < y4 ${R(P.y4)}`);
-  /* ③ 假人：小腿/足不得陷进机能体实体（顶面可踩） */
-  const boxes=[['前机能体',d.A.machF,P.y1a],['后机能体',d.A.machR,P.y1b]]
-    .map(([nm,z,top])=>[nm,{x0:z.x0+1,x1:z.x1-1,y0:P.y1+1,y1:top-1}]);
+    `高度栈：y0 ${R(P.y0)} < y1 ${R(P.y1)} ≤ 机能体顶 ${R(Math.max(P.y1a,P.y1b))} < y2 座/床面 ${R(P.y2)} < 前备箱顶 ${R(P.y1c)} < y3 ${R(P.y3)} < y4 ${R(P.y4)}`);
+  const boxes=[['前备箱',d.A.frunk,P.y1c],['前机能体',d.A.machF,P.y1a],['后机能体',d.A.machR,P.y1b]]
+    .map(([nm,z,top])=>[nm,{x0:z.x0+1,x1:z.x1-1,y0:P.y0+1,y1:top-1}]);
   for (const j of d.dolls){
     for (const [nm,b] of boxes){
-      if (b.x1<=b.x0 || b.y1<=b.y0) continue;
-      const hit=[['小腿',j.knee,j.ankle],['足',j.ankle,j.toe]].filter(([,p1,p2])=>segBox(p1,p2,b));
-      H('C3·'+j.who+nm, hit.length===0,
-        `${j.who} 不陷进${nm}（可踩其顶面）：${hit.length?hit.map(h=>h[0]).join('+')+' 穿入':'ok'}`);
+      if (b.x1<=b.x0||b.y1<=b.y0) continue;
+      const hit=segBox(j.ankle,j.toe,b)||segBox(j.knee,j.ankle,b);
+      H('C3·'+j.who+nm, !hit, `${j.who} 不陷进${nm}（可踩顶面）${hit?' ← 小腿/足穿入':''}`);
     }
   }
-  /* ④ 床面必须连续、够长，且腿托真的顶住前排 */
   if (bedM()){
     const gaps=[]; for (let i=1;i<d.bedSeg.length;i++) gaps.push(d.bedSeg[i][1]-d.bedSeg[i-1][2]);
-    H('C4', gaps.every(g=>Math.abs(g)<1), `床面无空洞（各接缝 ${gaps.map(R).join('/')}）`);
+    H('C4', gaps.every(g=>Math.abs(g)<1), `床面 ${d.bedSeg.length} 段首尾相接（接缝 ${gaps.map(R).join('/')}）`);
     H('C5', d.legRest.len>=0 && Math.abs(d.legRest.x1-d.B.seatR.x0)<1,
-      `腿托 ${R(d.legRest.len)}：${R(d.legRest.x0)}（${d.legRest.x0>=d.bedFrom-1&&d.bedFrom>d.B.seatF.x1?'前排靠背背面':'前座垫后缘'}）→ ${R(d.legRest.x1)} = 二排座垫前缘`);
+      `腿托 ${R(d.legRest.len)}（${R(d.legRest.x0)} → ${R(d.legRest.x1)}）伸出就顶住前排`);
     H('C6', d.bed.len>=1750, `床面 ${R(d.bed.x0)}–${R(d.bed.x1)} = ${R(d.bed.len)} ≥ 1750（人 1750）`);
-    H('C11', d.dolls[0].toe[0]>=d.bed.x0-1, `床上的人整身落在床面内（脚端 ${R(d.dolls[0].toe[0])} ≥ 床面前界 ${R(d.bed.x0)}）`);
-  } else I('I1', `坐姿：床面不成立（二排未放平）`);
-  /* ⑤ 可翻件：接在靠背放平尾端、铺到车尾；立起来不许捅穿头顶的板 */
+    H('C11', d.dolls[0].toe[0]>=d.bed.x0-1,
+      `躺在床上的人整身落在床面内（脚端 ${R(d.dolls[0].toe[0])} ≥ 床面前界 ${R(d.bed.x0)}）`);
+    H('C12', d.dolls[0].hip[1]-AN.torsoW/2 >= P.y2-1,
+      `人躺在床上方（身体下沿 ${R(d.dolls[0].hip[1]-AN.torsoW/2)} ≥ 床面 ${R(P.y2)}）`);
+  } else I('I1','坐姿：床面不成立（二排未放平）');
   H('C7', d.deck.len>=0 && Math.abs(d.deck.x0-d.backZone.x1)<1,
     `可翻件 ${R(d.deck.len)}：接靠背放平尾端 ${R(d.backZone.x1)} → 车尾 ${R(d.L)}`);
-  const dkTipX = d.deck.x0 + d.deck.len*Math.cos(P.pAng*Math.PI/180);
-  const overPop = P.popUp>0.5 && dkTipX>=d.C.opening.x0 && dkTipX<=d.C.opening.x1;
+  const a=P.pAng*Math.PI/180, o=[d.deck.x0,P.y2];
+  const tipX=o[0]+d.deck.len*Math.cos(a), tipY=o[1]+d.deck.len*Math.sin(a);
+  const overPop = P.popUp>0.5 && tipX>=d.C.opening.x0 && tipX<=d.C.opening.x1;
   const capY = overPop ? P.y4 : P.y3;
-  const tipY = P.y2 + d.deck.len*Math.sin(P.pAng*Math.PI/180);
   const maxA = Math.asin(Math.min(1,Math.max(0,(capY-P.y2)/Math.max(1,d.deck.len))))*180/Math.PI;
   H('C8', tipY<=capY+0.5, `可翻件 ${P.pAng}° 尾端高 ${R(tipY)} ≤ ${overPop?'升顶顶棚':'顶棚'} ${R(capY)}（最多 ${R(maxA)}°）`);
-  /* ⑥ 站立 / 升顶 */
   if (P.popUp>0.5) H('C9', d.standClear>=1810, `站立：升顶顶棚 ${R(P.y4)} − 床面 ${R(P.y2)} = ${R(d.standClear)} ≥ 1810`);
   else I('I2', `升顶降（常规）：顶棚 ${R(P.y3)}；升起后净空 ${R(d.standClear)}`);
-  /* ⑦ 前排座垫不能撞上前机能体（坐垫前沿 ≥ 前机能体后沿） */
   H('C10', d.B.seatF.x0>=d.A.machF.x1, `前座垫前缘 ${R(d.B.seatF.x0)} ≥ 前机能体后沿 ${R(d.A.machF.x1)}`);
-  /* 信息行 */
-  I('I3', `层B 座舱链：前备箱上段 ${R(d.B.frunkUp.len)}（= 前机能体）· 前脚 ${P.x11} · 前座 ${P.x12} · 后脚 ${P.x13} · 后座 ${P.x14} · 靠背放平预留 ${R(d.backZone.len)} · 可翻件 ${R(d.deck.len)} ${bedM()?'':`（立 ${P.pAng}°）`}`);
+  I('I3', `层B：前备箱上段 ${R(d.B.frunkUp.len)}（= 前机能体）· 前脚 ${P.x11} · 前座 ${P.x12} · 后脚 ${P.x13} · 后座 ${P.x14} · 靠背放平预留 ${R(d.backZone.len)} · 可翻件 ${R(d.deck.len)}`);
   I('I4', `升顶开口 ${R(d.C.opening.len)}：${R(d.C.opening.x0)} → ${R(d.C.opening.x1)}（前留白 ${P.x30} · 后留白 ${SEAT.roofBack}）`);
-  I('I5', `电池 ${R(P.x02)}×${P.W-380}×${R(P.y1-P.y0)} ≈ ${R(P.x02*(P.W-380)*(P.y1-P.y0)*120/1e9)} kWh（吃满层A 高度）`);
   return out;
 }
 
 /* =========================================================================
-   画图：只画全宽件 —— 层A 底盘件、层B 空间、层C 升顶、座垫/靠背/腿托/可翻件、人。
-   不画：车壳、玻璃、轮子、中岛、吊柜、非全宽家具。
+   画图：只画全宽件、只画真实存在的东西
    ========================================================================= */
-const VW=1500, VH=860, PADL=70, PADR=40, PADT=110, PADB=70;
+const VW=1500, VH=880, PADL=70, PADR=40, PADT=110, PADB=70;
 function draw(){
-  const d = derive();
-  const topY = (P.popUp>0.5 ? P.y4 : P.y3) + 300;                 // 上方留出文字带
-  const xMax = d.L + 120;
-  const k = Math.min((VW-PADL-PADR)/xMax, (VH-PADT-PADB)/topY);
-  const SX = x => PADL + x*k, SY = y => VH-PADB - y*k;
+  const d=derive();
+  const topY=(P.popUp>0.5?P.y4:P.y3)+300;
+  const xMax=d.L+120;
+  const k=Math.min((VW-PADL-PADR)/xMax, (VH-PADT-PADB)/topY);
+  const SX=x=>PADL+x*k, SY=y=>VH-PADB-y*k;
   const NS='http://www.w3.org/2000/svg';
   const svg=document.getElementById('sv'); svg.replaceChildren();
   const texts=[];
   const el=(tag,at,txt)=>{ const e=document.createElementNS(NS,tag);
-    for (const a in at) if (at[a]!=null) e.setAttribute(a,at[a]);
+    for (const a2 in at) if (at[a2]!=null) e.setAttribute(a2,at[a2]);
     if (txt!=null) e.textContent=txt;
     if (tag==='text') texts.push(e); else svg.appendChild(e); return e; };
   const rect=(x0,x1,y0,y1,fill,stroke,dash)=>el('rect',{x:SX(x0),y:SY(y1),width:(x1-x0)*k,height:(y1-y0)*k,
@@ -288,67 +297,68 @@ function draw(){
     'text-anchor':anchor||'middle'},s);
   const poly=(pts,fill,stroke,dash)=>el('polygon',{points:pts.map(p=>`${SX(p[0])},${SY(p[1])}`).join(' '),
     fill:fill||'#22303e',stroke:stroke||'#8fb3cc','stroke-width':1.4,'stroke-dasharray':dash||null});
+  const rotPt=(p,o,a)=>[o[0]+(p[0]-o[0])*Math.cos(a)-(p[1]-o[1])*Math.sin(a),
+                        o[1]+(p[0]-o[0])*Math.sin(a)+(p[1]-o[1])*Math.cos(a)];
 
-  /* 高度参考线（只到车长，图下不留字） */
-  const ys=[['y0 底盘底',P.y0,'#5c7386'],['y1 地面',P.y1,'#7fd0a0'],['y2 座面=床面',P.y2,'#5fd08a'],
-            ['y3 顶棚',P.y3,'#4aa3ff']];
+  /* 高度参考线（只到车长；图下不留字） */
+  const ys=[['y0 底盘底',P.y0,'#5c7386'],['y1 地面',P.y1,'#7fd0a0'],['y2 座面=床面',P.y2,'#5fd08a'],['y3 顶棚',P.y3,'#4aa3ff']];
   if (P.popUp>0.5) ys.push(['y4 升顶',P.y4,'#4aa3ff']);
   for (const [t,y,c] of ys){ line(0,y,d.L,y,c,y===P.y1?null:'4 4'); txt(0,y+20,t,c,10,'start'); }
 
   /* 层A：全宽底盘件 */
-  const AC={machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
-  const topOf={machF:P.y1a,machR:P.y1b,trunk:P.y2};
-  for (const id of ['machF','batt','machR','trunk']){
-    const s=d.A[id], top=topOf[id]||P.y1;
-    rect(s.x0,s.x1,P.y0,top,AC[id],'#5a6a7a');
-    if (id!=='trunk' && top>P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');
-    txt((s.x0+s.x1)/2, P.y0+(top-P.y0)*0.5, `${({machF:'前机能体',batt:'电池',machR:'后机能体',trunk:'尾仓'})[id]} ${R(s.len)}`+
-      (id==='trunk'?'（y0→y2）':''), id==='batt'?'#56c8d8':'#e8d174', 11);
-    if (id!=='trunk' && top>P.y1) txt((s.x0+s.x1)/2, top+20, `顶 ${top}`, '#e57373', 10);
+  const ACOL={frunk:'#101c26',machF:'#3a1f22',batt:'#132434',machR:'#3a1f22',trunk:'#0e2430'};
+  const ATOP={frunk:P.y1c,machF:P.y1a,batt:P.y1,machR:P.y1b,trunk:P.y2};
+  const ANAME={frunk:'前备箱',machF:'前机能体',batt:'电池',machR:'后机能体',trunk:'尾仓'};
+  for (const id of ['frunk','machF','batt','machR','trunk']){
+    const s=d.A[id], top=ATOP[id];
+    rect(s.x0,s.x1,P.y0,top,ACOL[id],'#5a6a7a');
+    if ((id==='machF'||id==='machR') && top>P.y1) rect(s.x0,s.x1,P.y1,top,'#5c2a2e','#e57373');
+    txt((s.x0+s.x1)/2, P.y0+(top-P.y0)*0.5, `${ANAME[id]} ${R(s.len)}${id==='trunk'?'（顶=床面）':''}`,
+        id==='batt'?'#56c8d8':'#e8d174', 11);
+    if (id==='machF'||id==='machR') txt((s.x0+s.x1)/2, top+20, `顶 ${top}`, '#e57373', 10);
   }
-  /* 前备箱：前机能体之上那一整块（= 层B 首段"前备箱上段"，长度派生自 x01） */
+  /* 前备箱里穿过去的溃缩梁（真实存在、可见；不标尺寸、不进判据） */
+  const fr=d.A.frunk;
+  for (let i=0;i<BEAM.n;i++){
+    const y=P.y0 + (P.y1c-P.y0)*(i+1)/(BEAM.n+1);
+    rect(fr.x0+8, fr.x1-8, y-BEAM.t/2, y+BEAM.t/2, '#243040', '#4a5a6a');
+  }
+  /* 前备箱上段（= 层B 首段，派生自 x01）：机能体之上那一块，和前备箱是同一个腔体的后半 */
   const fu=d.B.frunkUp;
   poly([[fu.x0,P.y1a],[fu.x1,P.y1a],[fu.x1,P.y1c],[fu.x0,P.y1c]],'#101c26','#e8d174','5 4');
-  txt((fu.x0+fu.x1)/2, P.y1c-18, `前备箱（上段 ${R(fu.len)}，= 前机能体那一段）`, '#e8d174', 11);
+  txt((fu.x0+fu.x1)/2, P.y1c-18, `前备箱上段 ${R(fu.len)}（在机能体之上）`, '#e8d174', 11);
 
-  /* 层B：座舱各段（虚线空间带） */
+  /* 层B：座舱各段 */
   const BNAM={footF:'前脚空间',seatF:'前座空间',footR:'后脚空间',seatR:'后座空间'};
   for (const id of ['footF','seatF','footR','seatR']){
     const s=d.B[id]; rect(s.x0,s.x1,P.y1,P.y3,'none','#33465a','5 4');
     txt((s.x0+s.x1)/2, P.y3-16, `${BNAM[id]} ${R(s.len)}`, '#6b7a8c', 10);
   }
-  /* 派生区：靠背放平预留 + 可翻件 */
   rect(d.backZone.x0,d.backZone.x1,P.y1,P.y3,'none','#2f4a5a','3 6');
   txt((d.backZone.x0+d.backZone.x1)/2, P.y3-16, `靠背放平预留 ${R(d.backZone.len)}（派生）`, '#4a6a86', 10);
 
-  /* 座椅：座垫（全宽）+ 靠背（侧面看是一块铰接板） */
-  const cush=(x0,x1,y)=>rect(x0,x1,y,y+SEAT.cushT,'#22303e','#8fb3cc');
+  /* 座椅：所有面都在 y2 之下，y2 就是坐/躺的面 */
+  const cush=(x0,x1)=>rect(x0,x1,P.y2-SEAT.cushT,P.y2,'#22303e','#8fb3cc');
   const F=d.seat.front, Rs=d.seat.rear;
-  const slab=(hx,hy,dir,len,th,side,fill,stroke)=>{
+  const slab=(hx,dir,len,th,side,fill,stroke)=>{
     const nx=dir[1]*th*side, ny=-dir[0]*th*side;
-    poly([[hx,hy],[hx+dir[0]*len,hy+dir[1]*len],[hx+dir[0]*len+nx,hy+dir[1]*len+ny],[hx+nx,hy+ny]],
-      fill||'#22303e',stroke||'#8fb3cc');
+    poly([[hx,P.y2],[hx+dir[0]*len,P.y2+dir[1]*len],
+          [hx+dir[0]*len+nx,P.y2+dir[1]*len+ny],[hx+nx,P.y2+ny]],fill||'#22303e',stroke||'#8fb3cc');
   };
-  cush(F.cush[0],F.cush[1],P.y2);
-  slab(F.hinge,P.y2,F.dir,F.len,P.bckT, F.face<0?1:-1);
-  cush(Rs.cush[0],Rs.cush[1],P.y2);
-  slab(Rs.hinge,P.y2,Rs.dir,Rs.len,P.bckT, Rs.dir[0]>=0?1:-1);
-  txt(F.hinge + (F.face<0?90:-90), P.y2 + (bedM()?F.len+40:150),
-      bedM() ? `前排靠背立直（床头板）` : `前排靠背 ${P.fBa}°`, '#8fb3cc', 10);
-  txt(Rs.hinge-90, P.y2 + (bedM()?180:150), bedM() ? `二排靠背放平 + 头枕 ${SEAT.headR}` : `二排靠背 ${P.rBa}°`, '#8fb3cc', 10);
-  /* 腿托（床模式：伸出到正好顶住前排） */
-  if (d.legRest) rect(d.legRest.x0,d.legRest.x1,P.y2-2,P.y2+SEAT.legT-2,'#2a3a4a','#8fb3cc');
-  /* 可翻件（隔板）：恒铰在靠背放平尾端，绕它转 */
-  const a=P.pAng*Math.PI/180;
-  poly([[d.deck.x0,P.y2],[d.deck.x0+d.deck.len*Math.cos(a), P.y2+d.deck.len*Math.sin(a)],
-        [d.deck.x0+d.deck.len*Math.cos(a), P.y2+d.deck.len*Math.sin(a)+SEAT.deckT],
-        [d.deck.x0, P.y2+SEAT.deckT]],'#3a3320','#e8d174');
-  txt(d.deck.x0+150, P.y2+74, `可翻件 ${R(d.deck.len)} · ${P.pAng}°`,'#e8d174',11);
-  /* 床面（连续） */
-  if (d.bed){
-    rect(d.bed.x0,d.bed.x1,P.y2+SEAT.deckT,P.y2+SEAT.deckT+26,'#2f6a46','#5fd08a');
-    txt((d.bed.x0+d.bed.x1)/2, P.y2+SEAT.deckT+70, `床面 ${R(d.bed.len)}（连续全宽，${d.bedSeg.length} 段首尾相接）`, '#5fd08a', 12);
-  }
+  cush(F.cush[0],F.cush[1]); slab(F.hinge,F.dir,F.len,P.bckT, F.face<0?1:-1);
+  cush(Rs.cush[0],Rs.cush[1]);
+  slab(Rs.hinge,Rs.dir,Rs.len,P.bckT, Rs.dir[0]>=0?1:-1);
+  txt(F.hinge+(F.face<0?40:-40), P.y2-70, bedM()?'前排靠背立直（床头板）':`前排靠背 ${P.fBa}°`, '#8fb3cc', 10);
+  txt(Rs.hinge-40, P.y2-70, bedM()?`二排靠背放平（含头枕）`:`二排靠背 ${P.rBa}°`, '#8fb3cc', 10);
+  /* 腿托（床模式：伸出必顶住前排） */
+  if (d.legRest) rect(d.legRest.x0,d.legRest.x1,P.y2-SEAT.legT,P.y2,'#2a3a4a','#8fb3cc');
+  /* 可翻件（隔板）：铰在靠背放平尾端，绕它转；平铺时就是床面的一段 */
+  const o=[d.deck.x0,P.y2], a=P.pAng*Math.PI/180, T=SEAT.deckT;
+  poly([[o[0],o[1]],[o[0]+d.deck.len,o[1]],[o[0]+d.deck.len,o[1]-T],[o[0],o[1]-T]].map(p=>rotPt(p,o,a)),
+       '#3a3320','#e8d174');
+  txt(d.deck.x0+150, P.y2+74, `可翻件 ${R(d.deck.len)} · ${P.pAng}°（铰在靠背放平尾端）`, '#e8d174', 11);
+  if (d.bed) txt((d.bed.x0+d.bed.x1)/2, P.y2-110,
+    `床面 ${R(d.bed.len)} · ${d.bedSeg.length} 段首尾相接：${d.bedSeg.map(s=>s[0]).join(' + ')}`, '#8fb3cc', 11);
 
   /* 假人 */
   for (const j of d.dolls){
@@ -370,29 +380,19 @@ function draw(){
     line(d.C.opening.x0,P.y3,d.C.opening.x1,P.y3,'#4aa3ff','2 4');
     txt((d.C.opening.x0+d.C.opening.x1)/2, P.y3+22, `升顶：降（常规）· 开口 ${R(d.C.opening.len)}（升起来才画）`, '#4a6a86', 10);
   }
-  /* 图上方文字：车长 + 链信息（图下不留字） */
+  /* 图上方文字 */
   line(0,topY-170,d.L,topY-170,'#7d95a8');
-  txt(d.L/2, topY-140, `车长 L ${R(d.L)} = x01 ${P.x01} + x02 ${P.x02} + x03 ${P.x03} + x04 ${P.x04}`, '#8fb3cc', 12);
-  txt(d.L/2, topY-100, `层B 首段前备箱上段 ${R(d.B.frunkUp.len)} = 前机能体长（派生）· 座面 = 床面 ${R(P.y2)}（派生）`, '#8fb3cc', 11);
-  txt(d.L/2, topY-64,  P.popUp>0.5 ? `站立净空 ${R(d.standClear)}（升顶已升）` : `升顶降：常规态`, '#4a6a86', 11);
+  txt(d.L/2, topY-140, `车长 L ${R(d.L)} = x00 ${P.x00} + x01 ${P.x01} + x02 ${P.x02} + x03 ${P.x03} + x04 ${P.x04}`, '#8fb3cc', 12);
+  txt(d.L/2, topY-100, `座面 = 床面 ${R(P.y2)}（派生）· 前备箱上段 ${R(d.B.frunkUp.len)} = 前机能体长（派生）· 可翻件 ${R(d.deck.len)}（派生）`, '#8fb3cc', 11);
+  txt(d.L/2, topY-64, P.popUp>0.5?`站立净空 ${R(d.standClear)}（升顶已升）`:`升顶降：常规态`, '#4a6a86', 11);
 
   for (const t of texts) svg.appendChild(t);
 }
 
 /* =========================================================================
-   机构状态 + 预设（预设 = 状态的组合）
+   动画
    ========================================================================= */
-const PRESETS = [
-  ['常规',     {rot:0,   fold:0, pAng:90, popUp:0}],
-  ['大床',     {rot:180, fold:1, pAng:0,  popUp:0}],   // 大床 = 前排旋转 + 二排放平 + 隔板放平
-  ['大床观影', {rot:180, fold:1, pAng:45, popUp:0}],
-  ['小床',     {rot:0,   fold:1, pAng:0,  popUp:0}],   // 小床 = 大床但不转前排
-  ['小床观影', {rot:0,   fold:1, pAng:45, popUp:0}],
-  ['升顶',     {rot:0,   fold:0, pAng:90, popUp:1}],
-  ['升顶站立', {rot:0,   fold:1, pAng:0,  popUp:1}],
-];
-const D0={}; for (const k in DEF) D0[k]=DEF[k].v;
-
+const D0={}; for (const k in DEF) D0[k]=DEF[k].v; for (const s of STATES) D0[s.k]=s.a;
 const ANIM={active:false,t0:0,dur:760};
 const easeIO=t=>t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function animateTo(patch,dur){
@@ -411,14 +411,14 @@ function step(now){
 }
 
 /* =========================================================================
-   UI
+   UI：预设（上）· 参数（右栏）· 机构状态（右栏，独立一段）
    ========================================================================= */
 function buildPresets(){
   const bar=document.getElementById('modes'); bar.replaceChildren();
   const cap=document.createElement('span'); cap.className='cap'; cap.textContent='预设'; bar.appendChild(cap);
   for (const [name,patch] of PRESETS.concat([['复位',D0]])){
     const bn=document.createElement('button'); bn.textContent=name;
-    bn.title=Object.entries(patch).filter(([kk])=>DEF[kk]&&DEF[kk].tog).map(([kk,v])=>`${DEF[kk].n}=${v}`).join(' · ');
+    bn.title=STATES.map(s=>`${s.n}=${patch[s.k]!==undefined?patch[s.k]:P[s.k]}`).join(' · ');
     bn.addEventListener('click',()=>{
       animateTo(patch);
       for (const b of bar.querySelectorAll('button')) b.classList.remove('on');
@@ -427,61 +427,69 @@ function buildPresets(){
     bar.appendChild(bn);
   }
 }
+function togAtA(s){ return Math.abs(P[s.k]-s.a)<=Math.abs(P[s.k]-s.b); }
+function stateRow(s){
+  const row=document.createElement('div'); row.className='ctl';
+  const lab=document.createElement('label');
+  const nm=document.createElement('span'); nm.textContent=s.n;
+  const bn=document.createElement('button'); bn.className='tog'; bn.id='t_'+s.k;
+  bn.textContent=togAtA(s)?s.lab[0]:s.lab[1];
+  bn.addEventListener('click',()=>animateTo({ [s.k]: togAtA(s)?s.b:s.a }));
+  lab.append(nm,bn); row.appendChild(lab); return row;
+}
+function paramRow(key){
+  const D=DEF[key];
+  const row=document.createElement('div'); row.className='ctl';
+  const lab=document.createElement('label');
+  const nm=document.createElement('span'); nm.textContent=D.n;
+  const num=document.createElement('input'); num.type='number'; num.value=P[key]; num.id='n_'+key;
+  num.min=D.min; num.max=D.max; num.step=D.st;
+  const val=document.createElement('b'); val.id='v_'+key;
+  lab.append(nm,num,val);
+  const rng=document.createElement('input'); rng.type='range'; rng.id=key;
+  rng.min=D.min; rng.max=D.max; rng.step=D.st; rng.value=P[key];
+  row.append(lab,rng);
+  const upd=()=>{ syncOne(key); draw(); table(); };
+  rng.addEventListener('input',()=>{ P[key]=+rng.value; upd(); });
+  num.addEventListener('change',()=>{ let v=parseFloat(num.value); if(isNaN(v)) v=P[key];
+    v=Math.min(D.max,Math.max(D.min,v)); P[key]=v; rng.value=v; upd(); });
+  return row;
+}
 function buildUI(){
   const c=document.getElementById('ctrl'); c.replaceChildren();
   let g0='';
   for (const key in DEF){
     const D=DEF[key];
     if (D.g!==g0){ g0=D.g; const s=document.createElement('div'); s.className='sec'; s.textContent=D.g; c.appendChild(s); }
-    const row=document.createElement('div'); row.className='ctl';
-    const lab=document.createElement('label');
-    const nm=document.createElement('span'); nm.textContent=D.n;
-    if (D.tog){                                        // 机构状态 → 开关钮
-      const bn=document.createElement('button'); bn.className='tog'; bn.id='t_'+key;
-      bn.textContent=togAtA(D,key)?D.tog[0]:D.tog[1];
-      bn.addEventListener('click',()=>animateTo({ [key]: togAtA(D,key)?D.b:D.a }));
-      lab.append(nm,bn); row.appendChild(lab); c.appendChild(row); continue;
-    }
-    const num=document.createElement('input'); num.type='number'; num.value=P[key]; num.id='n_'+key;
-    num.min=D.min; num.max=D.max; num.step=D.st;
-    const val=document.createElement('b'); val.id='v_'+key;
-    lab.append(nm,num,val);
-    const rng=document.createElement('input'); rng.type='range'; rng.id=key;
-    rng.min=D.min; rng.max=D.max; rng.step=D.st; rng.value=P[key];
-    row.append(lab,rng); c.appendChild(row);
-    const upd=()=>{ syncOne(key); draw(); table(); };
-    rng.addEventListener('input',()=>{ P[key]=+rng.value; upd(); });
-    num.addEventListener('change',()=>{ let v=parseFloat(num.value); if(isNaN(v)) v=P[key];
-      v=Math.min(D.max,Math.max(D.min,v)); P[key]=v; rng.value=v; upd(); });
+    c.appendChild(paramRow(key));
   }
+  const s1=document.createElement('div'); s1.className='sec'; s1.textContent='机构状态（不是参数）'; c.appendChild(s1);
+  for (const s of STATES) c.appendChild(stateRow(s));
   const t=document.createElement('div'); t.className='sec'; t.textContent='判据'; c.appendChild(t);
   const box=document.createElement('div'); box.id='chk'; c.appendChild(box);
   const s2=document.createElement('div'); s2.className='sec'; s2.textContent='派生量'; c.appendChild(s2);
   const tb=document.createElement('div'); tb.id='tbl'; c.appendChild(tb);
 }
-function togAtA(D,key){ return Math.abs(P[key]-D.a)<=Math.abs(P[key]-D.b); }
 function syncOne(key){
-  const D=DEF[key];
-  if (D.tog){ const tb=document.getElementById('t_'+key);
-    if (tb) tb.textContent=togAtA(D,key)?D.tog[0]:D.tog[1]; return; }
   const v=document.getElementById('v_'+key), n=document.getElementById('n_'+key), r=document.getElementById(key);
-  if (v) v.textContent=D.deg?Math.round(P[key])+'°':Math.round(P[key]);
+  if (v) v.textContent=DEF[key].deg?Math.round(P[key])+'°':Math.round(P[key]);
   if (n && document.activeElement!==n) n.value=Math.round(P[key]*100)/100;
   if (r && document.activeElement!==r) r.value=P[key];
 }
-function syncUI(){ for (const k in DEF) syncOne(k); }
+function syncUI(){ for (const k in DEF) syncOne(k);
+  for (const s of STATES){ const tb=document.getElementById('t_'+s.k);
+    if (tb) tb.textContent=togAtA(s)?s.lab[0]:s.lab[1]; } }
 function table(){
   const d=derive();
   const rows=[
     ['车长 L（层A 链，派生）', R(d.L)],
-    ['层B 座舱链总长', R(d.B.total)],
-    ['前备箱上段（= x01，派生）', R(d.B.frunkUp.len)],
-    ['靠背放平预留（派生）', R(d.backZone.len)],
     ['可翻件长度（派生）', R(d.deck.len)],
+    ['腿托（派生，顶住前排）', d.legRest?R(d.legRest.len):'（未伸出）'],
+    ['靠背放平预留（派生）', R(d.backZone.len)],
     ['升顶开口长（派生）', R(d.C.opening.len)],
     ['床面（连续）', d.bed?`${R(d.bed.x0)} → ${R(d.bed.x1)} = ${R(d.bed.len)}`:'（二排未放平）'],
-    ['腿托（派生，顶住前排）', d.legRest?`${R(d.legRest.x0)} → ${R(d.legRest.x1)} = ${R(d.legRest.len)}`:'（未伸出）'],
     ['座面 = 床面（派生）', R(P.y2)],
+    ['床面段数', d.bed?d.bedSeg.length:'—'],
   ];
   const tb=document.getElementById('tbl'); tb.replaceChildren();
   const tab=document.createElement('table');
@@ -500,7 +508,7 @@ function report(){
 function render(){ draw(); report(); table(); }
 
 buildUI(); buildPresets(); syncUI(); render();
-window.MY={P,DEF,derive,checks,draw,render,animateTo,PRESETS};
+window.MY={P,DEF,STATES,PRESETS,derive,checks,draw,render,animateTo};
 </script>
 </body>
 </html>
