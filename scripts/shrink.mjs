@@ -11,7 +11,9 @@
 
    用法:
      node scripts/shrink.mjs [蓝图-v17.html] [--matrix|--one] [选项]
-       --beamF=300 --beamR=300   前/后溃缩梁下限（x00 / x04）
+       --beamF=1240 --beamR=1150 前/后溃缩梁长下限
+       --leg=long|short          梁算在 L 型腔的哪条腿：long（默认）= 前 x10 / 后 x15（高段，D63）；
+                                 short = 前 x00 / 后 x04（矮段，D61 的旧读法）
        --bedBig=1800             大床床面下限
        --bedSmall=1750           小床床面下限；0 = C6 只管大床
        --lie=tail|head           躺在床面上的人朝哪头（tail = 引擎原样）
@@ -46,8 +48,8 @@ PACK.L = (PACK.cltc / 100) * PACK.eff * 1000 / PACK.whl;              // 需要�
 PACK.need = Math.ceil(PACK.L * 1e6 / (PACK.w * PACK.h) / 10) * 10;    // 需要的长度（mm，向 10mm 取整）
 
 const BASE = {
-  beamF: num("beamF", 300),
-  beamR: num("beamR", 300),
+  beamF: num("beamF", 1240),
+  beamR: num("beamR", 1150),
   bedBig: num("bedBig", 1800),
   bedSmall: num("bedSmall", 1750),
   floors: parseFloors(opt("floors", "")),
@@ -55,6 +57,7 @@ const BASE = {
   patience: num("patience", 700),
   y3Max: num("y3Max", 2000),
   lie: opt("lie", "tail"),
+  leg: opt("leg", "long"),
   relax: opt("relax", ""),
   battMin: PACK.need,
 };
@@ -93,6 +96,13 @@ const search = (cfg) =>
     const PRES = cfg.only ? MY.PRESETS.filter(([nm]) => cfg.only.includes(nm)) : MY.PRESETS;
     const SEQ = ORDER.map((nm) => PRES.find(([n2]) => n2 === nm)).filter(Boolean);
 
+    /* 梁长（D63）：**从头量/到尾量**。
+       前梁 = x10：前备箱 L 的长腿（从车头一直到高段尾端）。
+       后梁 = x04 + x15：尾仓 L 的长腿（从尾仓高段前缘一直**到车尾**）。
+       cfg.leg==='short' = D61 的旧读法（前 x00 / 后 x04），只作对照。 */
+    const beamKeyF = () => (cfg.leg === "short" ? "x00" : "x10");
+    const beamLenF = (q) => (cfg.leg === "short" ? q.x00 : q.x10);
+    const beamLenR = (q) => (cfg.leg === "short" ? q.x04 : q.x04 + q.x15);
     const RELAX = String(cfg.relax || "").split(",").filter(Boolean);
     const reds = (cs, preset) =>
       cs.filter((c) => c.lv !== "info" && !c.ok &&
@@ -118,10 +128,9 @@ const search = (cfg) =>
 
     function feas(q) {
       const why = [];
-      if (q.x00 < cfg.beamF - 1e-9) why.push(`x00<梁下限${cfg.beamF}`);
-      if (q.x04 < cfg.beamR - 1e-9) why.push(`x04<梁下限${cfg.beamR}`);
+      if (beamLenF(q) < cfg.beamF - 1e-9) why.push(`前梁${Math.round(beamLenF(q))}<${cfg.beamF}`);
+      if (beamLenR(q) < cfg.beamR - 1e-9) why.push(`后梁${Math.round(beamLenR(q))}<${cfg.beamR}`);
       if (q.x10 < q.x00 - 1e-9) why.push("x10<x00");
-      if (q.x15 > q.x03 + 1e-9) why.push("x15>x03");
       for (const k of KEYS) if (q[k] < floorOf(k) - 1e-9) why.push(`${k}<下限${floorOf(k)}`);
       if (why.length) return { ok: false, why: why.join("|") };
 
@@ -155,10 +164,9 @@ const search = (cfg) =>
        这里对"红判据条数"做贪心下降，只为找一个可行起点；搜索本身照旧。 */
     function failScore(q) {
       let n = 0;
-      if (q.x00 < cfg.beamF - 1e-9) n++;
-      if (q.x04 < cfg.beamR - 1e-9) n++;
+      if (beamLenF(q) < cfg.beamF - 1e-9) n++;
+      if (beamLenR(q) < cfg.beamR - 1e-9) n++;
       if (q.x10 < q.x00 - 1e-9) n++;
-      if (q.x15 > q.x03 + 1e-9) n++;
       for (const k of KEYS) if (q[k] < floorOf(k) - 1e-9) n++;
       if (MY.P.y3 > cfg.y3Max + 1e-9) n++;
       const saved = { ...MY.P };
@@ -200,13 +208,22 @@ const search = (cfg) =>
 
     /* 坐标逐个二分：固定其它参数，把每个参数压到「还能行」的最小值；多轮直到不动。
        每步落点都必须真的过一遍 feas()（不能拿二分出来的边界当结果）。 */
-    const loOf = (k, q) => (k === "x00" ? Math.max(floorOf(k), cfg.beamF)
-      : k === "x04" ? Math.max(floorOf(k), cfg.beamR)
-      : k === "x10" ? Math.max(floorOf(k), q.x00) : floorOf(k));
+    const loOf = (k, q) => {
+      let v = floorOf(k);
+      if (k === beamKeyF()) v = Math.max(v, cfg.beamF);   // 前梁挂在 x10 上
+      /* 后梁是 x04+x15 的**和** → 不给单个键设下限（由 feas 的和约束管） */
+      if (k === "x10") v = Math.max(v, q.x00);       // L 型不能倒过来（高段盖过低段）
+      return v;
+    };
     function shrink(start, rounds) {
       const cur = { ...start };
-      for (const k of KEYS) cur[k] = Math.max(cur[k], floorOf(k), k === "x00" ? cfg.beamF : k === "x04" ? cfg.beamR : -Infinity);
+      for (const k of KEYS) cur[k] = Math.max(cur[k], loOf(k, cur));
       cur.x10 = Math.max(cur.x10, cur.x00);
+      /* 起点定向修补：把前梁抬到下限后，座舱链变长 → C13 要更多「前段」，
+         而前段的和是被 C13 锁死的 → 电池 x02 是填充量，直接补上。 */
+      cur.x02 = Math.min(DEFR.x02.max,
+        Math.max(cur.x02, (cur.x10 + cur.x11 + cur.x12 + cur.x13 + cur.x14 + 740) - cur.x00 - cur.x01 - cur.x03));
+      cur.x04 = Math.max(cur.x04, Math.max(0, cfg.beamR - cur.x15));
       const fixed = repairStart(cur);
       if (!fixed) throw new Error("起点不可行且修不回来：" + JSON.stringify(feas(cur).why));
       Object.assign(cur, fixed);
@@ -330,8 +347,11 @@ function dump(title, cfg, r) {
   const s = r.ident, P = r.P;
   console.log(`\n── ${title}`);
   console.log(`   L ${r.startL} → ${r.L}（省 ${r.startL - r.L}）  全绿=${r.allGreen}  ${r.moves} 次判据评估/${r.ms}ms`);
-  console.log(`   x00 ${P.x00} x01 ${P.x01} x02 ${P.x02} x03 ${P.x03} x04 ${P.x04}` +
-    `  |  x10 ${P.x10} 前脚 ${P.x11} 前座 ${P.x12} 后脚 ${P.x13} 后座 ${P.x14}`);
+  console.log(`   层A  x00 ${P.x00} x01 ${P.x01} x02 ${P.x02} x03 ${P.x03} x04 ${P.x04}`);
+  console.log(`   层B  x10 ${P.x10} 前脚 ${P.x11} 前座 ${P.x12} 后脚 ${P.x13} 后座 ${P.x14}` +
+    ` · x15 ${P.x15} x30 ${P.x30} xBeam ${P.xBeam}`);
+  console.log(`   溃缩梁：前 = x10 ${P.x10}（从车头量，要求 ≥${cfg.beamF}）· ` +
+    `后 = x04+x15 = ${P.x04}+${P.x15} = ${P.x04 + P.x15}（**到车尾**量，要求 ≥${cfg.beamR}）`);
   console.log(`   恒等式：L = (车头→前排 ${s.nose}) + 床 ${s.bed}`);
   console.log(`   床 ${s.bed} = 后排座舱 ${s.S} + 靠背预留 740 + C13 余量 ${s.margin} + 尾仓 ${s.x04}` +
     `   (头到车尾余量 ${s.headRoom})`);
