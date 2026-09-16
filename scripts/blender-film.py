@@ -81,7 +81,7 @@ else:
 w = bpy.data.worlds.new('W'); sc.world = w
 w.use_nodes = True
 bg = w.node_tree.nodes['Background']
-bg.inputs[0].default_value = (0.055, 0.065, 0.080, 1.0)
+bg.inputs[0].default_value = (0.040, 0.047, 0.058, 1.0)
 bg.inputs[1].default_value = 1.0
 
 
@@ -95,13 +95,15 @@ def hex_lin(h):
 
 
 PAL = {
-    'body3': '#8fa3b8', 'glass3': '#2e5474', 'tyre3': '#1b1b1e', 'rim3': '#8a97a3', 'arch3': '#b5565e',
-    'floor3': '#6b7d8c', 'batt3': '#3f8fa3', 'wet3': '#2f6274', 'seat3': '#5a6b7d', 'seatO3': '#8a6ea0',
-    'bed3': '#57a06a', 'isl3': '#7a6690', 'tbl3': '#9aa8b4', 'lk3': '#c8ad5e', 'pop3': '#4a8fd0',
-    'tent3': '#3f6f9f', 'bunk3': '#4a8fd0', 'scr3': '#d8c888', 'pj3': '#6a5a80', 'man3': '#d69a86',
+    # D65 调色：车身银蓝 / 玻璃深墨 / 胎黑辋浅 / 底盘中性灰 / 床件暖棕 / 人肉粉 / 梁深钢
+    'body3': '#a9b7c6', 'glass3': '#41616f', 'tyre3': '#15171a', 'rim3': '#a3adb6', 'arch3': '#b5565e',
+    'trim3': '#1f2226', 'mach3': '#3e464e', 'cush3': '#c8bda8',
+    'floor3': '#5e6a75', 'batt3': '#33606f', 'wet3': '#2f6274', 'seat3': '#b3aca0', 'seatO3': '#8a6ea0',
+    'bed3': '#c2a878', 'isl3': '#7a6690', 'tbl3': '#9aa8b4', 'lk3': '#c0a86a', 'pop3': '#5b6a76',
+    'tent3': '#3f6f9f', 'bunk3': '#7f8b96', 'scr3': '#3c444d', 'pj3': '#6a5a80', 'man3': '#d9a08c',
 }
 SHELL = {'body3', 'glass3', 'tent3'}
-ROUGH = {'body3': 0.32, 'glass3': 0.06, 'tyre3': 0.85, 'rim3': 0.35, 'floor3': 0.7, 'seat3': 0.62,
+ROUGH = {'body3': 0.32, 'glass3': 0.05, 'tyre3': 0.85, 'rim3': 0.35, 'floor3': 0.7, 'seat3': 0.62,
          'bed3': 0.75, 'man3': 0.6, 'lk3': 0.45}
 
 MATS = {}
@@ -169,12 +171,16 @@ def quad(name, cls):
     return cube(name, cls)
 
 
-def set_prism(ob, z0, z1, pts):                 # 车身/玻璃：车 (x,y) 多边形 → Blender (Y,Z) 截面沿 X 挤出
+def set_prism(ob, z0, z1, pts, near_cap=True):
+    """车身/玻璃：车 (x,y) 多边形 → Blender (Y,Z) 截面沿 X 挤出。
+    剖切时把**近侧那个封盖去掉**（k='shell'）→ 看到的是"剖开的盒子"，而不是一块实心截面。"""
     me = ob.data
     me.clear_geometry()
     n = len(pts)
     verts = [blender_pt(p[0], p[1], z0) for p in pts] + [blender_pt(p[0], p[1], z1) for p in pts]
-    faces = [tuple(range(n)), tuple(range(2 * n - 1, n - 1, -1))]
+    faces = [tuple(range(n))]
+    if near_cap:
+        faces.append(tuple(range(2 * n - 1, n - 1, -1)))
     for i in range(n):
         j = (i + 1) % n
         faces.append((i, j, j + n, i + n))
@@ -213,7 +219,7 @@ for key, meta in D['partDefs'].items():
     cls, k = meta['cls'], meta['k']
     if cls in ('arch3', 'man3'):
         continue                                   # 轮位包络=分析用；man3 占位盒=真小人在演
-    ob = {'box': cube, 'cyl': cylinder, 'prism': prism, 'quad': quad}[k](name, cls)
+    ob = {'box': cube, 'cyl': cylinder, 'prism': prism, 'quad': quad, 'shell': prism}[k](name, cls)
     if cls in SHELL:                  # 幽灵壳：不投影（否则半透明阴影会渲染成一片噪点）
         ob.visible_shadow = False
         ob.visible_diffuse = False
@@ -247,7 +253,11 @@ def mk_person(slot):
     return parts
 
 
-PEOPLE = {slot: mk_person(slot) for slot in D['alpha'].keys()}
+# 人物槽位：优先用帧里出现过的（v17 的 bake 把 alpha 写在每帧上，D['alpha'] 可能是空的）
+SLOTS = sorted({s for fr in D['frames'] for s in fr.get('people', {})} |
+               {s for fr in D['frames'] for s in fr.get('alpha', {})} |
+               set((D.get('alpha') or {}).keys()))
+PEOPLE = {slot: mk_person(slot) for slot in SLOTS}
 
 
 def bone(ob, a, b, width, zoff=0.0):
@@ -325,6 +335,8 @@ for key, v in prime.items():
             set_cyl(ob, v)
         elif kd == 'quad':
             set_quad(ob, v)
+        elif kd == 'shell':
+            set_prism(ob, v[0], v[1], v[2:], near_cap=False)
         else:
             set_prism(ob, v[0], v[1], v[2:])
     elif key.startswith('@'):
@@ -351,6 +363,9 @@ for fr in frames:
         elif kd == 'quad':
             set_quad(ob, v)                     # 刚性件：绕铰点真旋转（不是包围盒伸缩）
             keys = ['location', 'rotation_euler', 'scale']
+        elif kd == 'shell':
+            set_prism(ob, v[0], v[1], v[2:], near_cap=False)
+            keys = []
         else:                                   # 车身/玻璃：只变多边形（静态形状）
             set_prism(ob, v[0], v[1], v[2:])
             keys = []
@@ -371,11 +386,21 @@ for fr in frames:
         if m:
             m.node_tree.nodes['Principled BSDF'].inputs['Alpha'].default_value = sh
             m.node_tree.nodes['Principled BSDF'].inputs['Alpha'].keyframe_insert('default_value', frame=i)
-    # 人体淡入淡出
-    for slot, a in alpha.items():
+    # 人体淡入淡出（v17：alpha 在每一帧上；v13：在 D['alpha'][slot] 里按帧号查）
+    for slot in PEOPLE:
+        if slot in fr.get('alpha', {}):
+            a = fr['alpha'][slot]
+        elif slot in alpha:
+            a = alpha[slot].get(str(i), alpha[slot].get(i, 1.0))
+        else:
+            a = 0.0
         m = PEOPLE[slot]['_mat']
         bsdf = m.node_tree.nodes['Principled BSDF']
-        bsdf.inputs['Alpha'].default_value = a.get(str(i), a.get(i, 1.0))
+        bsdf.inputs['Alpha'].default_value = a
+        try:
+            m.blend_method = 'BLEND' if a < 1.0 else 'OPAQUE'
+        except AttributeError:                     # Blender 4.2+ 改用 surface_render_method
+            m.surface_render_method = 'BLENDED' if a < 1.0 else 'DITHERED'
         bsdf.inputs['Alpha'].keyframe_insert('default_value', frame=i)
 
 # ---------------------------------------------------------------- 相机
@@ -411,7 +436,7 @@ def area(name, loc, energy, size, rot=None, color=(1, 1, 1)):
 key = area('Key', (1500, 4200, 2500), 7000, 0.9)
 k = key.constraints.new('TRACK_TO'); k.target = cam  # 灯跟着相机（软箱感）
 fill = area('Fill', (-2000, 1500, -3500), 2600, 1.2, color=(0.85, 0.9, 1.0))
-rim = area('Rim', (5200, 2600, -2200), 4200, 0.9, color=(1.0, 0.95, 0.88))
+rim = area('Rim', (5200, 2600, -2200), 5600, 0.9, color=(1.0, 0.95, 0.88))
 sun = bpy.data.lights.new('Sun', 'SUN'); sun.energy = 0.9; sun.angle = math.radians(4)
 so = bpy.data.objects.new('Sun', sun); bpy.context.collection.objects.link(so)
 so.rotation_euler = (math.radians(52), 0, math.radians(38))
@@ -428,5 +453,58 @@ print('[film] frames %d..%d  objects=%d people=%d  engine=%s res=%d' %
       (F0, min(F1, len(frames) - 1), len(objs), len(PEOPLE), sc.render.engine, RES))
 sc.frame_start = F0
 sc.frame_end = min(F1, len(frames) - 1)
-bpy.ops.render.render(animation=True)
+STRIDE = envi('FILM_STRIDE', 1)          # >1 = 抽帧（draft 检片用）
+
+
+def apply_frame(fr):
+    """把这一帧的几何/人/透明度/机位全部落到场景上。"""
+    for key, v in fr['parts'].items():
+        if key not in objs:              # arch3 之类分析用零件不进片子
+            continue
+        ob, kd = objs[key]
+        if kd == 'box':
+            set_box(ob, v)
+        elif kd == 'cyl':
+            set_cyl(ob, v)
+        elif kd == 'quad':
+            set_quad(ob, v)
+        elif kd == 'shell':
+            set_prism(ob, v[0], v[1], v[2:], near_cap=False)
+        else:                            # prism：逐帧重建网格（形体在变，没有关键帧可插）
+            set_prism(ob, v[0], v[1], v[2:])
+    for slot, j in fr['people'].items():
+        set_person(slot, j)
+    sh = fr['cam']['shell']
+    for cls in SHELL:
+        m = MATS.get(cls)
+        if m:
+            m.node_tree.nodes['Principled BSDF'].inputs['Alpha'].default_value = sh
+    for slot in PEOPLE:
+        if slot in fr.get('alpha', {}):
+            a = fr['alpha'][slot]
+        elif slot in alpha:
+            a = alpha[slot].get(str(fr['i']), alpha[slot].get(fr['i'], 1.0))
+        else:
+            a = 0.0
+        PEOPLE[slot]['_mat'].node_tree.nodes['Principled BSDF'].inputs['Alpha'].default_value = a
+    tgt = Vector(blender_pt(fr['cam']['tgt'][0], fr['cam']['tgt'][1], fr['cam']['tgt'][2]))
+    pos = tgt + (Vector(blender_pt(fr['cam']['pos'][0], fr['cam']['pos'][1], fr['cam']['pos'][2])) - tgt) * CAMK
+    cam.location = pos
+    cam.rotation_mode = 'QUATERNION'
+    cam.rotation_quaternion = (tgt - pos).to_track_quat('-Z', 'Y').to_euler() if False \
+        else (tgt - pos).to_track_quat('-Z', 'Y')
+
+
+# 逐帧渲染（**不是** render(animation=True)）：车身/剖面这类"逐帧重建网格、没有关键帧"的零件
+# 在动画渲染里只会停在最后一帧的样子（第一版成片里"车壳凭空消失"就是这个）。
+n = 0
+for idx in range(F0, min(F1, len(frames) - 1) + 1, STRIDE):
+    fr = frames[idx]
+    sc.frame_set(fr['i'])                # 先让关键帧动画（运动模糊要用）落到这一帧
+    apply_frame(fr)                      # 再把无关键帧的零件/材质/机位盖上去
+    sc.render.filepath = os.path.join(outdir, 'f%04d' % fr['i'])
+    bpy.ops.render.render(write_still=True)
+    n += 1
+    if n % 50 == 0:
+        print('[film] %d/%d' % (n, (min(F1, len(frames) - 1) - F0) // max(1, STRIDE) + 1))
 print('[film] done →', outdir)
