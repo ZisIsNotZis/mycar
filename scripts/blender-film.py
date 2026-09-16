@@ -97,7 +97,7 @@ def hex_lin(h):
 PAL = {
     # D65 调色：车身银蓝 / 玻璃深墨 / 胎黑辋浅 / 底盘中性灰 / 床件暖棕 / 人肉粉 / 梁深钢
     'body3': '#a9b7c6', 'glass3': '#41616f', 'tyre3': '#15171a', 'rim3': '#a3adb6', 'arch3': '#b5565e',
-    'trim3': '#1f2226', 'mach3': '#3e464e', 'cush3': '#c8bda8',
+    'trim3': '#1f2226', 'mach3': '#3e464e', 'cush3': '#c8bda8', 'lamp3': '#e8e4c8',
     'floor3': '#5e6a75', 'batt3': '#33606f', 'wet3': '#2f6274', 'seat3': '#b3aca0', 'seatO3': '#8a6ea0',
     'bed3': '#c2a878', 'isl3': '#7a6690', 'tbl3': '#9aa8b4', 'lk3': '#c0a86a', 'pop3': '#5b6a76',
     'tent3': '#3f6f9f', 'bunk3': '#7f8b96', 'scr3': '#3c444d', 'pj3': '#6a5a80', 'man3': '#d9a08c',
@@ -230,6 +230,15 @@ for key, meta in D['partDefs'].items():
 def mk_person(slot):
     parts = {}
     mat = material('man3', 'man3_' + slot, 1.0)
+    # 人体淡入淡出必须能混色：不透明材质会无视 Alpha
+    try:
+        mat.blend_method = 'BLEND'
+    except Exception:
+        pass
+    try:
+        mat.surface_render_method = 'BLENDED'
+    except Exception:
+        pass
     for nm in ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR', 'torso', 'neck',
                'armUL', 'armUR', 'armLL', 'armLR']:
         me = bpy.data.meshes.new('%s_%s' % (slot, nm))

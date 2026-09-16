@@ -64,26 +64,26 @@ const SHOTS = [
 
   /* ③ 常规：两个人坐着（淡入），缓慢推近 */
   { n: "常规两人", sec: 7, car: L4460, state: SIT, shell: () => 1.0, cut: () => -100,
-    people: [{ slot: "A", a: (u) => clamp01((u - 0.02) / 0.25) }, { slot: "B", a: (u) => clamp01((u - 0.12) / 0.25) }],
+    people: [{ slot: "A", a: (u) => clamp01((u - 0.02) / 0.20) }, { slot: "B", a: (u) => clamp01((u - 0.10) / 0.20) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.55, 1050, 0],
       norm([0.34, 0.13, 0.93]), 0.95 - 0.13 * u) },
 
   /* ④ 变形：二排放平 + 腿托 + 前排转身（人淡出静姿） */
   { n: "变形", sec: 12, car: L4460, state: SIT, stateTo: BED, shell: () => 1.0, cut: () => -100,
-    people: [{ slot: "A", a: (u) => clamp01(0.9 - u / 0.22) }, { slot: "B", a: (u) => clamp01(0.9 - u / 0.22) }],
+    people: [{ slot: "A", a: (u) => clamp01(0.9 - u / 0.10) }, { slot: "B", a: (u) => clamp01(0.9 - u / 0.10) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0],
       norm([0.10, 0.14 + 0.10 * u, 0.98]), 0.92) },
 
   /* ⑤ 大床：一个人躺下（淡入），低机位推近 */
   { n: "大床", sec: 8, car: L4460, state: BED, shell: () => 1.0, cut: () => -100,
-    people: [{ slot: "A", a: (u) => clamp01((u - 0.06) / 0.3) }],
+    people: [{ slot: "A", a: (u) => clamp01((u - 0.06) / 0.22) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.62, 950, 0],
       norm([0.24 - 0.22 * u, 0.10 + 0.16 * u, 0.97]), 0.96 - 0.14 * u) },
 
   /* ⑥ 升顶站立：镜头跟着升顶抬起来 */
   { n: "升顶站立", sec: 9, car: L4460, state: BED, stateTo: { rot: 0, fold: 1, pAng: 0, popUp: 1 },
     shell: () => 1.0, cut: () => -100,
-    people: [{ slot: "B", a: (u) => clamp01((u - 0.22) / 0.28) }],
+    people: [{ slot: "B", a: (u) => clamp01((u - 0.30) / 0.22) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.55, 1300 + 800 * u, 0],
       norm([0.26, 0.05 + 0.13 * u, 0.96]), 0.94) },
 
@@ -118,6 +118,7 @@ const DEFK = {
   glassL1: { cls: "glass3", k: "box" }, glassL2: { cls: "glass3", k: "box" },
   glassR1: { cls: "glass3", k: "box" }, glassR2: { cls: "glass3", k: "box" },
   bumperF: { cls: "trim3", k: "box" }, bumperR: { cls: "trim3", k: "box" },
+  grille: { cls: "mach3", k: "box" }, lampL: { cls: "lamp3", k: "box" }, lampR: { cls: "lamp3", k: "box" },
   archFL: { cls: "trim3", k: "cyl" }, archFR: { cls: "trim3", k: "cyl" },
   archRL: { cls: "trim3", k: "cyl" }, archRR: { cls: "trim3", k: "cyl" },
   frunkLo: { cls: "body3", k: "box" }, frunkHi: { cls: "body3", k: "box" },
@@ -126,6 +127,7 @@ const DEFK = {
   trunkHi: { cls: "body3", k: "box" },
   seatFc: { cls: "cush3", k: "box" }, seatRc: { cls: "cush3", k: "box" },
   seatFb: { cls: "seat3", k: "quad" }, seatRb: { cls: "seat3", k: "quad" },
+  seatFh: { cls: "cush3", k: "quad" }, seatRh: { cls: "cush3", k: "quad" },
   legRest: { cls: "bed3", k: "box" }, deck: { cls: "bed3", k: "quad" },
   bunk: { cls: "bunk3", k: "box" }, topBeam: { cls: "lk3", k: "box" }, roof: { cls: "pop3", k: "box" },
   tentL: { cls: "tent3", k: "box" }, tentR: { cls: "tent3", k: "box" },
@@ -201,11 +203,16 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
   }
 
   /* 座椅 / 床件 */
-  box("seatFc", d.B.seatF.x0, d.B.seatF.x1, P.y2 - 60, P.y2, -HW * 0.85, HW * 0.85);
-  box("seatRc", d.B.seatR.x0, d.B.seatR.x1, P.y2 - 60, P.y2, -HW * 0.85, HW * 0.85);
+  box("seatFc", d.B.seatF.x0, d.B.seatF.x1, P.y2 - 130, P.y2, -HW * 0.85, HW * 0.85);
+  box("seatRc", d.B.seatR.x0, d.B.seatR.x1, P.y2 - 130, P.y2, -HW * 0.85, HW * 0.85);
   const F = d.seat.front, Rp = d.seat.rear;
-  quad("seatFb", F.hinge, P.y2, F.dir[0], F.dir[1], F.len, P.bckT, -HW * 0.85, HW * 0.85);
-  quad("seatRb", Rp.hinge, P.y2, Rp.dir[0], Rp.dir[1], Rp.len, P.bckT, -HW * 0.85, HW * 0.85);
+  /* 靠背 = 本体 + 头枕（沿同一方向的两段，视觉上不再是"木板"） */
+  quad("seatFb", F.hinge, P.y2, F.dir[0], F.dir[1], F.len - 190, P.bckT, -HW * 0.85, HW * 0.85);
+  quad("seatFh", F.hinge + F.dir[0] * (F.len - 190), P.y2 + F.dir[1] * (F.len - 190),
+       F.dir[0], F.dir[1], 190, P.bckT * 0.8, -HW * 0.55, HW * 0.55);
+  quad("seatRb", Rp.hinge, P.y2, Rp.dir[0], Rp.dir[1], Rp.len - 190, P.bckT, -HW * 0.85, HW * 0.85);
+  quad("seatRh", Rp.hinge + Rp.dir[0] * (Rp.len - 190), P.y2 + Rp.dir[1] * (Rp.len - 190),
+       Rp.dir[0], Rp.dir[1], 190, P.bckT * 0.8, -HW * 0.55, HW * 0.55);
   if (d.legRest) box("legRest", d.legRest.x0, d.legRest.x1, P.y2 - 40, P.y2, -HW * 0.9, HW * 0.9);
   const a = P.pAng * Math.PI / 180;
   quad("deck", d.deck.x0, P.y2, Math.cos(a), Math.sin(a), d.deck.len, 40, -HW * 0.9, HW * 0.9);
@@ -230,6 +237,9 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
   box("glassR2", wR[0], wR[1], gy0, gy1, HO - 16, HO + 6);
   /* 前后保险杠 / 轮包**放在车身外皮之外**（原来塞在 ±HW 里，被车壳挡着白做了） */
   box("bumperF", 0, 60, P.y0 + 30, P.y1a + 200, -HO - 16, HO + 16);
+  box("grille", 6, 26, P.y1c - 260, P.y1c - 60, -HW * 0.62, HW * 0.62);
+  box("lampL", 8, 30, P.y1c - 120, P.y1c - 40, -HW * 0.88, -HW * 0.30);
+  box("lampR", 8, 30, P.y1c - 120, P.y1c - 40, HW * 0.30, HW * 0.88);
   box("bumperR", d.L - 60, d.L, P.y0 + 30, P.y1b + 240, -HO - 16, HO + 16);
   const AR = P.wD / 2 + 74, AW = 96;
   for (const [nm, ax] of [["FL", P.axF], ["FR", P.axF], ["RL", P.axR], ["RR", P.axR]]) {
