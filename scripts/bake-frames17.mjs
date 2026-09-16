@@ -52,7 +52,7 @@ const mixObj = (a, b, u) => { const o = {}; for (const k in a) o[k] = mix(a[k], 
 
 const SHOTS = [
   /* ① 车外 hero：缓缓升起 + 侧移（"外面小"） */
-  { n: "外部 hero", sec: 9, car: L4460, state: SIT, shell: () => 1.0, cut: () => null, people: [],
+  { n: "外部 hero", sec: 8, car: L4460, state: SIT, shell: () => 1.0, cut: () => null, people: [],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 950, 0],
       norm([-0.62 + 0.10 * u, 0.32 + 0.18 * u, 0.72 - 0.06 * u]), 0.74) },
 
@@ -63,19 +63,19 @@ const SHOTS = [
       return frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([Math.sin(a), 0.30, Math.cos(a)]), 0.72); } },
 
   /* ③ 常规：两个人坐着（淡入），缓慢推近 */
-  { n: "常规两人", sec: 7, car: L4460, state: SIT, shell: () => 1.0, cut: () => -100,
+  { n: "常规两人", sec: 7.5, car: L4460, state: SIT, shell: () => 1.0, cut: () => -100,
     people: [{ slot: "A", a: (u) => clamp01((u - 0.02) / 0.20) }, { slot: "B", a: (u) => clamp01((u - 0.10) / 0.20) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.55, 1050, 0],
       norm([0.34, 0.13, 0.93]), 0.95 - 0.13 * u) },
 
   /* ④ 变形：二排放平 + 腿托 + 前排转身（人淡出静姿） */
-  { n: "变形", sec: 12, car: L4460, state: SIT, stateTo: BED, shell: () => 1.0, cut: () => -100,
+  { n: "变形", sec: 11.5, car: L4460, state: SIT, stateTo: BED, shell: () => 1.0, cut: () => -100,
     people: [{ slot: "A", a: (u) => clamp01(0.9 - u / 0.10) }, { slot: "B", a: (u) => clamp01(0.9 - u / 0.10) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0],
       norm([0.10, 0.14 + 0.10 * u, 0.98]), 0.92) },
 
   /* ⑤ 大床：一个人躺下（淡入），低机位推近 */
-  { n: "大床", sec: 8, car: L4460, state: BED, shell: () => 1.0, cut: () => -100,
+  { n: "大床", sec: 9, car: L4460, state: BED, shell: () => 1.0, cut: () => -100,
     people: [{ slot: "A", a: (u) => clamp01((u - 0.06) / 0.22) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.62, 950, 0],
       norm([0.24 - 0.22 * u, 0.10 + 0.16 * u, 0.97]), 0.96 - 0.14 * u) },
@@ -88,16 +88,16 @@ const SHOTS = [
       norm([0.26, 0.05 + 0.13 * u, 0.96]), 0.94) },
 
   /* ⑦ 骨架 + 溃缩结构：壳拿掉，露出"不随机构变"的骨架 */
-  { n: "骨架", sec: 9, car: L4460, state: SIT, shell: () => 0.0, cut: () => null, people: [],
+  { n: "骨架", sec: 10.5, car: L4460, state: SIT, shell: () => 0.0, cut: () => null, people: [],
     cam: (u) => { const a = 0.38 - 0.78 * u;
       return frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([Math.sin(a), 0.16, Math.cos(a)]), 0.90); } },
 
   /* ⑧ 缩小实验：相机不动，车自己缩（骨架/轮子不动） */
-  { n: "缩小实验", sec: 10, car: L4460, carTo: L4080, state: SIT, shell: () => 1.0, cut: () => 200, people: [],
+  { n: "缩小实验", sec: 11, car: L4460, carTo: L4080, state: SIT, shell: () => 1.0, cut: () => 200, people: [],
     cam: () => frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([0.02, 0.10, 0.99]), 0.92) },
 
   /* ⑨ 收尾：壳合上，缓慢拉开 */
-  { n: "收尾", sec: 8, car: L4080, carTo: L4460, state: SIT, shell: () => 1.0, cut: (u) => 200 + 1400 * u, people: [],
+  { n: "收尾", sec: 7.5, car: L4080, carTo: L4460, state: SIT, shell: () => 1.0, cut: (u) => 200 + 1400 * u, people: [],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 950, 0],
       norm([-0.55, 0.40, 0.73]), 0.72 - 0.10 * u) },
 ];
