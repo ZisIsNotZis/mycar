@@ -50,6 +50,7 @@ SHOTS = {s['name']: (s['f0'], s['f1']) for s in D['shots']}
 PPL = D['meta']['AN']
 
 # ---------------------------------------------------------------- 场景准备
+# 环境（D66 用户要求）：蓝天白云 + 草地 + 顶光自然太阳光；不再是暗棚。
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
 sc.render.fps = FPS
@@ -57,11 +58,13 @@ sc.render.resolution_x = RES
 sc.render.resolution_y = (RES * 9) // 16
 sc.render.film_transparent = False
 sc.view_settings.view_transform = 'Filmic'
+sc.view_settings.exposure = -0.6
 sc.render.image_settings.file_format = 'PNG'
 sc.render.filepath = os.path.join(outdir, 'f')
 if ENGINE == 'cycles':
     sc.render.engine = 'CYCLES'
-    sc.cycles.samples = envi('FILM_SAMPLES', 48)
+    sc.cycles.samples = envi('FILM_SAMPLES', 128)
+    sc.cycles.use_denoising = True
     try:
         prefs = bpy.context.preferences.addons['cycles'].preferences
         prefs.compute_device_type = 'OPTIX'; prefs.get_devices()
@@ -71,27 +74,49 @@ if ENGINE == 'cycles':
 else:
     sc.render.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in \
         [i.identifier for i in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items] else 'BLENDER_EEVEE'
-    sc.eevee.taa_render_samples = envi('FILM_SAMPLES', 48)   # 透壳+透明材质下采样不用高，16 够
-    if hasattr(sc.eevee, 'use_raytracing'):                  # 光线追踪在透明材质下很贵：默认关，FILM_RT=1 开
+    sc.eevee.taa_render_samples = envi('FILM_SAMPLES', 48)
+    if hasattr(sc.eevee, 'use_raytracing'):
         sc.eevee.use_raytracing = bool(envi('FILM_RT', 0))
     sc.render.use_motion_blur = True
     sc.render.motion_blur_shutter = 0.35
 
-# 世界：冷灰渐变（用两个环境光代替 HDRI，避免外部资源）
+# 天空：Nishita 物理天空（自带太阳盘，就是"顶上照进来的自然太阳光"）
 w = bpy.data.worlds.new('W'); sc.world = w
 w.use_nodes = True
-bg = w.node_tree.nodes['Background']
-bg.inputs[0].default_value = (0.040, 0.047, 0.058, 1.0)
+nt = w.node_tree
+bg = nt.nodes['Background']
+sky = nt.nodes.new('ShaderNodeTexSky')
+sky.sky_type = 'NISHITA'
+sky.sun_elevation = math.radians(48)
+sky.sun_rotation = math.radians(35)
+# 世界 = 自绘的蓝天渐变（Nishita 在 Filmic 下偏绿，弃用）+ 噪声白云
+tc = nt.nodes.new('ShaderNodeTexCoord')
+sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+nt.links.new(tc.outputs['Generated'], sep.inputs['Vector'])      # 视线方向 → Z = 仰角
+skyg = nt.nodes.new('ShaderNodeValToRGB')
+skyg.color_ramp.interpolation = 'EASE'
+skyg.color_ramp.elements[0].position = 0.38                      # 地平线
+skyg.color_ramp.elements[0].color = (0.30, 0.52, 0.85, 1)        # 近地平线：天蓝
+skyg.color_ramp.elements[1].position = 0.75                      # 天顶
+skyg.color_ramp.elements[1].color = (0.10, 0.28, 0.62, 1)        # 天顶：深蓝
+nt.links.new(sep.outputs['Z'], skyg.inputs['Fac'])
+cloud = nt.nodes.new('ShaderNodeTexNoise')
+cloud.inputs['Scale'].default_value = 3.5
+cloud.inputs['Detail'].default_value = 9
+cloud.inputs['Roughness'].default_value = 0.6
+cramp = nt.nodes.new('ShaderNodeValToRGB')
+cramp.color_ramp.elements[0].position = 0.50
+cramp.color_ramp.elements[0].color = (0, 0, 0, 1)
+cramp.color_ramp.elements[1].position = 0.62
+cramp.color_ramp.elements[1].color = (1, 1, 1, 1)
+cmix = nt.nodes.new('ShaderNodeMixRGB'); cmix.blend_type = 'MIX'
+cmix.inputs['Color1'].default_value = (0, 0, 0, 1)               # 无云处：透明天蓝
+cmix.inputs['Color2'].default_value = (1, 1, 1, 1)               # 云：白
+nt.links.new(cloud.outputs['Fac'], cramp.inputs['Fac'])
+nt.links.new(cramp.outputs['Color'], cmix.inputs['Fac'])
+nt.links.new(skyg.outputs['Color'], cmix.inputs['Color1'])
+nt.links.new(cmix.outputs['Color'], bg.inputs['Color'])
 bg.inputs[1].default_value = 1.0
-
-
-def srgb_to_lin(c):
-    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-
-
-def hex_lin(h):
-    h = (h or '#8899aa').lstrip('#')
-    return tuple(srgb_to_lin(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4))
 
 
 PAL = {
@@ -101,34 +126,21 @@ PAL = {
     'floor3': '#5e6a75', 'batt3': '#33606f', 'wet3': '#2f6274', 'seat3': '#b3aca0', 'seatO3': '#8a6ea0',
     'bed3': '#c2a878', 'isl3': '#7a6690', 'tbl3': '#9aa8b4', 'lk3': '#c0a86a', 'pop3': '#5b6a76',
     'tent3': '#3f6f9f', 'bunk3': '#7f8b96', 'scr3': '#3c444d', 'pj3': '#6a5a80', 'man3': '#d9a08c',
+    'screen3': '#243440',
 }
 SHELL = {'body3', 'glass3', 'tent3'}
 ROUGH = {'body3': 0.32, 'glass3': 0.05, 'tyre3': 0.85, 'rim3': 0.35, 'floor3': 0.7, 'seat3': 0.62,
-         'bed3': 0.75, 'man3': 0.6, 'lk3': 0.45}
+         'bed3': 0.75, 'man3': 0.6, 'lk3': 0.45, 'trim3': 0.5, 'mach3': 0.6, 'cush3': 0.8,
+         'lamp3': 0.2, 'screen3': 0.35, 'scr3': 0.5, 'pop3': 0.5, 'tent3': 0.6, 'bunk3': 0.7}
 
-MATS = {}
+
+def srgb_to_lin(c):
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
-def material(cls, name=None, alpha=1.0):
-    key = name or cls
-    if key in MATS:
-        return MATS[key]
-    m = bpy.data.materials.new(key)
-    m.use_nodes = True
-    bsdf = m.node_tree.nodes['Principled BSDF']
-    col = hex_lin(PAL.get(cls, '#8899aa'))
-    bsdf.inputs['Base Color'].default_value = (col[0], col[1], col[2], 1.0)
-    bsdf.inputs['Roughness'].default_value = ROUGH.get(cls, 0.5)
-    if cls in SHELL:
-        bsdf.inputs['Alpha'].default_value = alpha
-        try:
-            m.blend_method = 'BLEND'
-        except Exception:
-            pass
-        if 'Transmission Weight' in bsdf.inputs:
-            bsdf.inputs['Transmission Weight'].default_value = 0.15 if cls == 'glass3' else 0.0
-    MATS[key] = m
-    return m
+def hex_lin(h):
+    h = (h or '#8899aa').lstrip('#')
+    return tuple(srgb_to_lin(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4))
 
 
 def blender_pt(x, y, z):                       # 车 mm → Blender m
@@ -210,6 +222,35 @@ def set_cyl(ob, v):
     ob.location = ((z0 + z1) / 2000.0, -cx / 1000.0, cy / 1000.0)
     ob.rotation_euler = (0, math.radians(90), 0)
     ob.scale = (r / 500.0, r / 500.0, (z1 - z0) / 1000.0)
+
+
+MATS = {}
+
+
+def material(cls, name=None, alpha=1.0):
+    key = name or cls
+    if key in MATS:
+        return MATS[key]
+    m = bpy.data.materials.new(key)
+    m.use_nodes = True
+    bsdf = m.node_tree.nodes['Principled BSDF']
+    col = hex_lin(PAL.get(cls, '#8899aa'))
+    bsdf.inputs['Base Color'].default_value = (col[0], col[1], col[2], 1.0)
+    bsdf.inputs['Roughness'].default_value = ROUGH.get(cls, 0.5)
+    if cls in SHELL:
+        bsdf.inputs['Alpha'].default_value = alpha
+        try:
+            m.blend_method = 'BLEND'
+        except Exception:
+            pass
+        try:
+            m.surface_render_method = 'BLENDED'
+        except Exception:
+            pass
+        if 'Transmission Weight' in bsdf.inputs:
+            bsdf.inputs['Transmission Weight'].default_value = 0.15 if cls == 'glass3' else 0.0
+    MATS[key] = m
+    return m
 
 
 # ---------------------------------------------------------------- 建车（按 partDefs 固定对象）
@@ -432,7 +473,13 @@ for fr in frames:
     cam.keyframe_insert('location', frame=i)
     cam.keyframe_insert('rotation_quaternion', frame=i)
 
-# ---------------------------------------------------------------- 灯光 + 地面
+# ---------------------------------------------------------------- 灯光 + 地面（草地 + 自然太阳光）
+# 主光 = 太阳（从高处斜照，"自然太阳光"）；辅光只给很弱的冷补，照顾剖开的内腔。
+sun = bpy.data.lights.new('Sun', 'SUN'); sun.energy = 2.2; sun.angle = math.radians(1.5)
+so = bpy.data.objects.new('Sun', sun); bpy.context.collection.objects.link(so)
+so.rotation_euler = (math.radians(42), 0, math.radians(35))   # 顶上偏前，接近天空盘的位置
+
+
 def area(name, loc, energy, size, rot=None, color=(1, 1, 1)):
     d = bpy.data.lights.new(name, 'AREA'); d.energy = energy; d.size = size; d.color = color
     o = bpy.data.objects.new(name, d); bpy.context.collection.objects.link(o)
@@ -442,21 +489,34 @@ def area(name, loc, energy, size, rot=None, color=(1, 1, 1)):
     return o
 
 
-key = area('Key', (1500, 4200, 2500), 7000, 0.9)
-k = key.constraints.new('TRACK_TO'); k.target = cam  # 灯跟着相机（软箱感）
-fill = area('Fill', (-2000, 1500, -3500), 2600, 1.2, color=(0.85, 0.9, 1.0))
-rim = area('Rim', (5200, 2600, -2200), 5600, 0.9, color=(1.0, 0.95, 0.88))
-sun = bpy.data.lights.new('Sun', 'SUN'); sun.energy = 0.9; sun.angle = math.radians(4)
-so = bpy.data.objects.new('Sun', sun); bpy.context.collection.objects.link(so)
-so.rotation_euler = (math.radians(52), 0, math.radians(38))
+fill = area('Fill', (500, 3000, 4200), 900, 3.0, color=(0.80, 0.88, 1.0))
+k = fill.constraints.new('TRACK_TO'); k.target = cam
 
-bpy.ops.mesh.primitive_plane_add(size=60, location=blender_pt(1650, 0, 0))
+
+# 草地：一大块绿面 + 噪声混色（远看是草地，近看不穿帮）
+def grass_mat():
+    m = bpy.data.materials.new('Grass'); m.use_nodes = True
+    nt = m.node_tree
+    b = nt.nodes['Principled BSDF']
+    tex = nt.nodes.new('ShaderNodeTexNoise')
+    tex.inputs['Scale'].default_value = 0.6
+    tex.inputs['Detail'].default_value = 8
+    ramp = nt.nodes.new('ShaderNodeValToRGB')
+    ramp.color_ramp.elements[0].color = (0.035, 0.115, 0.026, 1)
+    ramp.color_ramp.elements[1].color = (0.11, 0.26, 0.06, 1)
+    nt.links.new(tex.outputs['Fac'], ramp.inputs['Fac'])
+    nt.links.new(ramp.outputs['Color'], b.inputs['Base Color'])
+    b.inputs['Roughness'].default_value = 0.95
+    return m
+
+
+bpy.ops.mesh.primitive_plane_add(size=260, location=(0, 0, -0.02))
 gnd = bpy.context.object
-gm = bpy.data.materials.new('Ground'); gm.use_nodes = True
-gb = gm.node_tree.nodes['Principled BSDF']
-gb.inputs['Base Color'].default_value = (0.02, 0.023, 0.028, 1)
-gb.inputs['Roughness'].default_value = 0.42
-gnd.data.materials.append(gm)
+gnd.data.materials.append(grass_mat())
+if os.environ.get('NO_GRASS'):
+    gnd.hide_render = True
+
+
 
 print('[film] frames %d..%d  objects=%d people=%d  engine=%s res=%d' %
       (F0, min(F1, len(frames) - 1), len(objs), len(PEOPLE), sc.render.engine, RES))

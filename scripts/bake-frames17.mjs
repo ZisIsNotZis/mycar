@@ -54,56 +54,78 @@ const SHOTS = [
   /* ① 车外 hero：缓缓升起 + 侧移（"外面小"） */
   { n: "外部 hero", sec: 8, car: L4460, state: SIT, shell: () => 1.0, cut: () => null, people: [],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 950, 0],
-      norm([-0.62 + 0.10 * u, 0.32 + 0.18 * u, 0.72 - 0.06 * u]), 0.74) },
+      norm([-0.60, 0.26, 0.11 + 0.03 * u]), 0.72) },
 
   /* ② 环绕 + 剖开（同一运动里完成 → "里面大"） */
   { n: "环绕剖开", sec: 9, car: L4460, state: SIT, shell: () => 1.0,
     cut: (u) => 1180 - 1280 * u, people: [],
     cam: (u) => { const a = -0.95 + 1.15 * u;
-      return frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([Math.sin(a), 0.30, Math.cos(a)]), 0.72); } },
+      return frame(Lof(L4460), [Lof(L4460) * 0.5, 1100, 0], norm([Math.sin(a), 0.22, 0.06 + 0.30 * Math.abs(Math.cos(a))]), 0.76); } },
 
   /* ③ 常规：两个人坐着（淡入），缓慢推近 */
-  { n: "常规两人", sec: 7.5, car: L4460, state: SIT, shell: () => 1.0, cut: () => -100,
+  { n: "常规两人", sec: 7, car: L4460, state: SIT, shell: () => 1.0, cut: () => -100,
     people: [{ slot: "A", a: (u) => clamp01((u - 0.02) / 0.20) }, { slot: "B", a: (u) => clamp01((u - 0.10) / 0.20) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.55, 1050, 0],
       norm([0.34, 0.13, 0.93]), 0.95 - 0.13 * u) },
 
-  /* ④ 变形：二排放平 + 腿托 + 前排转身（人淡出静姿） */
-  { n: "变形", sec: 11.5, car: L4460, state: SIT, stateTo: BED, shell: () => 1.0, cut: () => -100,
+  /* ④ 对坐：前排转身 180°，两人面对面（客厅模式） */
+  { n: "对坐", sec: 9, car: L4460, state: SIT, stateTo: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
+    shell: () => 1.0, cut: () => -100,
+    people: [{ slot: "A", a: () => 1 }, { slot: "B", a: () => 1 }],
+    cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 1100, 0],
+      norm([0.30 + 0.25 * u, 0.10, 0.95]), 0.92 - 0.10 * u) },
+
+  /* ⑤ 观影：投影幕布从上横梁垂下，座椅前横排成"沙发" */
+  { n: "观影幕布", sec: 9, car: L4460, state: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
+    screen: () => 1, shell: () => 1.0, cut: () => -100,
+    people: [{ slot: "A", a: () => 1 }, { slot: "B", a: () => 1 }],
+    cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.42, 1150, 0],
+      norm([0.42, 0.02 + 0.10 * u, 0.91]), 0.94 - 0.08 * u) },
+
+  /* ⑥ 变形：二排放平 + 腿托 + 前排转回（人淡出） */
+  { n: "变形", sec: 11.5, car: L4460, state: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
+    stateTo: BED, shell: () => 1.0, cut: () => -100, screen: (u) => 1 - u * 2,
     people: [{ slot: "A", a: (u) => clamp01(0.9 - u / 0.10) }, { slot: "B", a: (u) => clamp01(0.9 - u / 0.10) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0],
       norm([0.10, 0.14 + 0.10 * u, 0.98]), 0.92) },
 
-  /* ⑤ 大床：一个人躺下（淡入），低机位推近 */
+  /* ⑦ 大床：一个人躺下（淡入），低机位推近 */
   { n: "大床", sec: 9, car: L4460, state: BED, shell: () => 1.0, cut: () => -100,
     people: [{ slot: "A", a: (u) => clamp01((u - 0.06) / 0.22) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.62, 950, 0],
       norm([0.24 - 0.22 * u, 0.10 + 0.16 * u, 0.97]), 0.96 - 0.14 * u) },
 
-  /* ⑥ 升顶站立：镜头跟着升顶抬起来 */
+  /* ⑧ 升顶站立：镜头跟着升顶抬起来 */
   { n: "升顶站立", sec: 9, car: L4460, state: BED, stateTo: { rot: 0, fold: 1, pAng: 0, popUp: 1 },
     shell: () => 1.0, cut: () => -100,
     people: [{ slot: "B", a: (u) => clamp01((u - 0.30) / 0.22) }],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.55, 1300 + 800 * u, 0],
       norm([0.26, 0.05 + 0.13 * u, 0.96]), 0.94) },
 
-  /* ⑦ 骨架 + 溃缩结构：壳拿掉，露出"不随机构变"的骨架 */
-  { n: "骨架", sec: 10.5, car: L4460, state: SIT, shell: () => 0.0, cut: () => null, people: [],
+  /* ⑨ 骨架 + 溃缩结构：车壳淡出，只留骨架（轮子/梁/座椅立板） */
+  { n: "骨架", sec: 10.5, car: L4460, state: SIT, shell: (u) => 1 - u * 2.2, cut: () => null, people: [],
     cam: (u) => { const a = 0.38 - 0.78 * u;
       return frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([Math.sin(a), 0.16, Math.cos(a)]), 0.90); } },
 
-  /* ⑧ 缩小实验：相机不动，车自己缩（骨架/轮子不动） */
-  { n: "缩小实验", sec: 11, car: L4460, carTo: L4080, state: SIT, shell: () => 1.0, cut: () => 200, people: [],
+  /* ⑩ 缩小实验：等比缩（梁/宽/高一起缩，轮心不动），相机不动 */
+  { n: "缩小实验", sec: 10, car: L4460, carTo: L4080, state: SIT, shell: () => 1.0,
+    cut: () => 200, people: [], scale: (u) => 1 - 0.085 * u,
     cam: () => frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([0.02, 0.10, 0.99]), 0.92) },
 
-  /* ⑨ 收尾：壳合上，缓慢拉开 */
-  { n: "收尾", sec: 7.5, car: L4080, carTo: L4460, state: SIT, shell: () => 1.0, cut: (u) => 200 + 1400 * u, people: [],
+  /* ⑪ 收尾：车壳合上，缓慢拉开 */
+  { n: "收尾", sec: 7.5, car: L4080, carTo: L4460, state: SIT, shell: () => 1.0,
+    cut: (u) => 200 + 1400 * u, people: [],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 950, 0],
-      norm([-0.55, 0.40, 0.73]), 0.72 - 0.10 * u) },
+      norm([-0.55, 0.20, 0.12]), 0.74 - 0.08 * u) },
 ];
 
 /* ========================================================================= */
-const b = await chromium.launch();
+/* Playwright 自带的 Chromium 缓存可能被清掉；系统里有 Edge → 依次尝试 */
+let b = null;
+for (const opts of [{ channel: "msedge" }, { channel: "chrome" }, {}, { executablePath: "/usr/bin/microsoft-edge" }]) {
+  try { b = await chromium.launch(opts); break; } catch (e) { console.error("[launch]", e.message.split("\n")[0]); }
+}
+if (!b) { console.error("找不到可用的浏览器（msedge/chrome/playwright chromium）"); process.exit(1); }
 const p = await b.newPage({ viewport: { width: 1200, height: 800 } });
 const errs = [];
 p.on("pageerror", (e) => errs.push("PAGEERROR " + e.message));
@@ -121,13 +143,13 @@ const DEFK = {
   grille: { cls: "mach3", k: "box" }, lampL: { cls: "lamp3", k: "box" }, lampR: { cls: "lamp3", k: "box" },
   archFL: { cls: "trim3", k: "cyl" }, archFR: { cls: "trim3", k: "cyl" },
   archRL: { cls: "trim3", k: "cyl" }, archRR: { cls: "trim3", k: "cyl" },
-  frunkLo: { cls: "body3", k: "box" }, frunkHi: { cls: "body3", k: "box" },
+  frunkFloor: { cls: "floor3", k: "box" }, trunkFloor: { cls: "floor3", k: "box" },
   machF: { cls: "mach3", k: "box" }, batt: { cls: "batt3", k: "box" },
-  machR: { cls: "mach3", k: "box" }, trunkLo: { cls: "body3", k: "box" },
-  trunkHi: { cls: "body3", k: "box" },
+  machR: { cls: "mach3", k: "box" },
+  screen: { cls: "screen3", k: "box" },
   seatFc: { cls: "cush3", k: "box" }, seatRc: { cls: "cush3", k: "box" },
   seatFb: { cls: "seat3", k: "quad" }, seatRb: { cls: "seat3", k: "quad" },
-  seatFh: { cls: "cush3", k: "quad" }, seatRh: { cls: "cush3", k: "quad" },
+
   legRest: { cls: "bed3", k: "box" }, deck: { cls: "bed3", k: "quad" },
   bunk: { cls: "bunk3", k: "box" }, topBeam: { cls: "lk3", k: "box" }, roof: { cls: "pop3", k: "box" },
   tentL: { cls: "tent3", k: "box" }, tentR: { cls: "tent3", k: "box" },
@@ -141,7 +163,7 @@ for (const nm of ["Fu", "Fd", "Ru", "Rd"])
   for (const sd of ["L", "R"]) DEFK["beam" + nm + sd] = { cls: "scr3", k: "box" };
 
 /* 每一帧：设参数 + 状态 → derive() → 抽零件/人 */
-const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
+const grab = (car, state, cut, scl) => p.evaluate(([car, state, DEFK, CUTZ, SCL]) => {
   const P = MY.P;
   Object.assign(P, car, state);
   MY.SIM.sig = null;                       // 强制重建布偶（否则沿用上一帧的落定结果）
@@ -158,6 +180,9 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
     shell: [0, 10, [0, 0], [1, 0], [1, 1]],
   };
   for (const k in DEFK) parts[k] = DEG[DEFK[k].k].slice();
+  /* 等比缩小：x/y/z 全部乘 SCL —— 梁、宽、高一起缩，比例才协调；轮心不动（axF/axR 是绝对值） */
+  const S = SCL == null ? 1 : SCL;
+  const M = (v) => v * S;
   /* 剖切：一切零件的 z 都被切到 CUTZ（近侧那半拿掉）——就是一个"半剖模型"，
      比整车半透明干净得多（也正好是本项目侧视剖面的老规矩）。 */
   const CUT = CUTZ == null ? Infinity : CUTZ;
@@ -175,22 +200,21 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
   /* 车壳：骨架多边形（凹）→ 交给 Blender 的 prism（只换多边形，不打关键帧） */
   const HO0 = HW + 60;
   const bc = CL(-HO0, HO0);                      // 车壳也要跟着剖（否则"骨架"镜里壳还在）
-  if (bc) parts.body = [bc[0], bc[1], ...d.shell.poly];
+  if (bc) parts.body = [bc[0], bc[1], ...d.shell.poly.map(q => [M(q[0]), M(q[1])])];
   /* 近侧那块外板：只有"没剖开"的时候才在 —— 剖开时它自然被 CL 切掉。
      （车壳本体是**不带近侧封盖**的壳，否则剖切时那块实心截面会把内饰全挡住。） */
   const nc = CL(HO0 - 34, HO0);
-  if (nc) parts.bodyNear = [nc[0], nc[1], ...d.shell.poly];
+  if (nc) parts.bodyNear = [nc[0], nc[1], ...d.shell.poly.map(q => [M(q[0]), M(q[1])])];
 
-  /* 层 A 各件（全宽） */
-  box("frunkLo", 0, P.x00, P.y0, P.y1c, -HW, HW);
-  box("frunkHi", P.x00, P.x10, P.y1a, P.y1c, -HW, HW);
-  box("machF", P.x00, P.x00 + P.x01, P.y0, P.y1a, -HW, HW);
-  box("batt", d.A.batt.x0, d.A.batt.x1, P.y0, P.y1, -HW, HW);
-  box("machR", d.A.machR.x0, d.A.machR.x1, P.y0, P.y1b, -HW, HW);
-  box("trunkLo", d.A.trunk.x0, d.A.trunk.x1, P.y0, P.y2, -HW, HW);
-  box("trunkHi", d.A.trunk.x0 - P.x15, d.A.trunk.x0, P.y1b, P.y2 - P.bckT, -HW, HW);
-  /* 地板（座舱地面那块板） */
-  box("floor", P.x10, d.A.trunk.x0, P.y1 - 40, P.y1, -HW, HW);
+  /* 层 A：机能件/电池是实体；**前备箱/尾仓是空腔**——只给腔体一块底板，
+     空间本身留空（里面的上下两排溃缩梁会自己立在那），这样才看得出"这里有空间"。 */
+  box("frunkFloor", M(0), M(P.x00), M(P.y0), M(P.y0 + 20), M(-HW), M(HW));
+  box("trunkFloor", M(d.A.trunk.x0), M(d.A.trunk.x1), M(P.y0), M(P.y0 + 20), M(-HW), M(HW));
+  box("machF", M(P.x00), M(P.x00 + P.x01), M(P.y0), M(P.y1a), M(-HW), M(HW));
+  box("batt", M(d.A.batt.x0), M(d.A.batt.x1), M(P.y0), M(P.y1), M(-HW), M(HW));
+  box("machR", M(d.A.machR.x0), M(d.A.machR.x1), M(P.y0), M(P.y1b), M(-HW), M(HW));
+  /* 座舱地板 */
+  box("floor", M(P.x10), M(d.A.trunk.x0), M(P.y1 - 40), M(P.y1), M(-HW), M(HW));
 
   /* 溃缩结构：上下两排 × 左右两根 */
   const BT = 30, rz = HW - 200, rw = 120;
@@ -198,34 +222,37 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
                 ["Ru", d.A.trunk.x0 - P.x15 + 8, d.A.trunk.x1 - 8, P.y1b + 6],
                 ["Rd", d.A.trunk.x0 + 8, d.A.trunk.x1 - 8, P.y0 + 21]];
   for (const [nm, x0, x1, y0] of rows) {
-    box("beam" + nm + "L", x0, x1, y0, y0 + BT, -rz - rw / 2, -rz + rw / 2);
-    box("beam" + nm + "R", x0, x1, y0, y0 + BT, rz - rw / 2, rz + rw / 2);
+    box("beam" + nm + "L", M(x0), M(x1), M(y0), M(y0 + BT), M(-rz - rw / 2), M(-rz + rw / 2));
+    box("beam" + nm + "R", M(x0), M(x1), M(y0), M(y0 + BT), M(rz - rw / 2), M(rz + rw / 2));
   }
 
   /* 座椅 / 床件 */
-  box("seatFc", d.B.seatF.x0, d.B.seatF.x1, P.y2 - 130, P.y2, -HW * 0.85, HW * 0.85);
-  box("seatRc", d.B.seatR.x0, d.B.seatR.x1, P.y2 - 130, P.y2, -HW * 0.85, HW * 0.85);
+  box("seatFc", M(d.B.seatF.x0), M(d.B.seatF.x1), M(P.y2 - 130), M(P.y2), M(-HW * 0.85), M(HW * 0.85));
+  box("seatRc", M(d.B.seatR.x0), M(d.B.seatR.x1), M(P.y2 - 130), M(P.y2), M(-HW * 0.85), M(HW * 0.85));
   const F = d.seat.front, Rp = d.seat.rear;
   /* 靠背 = 本体 + 头枕（沿同一方向的两段，视觉上不再是"木板"） */
-  quad("seatFb", F.hinge, P.y2, F.dir[0], F.dir[1], F.len - 190, P.bckT, -HW * 0.85, HW * 0.85);
-  quad("seatFh", F.hinge + F.dir[0] * (F.len - 190), P.y2 + F.dir[1] * (F.len - 190),
-       F.dir[0], F.dir[1], 190, P.bckT * 0.8, -HW * 0.55, HW * 0.55);
-  quad("seatRb", Rp.hinge, P.y2, Rp.dir[0], Rp.dir[1], Rp.len - 190, P.bckT, -HW * 0.85, HW * 0.85);
-  quad("seatRh", Rp.hinge + Rp.dir[0] * (Rp.len - 190), P.y2 + Rp.dir[1] * (Rp.len - 190),
-       Rp.dir[0], Rp.dir[1], 190, P.bckT * 0.8, -HW * 0.55, HW * 0.55);
-  if (d.legRest) box("legRest", d.legRest.x0, d.legRest.x1, P.y2 - 40, P.y2, -HW * 0.9, HW * 0.9);
+  const up = P.fold < 0.5;                     // 靠背放平 → 头枕拆掉（否则穿模）
+  quad("seatFb", M(F.hinge), M(P.y2), F.dir[0], F.dir[1], M(up ? F.len - 190 : F.len), M(P.bckT), M(-HW * 0.85), M(HW * 0.85));
+  if (up) quad("seatFh", M(F.hinge + F.dir[0] * (F.len - 190)), M(P.y2 + F.dir[1] * (F.len - 190)),
+       F.dir[0], F.dir[1], M(190), M(P.bckT * 0.8), M(-HW * 0.55), M(HW * 0.55));
+  quad("seatRb", M(Rp.hinge), M(P.y2), Rp.dir[0], Rp.dir[1], M(up ? Rp.len - 190 : Rp.len), M(P.bckT), M(-HW * 0.85), M(HW * 0.85));
+  if (up) quad("seatRh", M(Rp.hinge + Rp.dir[0] * (Rp.len - 190)), M(P.y2 + Rp.dir[1] * (Rp.len - 190)),
+       Rp.dir[0], Rp.dir[1], M(190), M(P.bckT * 0.8), M(-HW * 0.55), M(HW * 0.55));
+  if (d.legRest) box("legRest", M(d.legRest.x0), M(d.legRest.x1), M(P.y2 - 40), M(P.y2), M(-HW * 0.9), M(HW * 0.9));
   const a = P.pAng * Math.PI / 180;
-  quad("deck", d.deck.x0, P.y2, Math.cos(a), Math.sin(a), d.deck.len, 40, -HW * 0.9, HW * 0.9);
+  quad("deck", M(d.deck.x0), M(P.y2), Math.cos(a), Math.sin(a), M(d.deck.len), M(40), M(-HW * 0.9), M(HW * 0.9));
   if (P.popUp > 0.5 && P.fold < 0.5)
-    box("bunk", d.C.opening.x0, d.C.opening.x1, P.y3 - 40, P.y3, -HW, HW);
+    box("bunk", M(d.C.opening.x0), M(d.C.opening.x1), M(P.y3 - 40), M(P.y3), M(-HW), M(HW));
+  if (P.__screen > 0.5)                                        // 投影幕布（观影）：挂在上横梁后垂下
+    box("screen", M(P.xBeam + 60), M(P.xBeam + 95), M(P.y3 - 640), M(P.y3 - 40), M(-HW * 0.62), M(HW * 0.62));
   if (P.popUp > 0.5 && P.fold > 0.5) {                       // 升顶站立：顶横梁 + 帐篷（顶 + 四面围幕）
-    box("topBeam", P.xBeam - 40, P.xBeam + 40, P.y3 - 60, P.y3, -HW, HW);
-    box("roof", d.C.opening.x0 - 40, d.C.opening.x1 + 40, P.y4 - 40, P.y4, -HW - 20, HW + 20);
-    box("tentL", d.C.opening.x0, d.C.opening.x1, P.y3, P.y4 - 40, -HW - 20, -HW + 8);
-    box("tentR", d.C.opening.x0, d.C.opening.x1, P.y3, P.y4 - 40, HW - 8, HW + 20);
-    box("tentF", d.C.opening.x0 - 8, d.C.opening.x0 + 8, P.y3, P.y4 - 40, -HW, HW);
-    box("tentB", d.C.opening.x1 - 8, d.C.opening.x1 + 8, P.y3, P.y4 - 40, -HW, HW);
-  } else box("topBeam", P.xBeam - 40, P.xBeam + 40, P.y3 - 60, P.y3, -HW, HW);
+    box("topBeam", M(P.xBeam - 40), M(P.xBeam + 40), M(P.y3 - 60), M(P.y3), M(-HW), M(HW));
+    box("roof", M(d.C.opening.x0 - 40), M(d.C.opening.x1 + 40), M(P.y4 - 40), M(P.y4), M(-HW - 20), M(HW + 20));
+    box("tentL", M(d.C.opening.x0), M(d.C.opening.x1), M(P.y3), M(P.y4 - 40), M(-HW - 20), M(-HW + 8));
+    box("tentR", M(d.C.opening.x0), M(d.C.opening.x1), M(P.y3), M(P.y4 - 40), M(HW - 8), M(HW + 20));
+    box("tentF", M(d.C.opening.x0 - 8), M(d.C.opening.x0 + 8), M(P.y3), M(P.y4 - 40), M(-HW), M(HW));
+    box("tentB", M(d.C.opening.x1 - 8), M(d.C.opening.x1 + 8), M(P.y3), M(P.y4 - 40), M(-HW), M(HW));
+  } else box("topBeam", M(P.xBeam - 40), M(P.xBeam + 40), M(P.y3 - 60), M(P.y3), M(-HW), M(HW));
 
   /* 侧窗（两侧薄板，读作"玻璃"）+ 前后保险杠 + 轮包 */
   const HO = HW + 60, gy0 = P.y2 + 430, gy1 = P.y3 - 170;
@@ -249,11 +276,12 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
 
   /* 轮：胎 + 轮辋（轮底 = 地面 y=0；轮心 y = wD/2） */
   const R2 = P.wD / 2, TW = 230, tz = HW + 60 - TW;
+  const tz0 = M(-tz - TW), tz1 = M(-tz), tz2 = M(tz), tz3 = M(tz + TW);
   for (const [nm, ax] of [["F", P.axF], ["R", P.axR]]) {
-    cyl("tyre" + nm, ax, R2, R2, -tz - TW, -tz);
-    cyl("tyre" + nm + "b", ax, R2, R2, tz, tz + TW);
-    cyl("rim" + nm, ax, R2, R2 * 0.55, -tz - 20, -tz);
-    cyl("rim" + nm + "b", ax, R2, R2 * 0.55, tz, tz + 20);
+    cyl("tyre" + nm, ax, R2, M(R2), tz0, tz1);
+    cyl("tyre" + nm + "b", ax, R2, M(R2), tz2, tz3);
+    cyl("rim" + nm, ax, R2, M(R2) * 0.55, tz0 + M(20), tz1 - M(20));
+    cyl("rim" + nm + "b", ax, R2, M(R2) * 0.55, tz2 + M(20), tz3 - M(20));
   }
 
   /* 人：布偶关节 → 12 根骨头 + 头（脖子/肘/手是合成的，v17 里没有） */
@@ -262,20 +290,18 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
   const arm = (shd, headC, face) => {
     const dx = headC[0] - shd[0], dy = headC[1] - shd[1], L = Math.hypot(dx, dy) || 1;
     const ux = dx / L, uy = dy / L;                     // 躯干→头 方向
-    if (Math.abs(uy) > 0.7) {                           // 坐 / 站：手往前下
-      const f = face < 0 ? -1 : 1;
-      const elbow = [shd[0] + f * 170, shd[1] - 210];
-      const hand = [elbow[0] + f * 230, elbow[1] - 110];
-      return [elbow, hand];
-    }
-    const elbow = [shd[0] + ux * 300, shd[1] + uy * 300];   // 躺：手顺身体
-    const hand = [elbow[0] + ux * 260, elbow[1] + uy * 260];
+    if (Math.abs(uy) <= 0.7) return null;               // 躺姿：不画手臂（会伸出空间外）
+    const f = face < 0 ? -1 : 1;                        // 坐 / 站：手往前下
+    const elbow = [shd[0] + f * 150, shd[1] - 190];
+    const hand = [elbow[0] + f * 200, elbow[1] - 100];
     return [elbow, hand];
   };
   const add = (slot, j) => {
     if (!j || !j.knee) return;
     const neck = [j.shd[0] + (j.headC[0] - j.shd[0]) * 0.32, j.shd[1] + (j.headC[1] - j.shd[1]) * 0.32];
-    const [elbow, hand] = arm(j.shd, j.headC, j.face);
+    const limbs = arm(j.shd, j.headC, j.face);
+    if (!limbs) return;
+    const [elbow, hand] = limbs;
     people[slot] = { k: 1, hip: j.hip, knee: j.knee, ankle: j.ankle,
       foot: [j.ankle[0] + (j.toe[0] - j.ankle[0]) * 1.1, j.ankle[1] + (j.toe[1] - j.ankle[1]) * 1.1],
       shd: j.shd, neck, headC: j.headC, elbow, hand };
@@ -286,7 +312,7 @@ const grab = (car, state, cut) => p.evaluate(([car, state, DEFK, CUTZ]) => {
     else if (j.who === "上铺") add("C", j);
   }
   return { parts, people, L: d.L, cam: { shell: 0 } };
-}, [car, state, DEFK, cut]);
+}, [car, state, DEFK, cut, scl]);
 
 /* 组装时间轴 */
 const frames = [];
@@ -301,9 +327,10 @@ for (const s of SHOTS) {
     const state = s.stateTo ? mixObj(s.state, s.stateTo, e) : s.state;
     // 机构的插值：fold/rot/pAng/popUp 是 0/1 或角度 → 直接线性插值后再取整到合适分辨率
     const st = { ...state };
+    st.__screen = s.screen ? s.screen(e) : 0;
     st.rot = Math.round(st.rot); st.pAng = Math.round(st.pAng);
     st.fold = st.fold > 0.5 ? 1 : 0; st.popUp = st.popUp > 0.5 ? 1 : 0;
-    const g = await grab(car, st, s.cut ? s.cut(e) : null);
+    const g = await grab(car, st, s.cut ? s.cut(e) : null, s.scale ? s.scale(e) : null);
     const alpha = {};
     for (const pl of s.people || []) alpha[pl.slot] = pl.a(e);
     const cam = s.cam(e);
