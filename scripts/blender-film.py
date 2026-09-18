@@ -126,12 +126,12 @@ PAL = {
     'floor3': '#5e6a75', 'batt3': '#33606f', 'wet3': '#2f6274', 'seat3': '#b3aca0', 'seatO3': '#8a6ea0',
     'bed3': '#c2a878', 'isl3': '#7a6690', 'tbl3': '#9aa8b4', 'lk3': '#c0a86a', 'pop3': '#5b6a76',
     'tent3': '#3f6f9f', 'bunk3': '#7f8b96', 'scr3': '#3c444d', 'pj3': '#6a5a80', 'man3': '#d9a08c',
-    'screen3': '#243440',
+    'screen3': '#f2f2ee',
 }
 SHELL = {'body3', 'glass3', 'tent3'}
 ROUGH = {'body3': 0.32, 'glass3': 0.05, 'tyre3': 0.85, 'rim3': 0.35, 'floor3': 0.7, 'seat3': 0.62,
          'bed3': 0.75, 'man3': 0.6, 'lk3': 0.45, 'trim3': 0.5, 'mach3': 0.6, 'cush3': 0.8,
-         'lamp3': 0.2, 'screen3': 0.35, 'scr3': 0.5, 'pop3': 0.5, 'tent3': 0.6, 'bunk3': 0.7}
+         'lamp3': 0.2, 'screen3': 0.6, 'scr3': 0.5, 'pop3': 0.5, 'tent3': 0.6, 'bunk3': 0.7}
 
 
 def srgb_to_lin(c):

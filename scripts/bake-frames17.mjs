@@ -112,12 +112,12 @@ const SHOTS = [
 
   /* ⑩ 缩小实验：等比缩（梁/宽/高一起缩，轮心不动），相机不动 */
   { n: "缩小实验", sec: 10, car: L4460, carTo: L4080, state: SIT, shell: () => 1.0,
-    cut: () => 200, people: [], scale: (u) => 1 - 0.085 * u,
+    cut: () => 200, people: [], scale: (u) => 1 - 0.20 * u,
     cam: () => frame(Lof(L4460), [Lof(L4460) * 0.5, 1000, 0], norm([0.02, 0.10, 0.99]), 0.92) },
 
   /* ⑪ 收尾：车壳合上，缓慢拉开 */
   { n: "收尾", sec: 7.5, car: L4080, carTo: L4460, state: SIT, shell: () => 1.0,
-    cut: (u) => 200 + 1400 * u, people: [],
+    cut: (u) => 900 + 600 * u, people: [],
     cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 950, 0],
       norm([-0.55, 0.20, 0.12]), 0.74 - 0.08 * u) },
 ];
@@ -269,9 +269,9 @@ const grab = (car, state, cut, scl) => p.evaluate(([car, state, DEFK, CUTZ, SCL]
   quad("deck", M(d.deck.x0), M(P.y2), Math.cos(a), Math.sin(a), M(d.deck.len), M(40), M(-HW * 0.9), M(HW * 0.9));
   if (P.popUp > 0.5 && P.fold < 0.5)
     box("bunk", M(d.C.opening.x0), M(d.C.opening.x1), M(P.y3 - 40), M(P.y3), M(-HW), M(HW));
-  if (P.__screen > 0.5) {                                      // 投影幕布（观影）：在前排乘员视线
-    const sx = M(P.x10 + 260);                                 //   正前方、从顶部垂下（坐姿可看，与头有距）
-    box("screen", sx, M(sx + 40), M(P.y2 + 320), M(P.y3 - 40), M(-HW * 0.60), M(HW * 0.60));
+  if (P.__screen > 0.5) {                                      // 投影幕布（观影）：挂在前排乘员视线
+    const sx = M(P.x10 + 60);                                  // 正前方（座舱前壁内侧）
+    box("screen", M(sx), M(sx + 40), M(P.y2 + 380), M(P.y3 - 20), M(-HW * 0.58), M(HW * 0.58));
   }
   if (P.popUp > 0.5 && P.fold > 0.5) {                       // 升顶站立：顶横梁 + 帐篷（顶 + 四面围幕）
     box("topBeam", M(P.xBeam - 40), M(P.xBeam + 40), M(P.y3 - 60), M(P.y3), M(-HW), M(HW));
