@@ -211,7 +211,10 @@ def set_quad(ob, v):
     th = max(6.0, th)
     ln = max(1.0, ln)
     n = math.hypot(dx, dy) or 1.0
-    ob.location = blender_pt(px + dx / 2.0, py + dy / 2.0, (z0 + z1) / 2.0)
+    # quad 的 px/py 是铰点，不是中心；中心必须沿方向移动半个真实长度。
+    # 旧代码只移动 dx/2、dy/2（约半毫米），却把物体缩放到完整 ln，导致靠背向铰点两侧
+    # 各伸半截：下端穿过座面直达车底，可翻件也无法从铰点正确接到车尾。
+    ob.location = blender_pt(px + dx * ln / 2.0, py + dy * ln / 2.0, (z0 + z1) / 2.0)
     ob.rotation_mode = 'XYZ'
     ob.rotation_euler = (math.atan2(dy, -dx), 0.0, 0.0)      # 绕车宽轴旋转（= Blender X）
     ob.scale = ((z1 - z0) / 1000.0, ln / 1000.0, th / 1000.0)
