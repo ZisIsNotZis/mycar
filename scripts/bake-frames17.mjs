@@ -31,6 +31,8 @@ const L4080 = { x00: 620, x01: 200, x02: 1860, x03: 550, x04: 850, x10: 1240,
   x11: 430, x12: 250, x13: 200, x14: 330, x15: 400, x30: 1600, xBeam: 2515 };
 const L4870 = { x00: 620, x01: 430, x02: 2330, x03: 600, x04: 890, x10: 1240,
   x11: 680, x12: 440, x13: 500, x14: 380, x15: 500, x30: 1600, xBeam: 2625 };
+/* 对坐/观影用：二排脚空间 +170（两人膝盖不碰；可翻件相应缩短） */
+const L4460D = { ...L4460, x13: 650 };
 const SIT = { rot: 0, fold: 0, pAng: 90, popUp: 0 };
 const BED = { rot: 180, fold: 1, pAng: 0, popUp: 0 };
 
@@ -69,18 +71,19 @@ const SHOTS = [
       norm([0.34, 0.13, 0.93]), 0.95 - 0.13 * u) },
 
   /* ④ 对坐：前排转身 180°，两人面对面（客厅模式） */
-  { n: "对坐", sec: 9, car: L4460, state: SIT, stateTo: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
+  { n: "对坐", sec: 9, car: L4460D, state: SIT, stateTo: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
     shell: () => 1.0, cut: () => -100,
-    people: [{ slot: "A", a: () => 1 }, { slot: "B", a: () => 1 }],
-    cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.5, 1100, 0],
-      norm([0.30 + 0.25 * u, 0.10, 0.95]), 0.92 - 0.10 * u) },
+    people: [{ slot: "A", a: (u) => u < 0.15 ? 1 : u < 0.35 ? 1 - (u - 0.15) / 0.2 : u > 0.8 ? (u - 0.8) / 0.2 : 0 },
+             { slot: "B", a: (u) => u < 0.15 ? 1 : u < 0.35 ? 1 - (u - 0.15) / 0.2 : u > 0.8 ? (u - 0.8) / 0.2 : 0 }],
+    cam: (u) => frame(Lof(L4460D), [Lof(L4460D) * 0.5, 1150, 0],
+      norm([0.30 + 0.25 * u, 0.08, 0.95]), 0.94 - 0.10 * u) },
 
   /* ⑤ 观影：投影幕布从上横梁垂下，座椅前横排成"沙发" */
-  { n: "观影幕布", sec: 9, car: L4460, state: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
+  { n: "观影幕布", sec: 9, car: L4460D, state: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
     screen: () => 1, shell: () => 1.0, cut: () => -100,
     people: [{ slot: "A", a: () => 1 }, { slot: "B", a: () => 1 }],
-    cam: (u) => frame(Lof(L4460), [Lof(L4460) * 0.42, 1150, 0],
-      norm([0.42, 0.02 + 0.10 * u, 0.91]), 0.94 - 0.08 * u) },
+    cam: (u) => frame(Lof(L4460D), [Lof(L4460D) * 0.45, 1150, 0],
+      norm([0.40, 0.04 + 0.10 * u, 0.92]), 0.95 - 0.08 * u) },
 
   /* ⑥ 变形：二排放平 + 腿托 + 前排转回（人淡出） */
   { n: "变形", sec: 11.5, car: L4460, state: { rot: 180, fold: 0, pAng: 90, popUp: 0 },
@@ -168,6 +171,8 @@ const grab = (car, state, cut, scl) => p.evaluate(([car, state, DEFK, CUTZ, SCL]
   Object.assign(P, car, state);
   MY.SIM.sig = null;                       // 强制重建布偶（否则沿用上一帧的落定结果）
   const d = MY.derive();
+  if (d.dolls.length) MY.settle(2.0, MY.SIM.rags, MY.SIM.hard, MY.SIM.soft);   // 落定加强：膝盖伸直、身体躺平
+  const d2 = null;
   const R = Math.round, HW = P.W / 2;
   /* 每个键**每帧都要有值**：Blender 端只按出现过的帧打关键帧，缺帧的零件会被常量外推
      （第一版里那块一直飘在车顶的蓝板就是只在升顶镜头里出现过的 pop-top 顶盖）。 */
@@ -200,11 +205,29 @@ const grab = (car, state, cut, scl) => p.evaluate(([car, state, DEFK, CUTZ, SCL]
   /* 车壳：骨架多边形（凹）→ 交给 Blender 的 prism（只换多边形，不打关键帧） */
   const HO0 = HW + 60;
   const bc = CL(-HO0, HO0);                      // 车壳也要跟着剖（否则"骨架"镜里壳还在）
-  if (bc) parts.body = [bc[0], bc[1], ...d.shell.poly.map(q => [M(q[0]), M(q[1])])];
+  const fillet = (pts, r) => {                 // 顶点圆角：每个角用 6 点圆弧过渡
+    const out = [], n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const P0 = pts[(i - 1 + n) % n], P1 = pts[i], P2 = pts[(i + 1) % n];
+      const v1 = [P0[0] - P1[0], P0[1] - P1[1]], v2 = [P2[0] - P1[0], P2[1] - P1[1]];
+      const l1 = Math.hypot(...v1) || 1, l2 = Math.hypot(...v2) || 1;
+      const rr = Math.min(r, l1 / 2, l2 / 2);
+      const a1 = [P1[0] + v1[0] / l1 * rr, P1[1] + v1[1] / l1 * rr];
+      const a2 = [P1[0] + v2[0] / l2 * rr, P1[1] + v2[1] / l2 * rr];
+      out.push(a1);
+      for (let k = 1; k < 6; k++) {
+        const t = k / 6, mx = a1[0] + (a2[0] - a1[0]) * t, my = a1[1] + (a2[1] - a1[1]) * t;
+        const dx = mx - P1[0], dy = my - P1[1], dl = Math.hypot(dx, dy) || 1;
+        out.push([P1[0] + dx / dl * rr, P1[1] + dy / dl * rr]);
+      }
+    }
+    return out;
+  };
+  if (bc) parts.body = [bc[0], bc[1], ...fillet(d.shell.poly.map(q => [M(q[0]), M(q[1])]), M(260))];
   /* 近侧那块外板：只有"没剖开"的时候才在 —— 剖开时它自然被 CL 切掉。
      （车壳本体是**不带近侧封盖**的壳，否则剖切时那块实心截面会把内饰全挡住。） */
   const nc = CL(HO0 - 34, HO0);
-  if (nc) parts.bodyNear = [nc[0], nc[1], ...d.shell.poly.map(q => [M(q[0]), M(q[1])])];
+  if (nc) parts.bodyNear = [nc[0], nc[1], ...fillet(d.shell.poly.map(q => [M(q[0]), M(q[1])]), M(260))];
 
   /* 层 A：机能件/电池是实体；**前备箱/尾仓是空腔**——只给腔体一块底板，
      空间本身留空（里面的上下两排溃缩梁会自己立在那），这样才看得出"这里有空间"。 */
@@ -227,8 +250,11 @@ const grab = (car, state, cut, scl) => p.evaluate(([car, state, DEFK, CUTZ, SCL]
   }
 
   /* 座椅 / 床件 */
-  box("seatFc", M(d.B.seatF.x0), M(d.B.seatF.x1), M(P.y2 - 130), M(P.y2), M(-HW * 0.85), M(HW * 0.85));
-  box("seatRc", M(d.B.seatR.x0), M(d.B.seatR.x1), M(P.y2 - 130), M(P.y2), M(-HW * 0.85), M(HW * 0.85));
+  /* 座垫在椅面**上方**（纯 L 型：椅面以下没有东西）；床面通宽到车身 */
+  const bedFlat = P.fold > 0.5;                    // 放平后座垫与床面齐平（就是床面的一部分）
+  const cz0 = bedFlat ? P.y2 - 40 : P.y2, cz1 = bedFlat ? P.y2 : P.y2 + 130;
+  box("seatFc", M(d.B.seatF.x0), M(d.B.seatF.x1), M(cz0), M(cz1), M(-HW * 0.85), M(HW * 0.85));
+  box("seatRc", M(d.B.seatR.x0), M(d.B.seatR.x1), M(cz0), M(cz1), M(-HW * 0.85), M(HW * 0.85));
   const F = d.seat.front, Rp = d.seat.rear;
   /* 靠背 = 本体 + 头枕（沿同一方向的两段，视觉上不再是"木板"） */
   const up = P.fold < 0.5;                     // 靠背放平 → 头枕拆掉（否则穿模）
@@ -238,13 +264,15 @@ const grab = (car, state, cut, scl) => p.evaluate(([car, state, DEFK, CUTZ, SCL]
   quad("seatRb", M(Rp.hinge), M(P.y2), Rp.dir[0], Rp.dir[1], M(up ? Rp.len - 190 : Rp.len), M(P.bckT), M(-HW * 0.85), M(HW * 0.85));
   if (up) quad("seatRh", M(Rp.hinge + Rp.dir[0] * (Rp.len - 190)), M(P.y2 + Rp.dir[1] * (Rp.len - 190)),
        Rp.dir[0], Rp.dir[1], M(190), M(P.bckT * 0.8), M(-HW * 0.55), M(HW * 0.55));
-  if (d.legRest) box("legRest", M(d.legRest.x0), M(d.legRest.x1), M(P.y2 - 40), M(P.y2), M(-HW * 0.9), M(HW * 0.9));
+  if (d.legRest) box("legRest", M(d.legRest.x0), M(d.legRest.x1), M(P.y2), M(P.y2 + 40), M(-HW), M(HW));
   const a = P.pAng * Math.PI / 180;
   quad("deck", M(d.deck.x0), M(P.y2), Math.cos(a), Math.sin(a), M(d.deck.len), M(40), M(-HW * 0.9), M(HW * 0.9));
   if (P.popUp > 0.5 && P.fold < 0.5)
     box("bunk", M(d.C.opening.x0), M(d.C.opening.x1), M(P.y3 - 40), M(P.y3), M(-HW), M(HW));
-  if (P.__screen > 0.5)                                        // 投影幕布（观影）：挂在上横梁后垂下
-    box("screen", M(P.xBeam + 60), M(P.xBeam + 95), M(P.y3 - 640), M(P.y3 - 40), M(-HW * 0.62), M(HW * 0.62));
+  if (P.__screen > 0.5) {                                      // 投影幕布（观影）：在前排乘员视线
+    const sx = M(P.x10 + 260);                                 //   正前方、从顶部垂下（坐姿可看，与头有距）
+    box("screen", sx, M(sx + 40), M(P.y2 + 320), M(P.y3 - 40), M(-HW * 0.60), M(HW * 0.60));
+  }
   if (P.popUp > 0.5 && P.fold > 0.5) {                       // 升顶站立：顶横梁 + 帐篷（顶 + 四面围幕）
     box("topBeam", M(P.xBeam - 40), M(P.xBeam + 40), M(P.y3 - 60), M(P.y3), M(-HW), M(HW));
     box("roof", M(d.C.opening.x0 - 40), M(d.C.opening.x1 + 40), M(P.y4 - 40), M(P.y4), M(-HW - 20), M(HW + 20));
