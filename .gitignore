@@ -9,3 +9,18 @@ node_modules/
 
 # 渲染输出（用 scripts/render.mjs 生成，不入库）
 render-out/
+
+# Common local caches and temporary workspaces
+__pycache__/
+worktrees/
+.worktrees/
+.DS_Store
+
+# Local secrets, test caches, and generated logs
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.cache/
+.env
+.env.*
+!.env.example
