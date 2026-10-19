@@ -12,8 +12,7 @@
 ## 证据
 
 - 产品设计 SSOT：`docs/design/整车设计.md`。
-- 参数化蓝图工具：`蓝图-参数化-v13.html`；`node scripts/check.mjs` 11/11 通过、
-  `node scripts/audit.mjs` probe 全过。
+- 参数化蓝图工具：`蓝图-参数化-v13.html`；当前版本的验收证据绑定缺口与待执行检查见 [蓝图验收证据修复](plan/蓝图验收.md)，未绑定文件版本的汇总不能证明 v13 通过。
 - 设计决策：`docs/design/结构决策.md`；介绍视频脚本：`docs/design/介绍视频脚本.md`。
 - 历史版本 `蓝图-*.html`（v1→v11）仅作考古，不修改不删除。
 
