@@ -1,83 +1,106 @@
-# 可变多形态座舱跨界车 · 设计工作区
+**English** | [简体中文](README.zh-CN.md)
 
-用极小外轮廓容纳分时可变内部空间：通勤、观影、露营、睡眠共用一车，变形机构全部纯机械。
-**v13 的主张**：外长 3550 的车里睡下 1750 的人、站起 1750 的人、装 1.6 m³ 行李。
+<img src="assets/logo.svg" alt="my car" width="200">
 
-> **状态：已收口（v13 里程碑，2026-09-29）。** 整车设计 SSOT 与参数化蓝图工具达到 v13。
-> 除非项目输入或目标变化，否则不再继续开发；下列后续项属于暂缓的用户侧事项。
+# my car
 
-- **产品设计（SSOT）**：`docs/design/整车设计.md` — 定位、尺寸包络、形态状态、座舱、六处储物（含体积）、底盘三电、升顶投影、判据体系、**取舍账**。
-- **介绍视频脚本**：`docs/design/介绍视频脚本.md` — 发布级短片的分镜/旁白/字幕 + 工具链决定（待审）。
-- **设计决策与理由**：`docs/design/结构决策.md` — 已拍板的边界（车高 ≤2m、升顶=站立+上铺、脚坑与图层策略、床面与前排座椅的锁定关系…）。
-- **蓝图工具设计**：`docs/design/蓝图工具.md` — 参数化侧视剖面引擎的技术方案。
-- **v11 审计**：`.scratch/01-blueprint-parametric/audit-v11.md` — 旧版 30+ 处几何/判据错误的实测证据。
-- **初稿（已废弃）**：`docs/sources/整车结构设计说明书-初稿.md` — 最初的种子稿，尺寸/后轴/隔板/储物分级均已被取代，仅作 L1 存档。
-- **历史迭代**：`蓝图-*.html`（v1→v11）仅作考古，几何与校验均不可信，不修改不删除。
+**Small outside, big inside** — a shape-shifting camper car for the commuter, the cinema, the campsite and the bed in between.
 
-## 打开蓝图
+**A 4.46 m car that lets a 1.75 m person sleep flat and stand upright inside, using purely mechanical transformation — one motor, for the pop-top roof, and nothing else.** It exists because a daily car spends most of its life parked: instead of making it bigger, this project changes the interior over time, and proves every claim with a parametric blueprint whose drawing and checks share one geometry.
 
-```bash
-xdg-open 蓝图-参数化-v13.html      # 当前工具（v12 及以前只作考古）
-```text
+![Half-section view from the intro film: two people in the cabin, dual-language subtitles](.scratch/04-film/evidence/检片-t22s.png)
 
-左侧为参数化视图（**2D 剖面 / 3D 可旋转**一键切换，3D 里可拖动旋转、滚轮缩放），右侧为 55+ 参数滑块（带**绿色有效区间**）、**7 个场景预设**、状态开关、约束校验（含**逐项体检 FAIL 列表**）与实时尺寸/储物表。
+*Frame from the 99.5 s intro film (11 shots): the near half of the shell is cut away so the cabin, the people and the bed read in one view.*
 
-## 渲染 / 验收（无头，可进 CI）
+## Quick start
+
+No install, no dependencies, no build step — the whole tool is one HTML file:
 
 ```bash
-node scripts/render.mjs 蓝图-参数化-v13.html /tmp/mycar-render   # 四模式截图 + 逐图元世界坐标
-node scripts/check.mjs                                            # 11 条验收判据
-node scripts/audit.mjs                                            # 逐状态"几何自洽"体检（probe）
-```text
+git clone https://github.com/ZisIsNotZis/mycar.git
+cd mycar
+xdg-open 蓝图-v17.html        # macOS: open 蓝图-v17.html
+```
 
-`check.mjs` 当前结果：**11/11 通过，无 console 报错**（含：靠背角与人体同向、变形联动、轮包弧心=轮心、头不脱离躯干、站立/上铺净空、坐垫厚度=滑块值、限高 2m、电池宽度判据、中岛独立可调、默认全绿且每个滑块都有可行区间）。
+Left: a side-section drawing. Right: 37 parameter sliders, mechanism switches, live checks and derived dimensions. Pick a preset (`常规` / `对坐` / `大床` / `大床观影` / `小床` / `小床观影` / `升顶` / `升顶站立`), drag a person's joint, or hit `落下 / 稳定` to drop the ragdoll and let physics settle the pose.
 
-v13 判据共 47 条，含**床链（前座垫为必需段）**、床面与前座的无缝与齐平、腿托与前座真碰撞、尾柱净高、会客净距、
-投影距离与幕布尺寸、轮位切片占用、**头不穿风挡/后风挡（按真斜线反解）**、**中岛不顶床**、**上铺人躺在帐篷内**、**前/后溃缩长度**。
-`audit.mjs` 另跑一层 `probe()`：车底是否贴在侧裙线上、轮包弧口位置、头到车壳的净距、人体段长、床链分段之和、
-上铺人体 vs 帐篷内腔——它管"图自不自洽"，checks 管"设计规则过不过"。
+## What it can do now
 
-## 出图（Blender）
+- **One geometry, two consumers.** `derive()` produces the parts; `draw()` renders them and `checks()` validates the same objects — there is no second copy of the math. This is enforced as a project rule after an earlier engine accumulated 30+ geometry/validation mismatches.
+- **Three-layer zero-coordinate chains.** Chassis (layer A), cabin (layer B) and pop-top (layer C) are each a head-to-tail chain, so the car length `L` is derived, and parts cannot overlap by construction.
+- **Mechanism states are switches, not parameters.** Front-seat rotation, rear-bench fold, flip-panel angle and pop-top height combine into 8 presets with 760 ms eased transitions.
+- **5 layout snapshots** load a full parameter set — the output of the size-reduction experiment (`现状 4870`, `紧凑 4460`, `更紧 4350`, `无下限 4080`, plus the pre-rule car that fails the crash-structure check).
+- **Physical people, not drawn poses.** A 6-particle PBD ragdoll (ankle, knee, hip, shoulder, head, toe) settles under gravity against hard bodies and soft cushions; joints can be dragged. Checks and physics share one collision kernel.
+- **C1–C21 hard checks**, covering chain integrity, height stacking, bed continuity, leg-rest contact, bed length, standing headroom, crash-structure rows, knee clearance, skeleton consistency and battery volume.
+- **Size-reduction optimizer.** `scripts/shrink.mjs` searches the parameter domain for the shortest car that passes all eight presets, and reports which check blocks each further 10 mm.
+- **3D out.** `scripts/export-glb17.mjs` extrudes the derived geometry to glTF; Blender scripts render stills and a 99.5 s narrated film with bilingual burned-in subtitles.
+
+## Architecture
+
+```
+蓝图-v17.html            current engine: single file, no dependencies (side section + physics)
+蓝图-*.html              archived v2–v16 iterations, kept for archaeology, never edited
+scripts/                 headless verification, optimizer, GLB export, Blender stills and film
+docs/design/             design SSOT (Chinese): vehicle design, decisions, tool spec, film script
+docs/plan/               open verification work
+.scratch/                work records and evidence: renders, film frames, subtitles, audio
+assets/logo.svg
+```
+
+The HTML page is the product and the source of truth. It exposes `window.MY` (`derive`, `checks`, `draw`, `settle`, `PRESETS`, `LAYOUTS`, …) so headless scripts can drive it: Playwright opens the file, calls the same functions the UI calls, exports measurements or glTF, and Blender consumes the baked frames. Nothing re-implements the geometry outside the page.
+
+- `docs/design/整车设计.md` — vehicle design SSOT: envelope, dimensions, mechanism states, storage, criteria.
+- `docs/design/结构决策.md` — decided boundaries and the reason for each (`D1`–`D68`), including rejected branches.
+- `docs/design/蓝图工具.md` — engine conventions and the headless verification recipe.
+- `docs/design/介绍视频脚本.md` — the film: 11 shots, narration and toolchain.
+
+## Develop
+
+Requirements: Node 24 and a Chromium reachable through Playwright. The scripts import Playwright by absolute path (currently `/home/z/vibe/vibeos/node_modules/playwright/index.mjs`); point that import at your own install. Blender 4.x is needed only for rendering.
 
 ```bash
-node scripts/export-glb.mjs /tmp/mycar-glb                     # 7 形态 × (剖切 + 封闭实体)
+# shortest-car search (deterministic; all eight presets must stay green)
+node scripts/shrink.mjs
+
+# derived geometry → glTF
+node scripts/export-glb17.mjs /tmp/mycar-glb17/4460.glb --layout=紧凑 --mode=大床
+
+# stills: GLB → Blender (Cycles) → contact sheet
 blender -b -P scripts/blender-render.py -- /tmp/mycar-glb /tmp/mycar-glb/png 2 1000
-/home/z/.venv/bin/python3 scripts/contact-sheet.py /tmp/mycar-glb/png /tmp/mycar-glb/sheet.png
-```text
+python3 scripts/contact-sheet.py /tmp/mycar-glb/png /tmp/mycar-glb/sheet.png
 
-每个形态两张：**A = 外形（封闭实体）**、**B = 半透明壳（看内饰）**。两张只差"车壳透不透"这一个变量。
+# film: bake frames → Blender render → narration/music/SFX → subtitles
+node scripts/bake-frames17.mjs /tmp/mycar-film/frames.json
+bash scripts/film-finish.sh
+```
 
-**看内部干涉请用页面里的 3D**：点「视图 2D/3D」，然后拖动旋转、滚轮缩放；
-「外壳 +/−」把车壳调透明或调没，「包络开/关」切换红色轮位机能包络。
-Blender 只由代理无头驱动出图，不需要人工操作。
-Blender 装在 `~/blender`（官方 4.5.13 LTS tarball，免 root），`~/.local/bin/blender` 已软链。
+The verification gate is the in-page check list: open the page, walk all eight presets, require every hard check to be green and the console to stay clean — then **look at the rendered image**, because numbers alone are not accepted evidence in this project. The exact headless recipe is in `docs/design/蓝图工具.md`.
 
-## 状态
+`scripts/render.mjs`, `check.mjs`, `audit.mjs` and `bake-frames.mjs` target the older v13 `MY.build/M` interface and are **not** valid gates for v17.
 
-| 项 | 状态 |
-| --- | --- |
-| 整车设计 SSOT | **v3（紧凑化）**：`docs/design/整车设计.md` |
-| 参数化蓝图工具 | **v13 剖面引擎**：几何自洽、校验与画面同源、11/11 验收 + probe 全过 |
-| 介绍视频 | 脚本 v1 待审（`docs/design/介绍视频脚本.md`） |
-| 三维/工程图 | 未开始 |
-| 样车/供应链 | 未开始 |
+## Contributing
 
-## v12 相对 v11 的关键结果
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Design changes need the owner's sign-off; code and tooling fixes are welcome with evidence (a render, a measurement, a failing check).
 
-| 项 | v11 | v12 |
-| --- | --- | --- |
-| 靠背角与人体 | 反向（45° 时拉开 778mm） | 同向，躯干-靠背夹角 0.0° |
-| 轮包 | 弧心在地面，包顶 524 < 轮顶 678 | 弧心=轮心，包顶 = 轮顶 + 60 |
-| 躺姿人体 | 头身分离 940mm | 关节链，头永远接在躯干上 |
-| 升顶 | 睡人飘在车外、开口 600 且跟着座椅跑 | 三态（闭合/站立/上铺），开口独立，站立需 pr ≥ 700 |
-| 校验 vs 画面 | 两条判据写错，把车逼到 4.8m | 判据引用同一份几何 |
-| 最小全绿 L | 4800（2 万次采样仅 1 个解） | 默认整包 4100；随机搜索能找到 L≈3500–4000 的全绿解 |
-| 参数 | 33 滑块，无数字输入、无有效区间 | 45 滑块 + 数字输入 + 绿色有效区间 + 撤销 + 存取 + 预设 |
+## Roadmap
 
-## 后续（暂缓）
+**Implemented**
 
-以下需用户拍板或另行启动，不阻塞本里程碑：
-1. 用户审 `docs/design/介绍视频脚本.md`：配音语言/音色/音乐/是否出现人体/长度（第 7 节六条）。
-2. 用户确认两个几何天花板（D42：二排半躺 ≤21°、贵妃榻 ≤17°）是否接受；要更大就得加长车或改尾门斜度。
-3. 正视/俯视小图（外宽、吊柜、纱窗这些横向信息在侧视图里表达不了）。
-4. 若要做视频：写 `scripts/bake-frames.mjs` + `scripts/blender-film.py`，先做 60 秒预告版验证"零硬切"。
+- v17 engine: zero-coordinate chains, derived dimensions, mechanism presets, layout snapshots.
+- PBD ragdoll with drag and drop, shared by drawing, checks and 3D export.
+- C1–C21 checks, including crash-structure rows and knee clearance (the rules that stopped the "cheat the limit" shortcuts).
+- Deterministic size-reduction experiment and its published layouts (4460 compact / 4350 tighter / 4080 without interior floors).
+- glTF export, Blender stills, and the 99.5 s intro film with narration and bilingual subtitles.
+
+**Planned**
+
+- Real body surfaces and wheel arches; the current model is boxes and a skeleton.
+- Better seat geometry (currently boards with a cushion) and depth of field in the film.
+- Front and top views — the side section cannot express width, overhead cabinets or screens.
+- 3D engineering drawings, a prototype and supply chain: not started.
+
+Future vision: the same single-file engine grows into the dimensioning authority for a real build — every part, every check and every camera move reading one geometry, so a change in the design shows up in the drawing, the validation and the film at once.
+
+## License
+
+[GNU Affero General Public License v3.0](LICENSE.md) — Copyright © ZisIsNotZis.
