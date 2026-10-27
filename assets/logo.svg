@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" width="200" height="40" role="img" aria-label="my car">
+  <g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- ground -->
+    <path d="M2 31h36" stroke-width="1.4" opacity=".45"/>
+    <!-- compact body -->
+    <path d="M5 28v-8a3 3 0 0 1 3-3h2.2l3.4-6a4 4 0 0 1 3.5-2.1h6.8a4 4 0 0 1 3.5 2.1l3.4 6H33a3 3 0 0 1 3 3v8"/>
+    <!-- pop-top roof -->
+    <path d="M15.6 9.2 17.2 4.6h11.6l1.6 4.6"/>
+    <!-- bed / seat surface -->
+    <path d="M9 22h27" stroke-width="1.6"/>
+    <!-- wheels -->
+    <circle cx="12.5" cy="28" r="3.4"/>
+    <circle cx="28.5" cy="28" r="3.4"/>
+  </g>
+  <text x="46" y="27.5" fill="currentColor" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing=".4">my car</text>
+</svg>
